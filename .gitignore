@@ -27,17 +27,21 @@ wheels/
 *.swo
 
 # 数据库和备份
-master/paper_database.xlsx
-master/backups/
-submit_template.json
-submit_template.xlsx
+my_submit.xlsx
+my_submit.json
 
 # 配置文件中的敏感信息
-config/setting.config
+
 
 # 临时文件
 *.tmp
 *.temp
+
+**/*副本*
+**/*冲突*
+**/*~$*
+**/*baiduyun*
+
 
 # 日志文件
 *.log

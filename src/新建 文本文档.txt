@@ -1,1 +1,0 @@
-normalize_dataframe_columns是用来随时更新核心excel列名和列存在与否的，你来检查一下两个submit_template文件（excel，json）的处理有没有类似的逻辑（当然包括列名行不存在生成改行的逻辑）

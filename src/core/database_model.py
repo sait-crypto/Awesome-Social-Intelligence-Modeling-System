@@ -1,15 +1,28 @@
 """
 数据库模型
 定义论文数据模型
+该脚本不应使用任何非基础第三方包，以供submit_gui调用
 """
 from dataclasses import dataclass, field, asdict, fields
-from typing import Dict, List, Optional,Union, Any
+from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
 import hashlib
-from src.utils import clean_doi
+import sys
+import os
+import re
+
 from src.core.config_loader import get_config_instance
-import sys,os
+
+# 添加项目根目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
+
+# 导入工具函数
+from src.utils import (
+    validate_url, validate_doi, clean_doi, format_authors,
+    validate_authors, normalize_pipeline_image, validate_pipeline_image,validate_date,
+    get_current_timestamp, validate_invalid_fields
+)
+
 
 @dataclass
 class Paper:
@@ -22,14 +35,14 @@ class Paper:
     date: str = ""
     category: str = ""
     
-    # 总结信息（在README中合并为一列）
+    # 总结信息
     summary_motivation: str = ""
     summary_innovation: str = ""
     summary_method: str = ""
     summary_conclusion: str = ""
     summary_limitation: str = ""
     
-    # 链接信息（在README中合并为一列）
+    # 链接信息
     paper_url: str = ""
     project_url: str = ""
     
@@ -44,31 +57,32 @@ class Paper:
     
     # 系统字段
     show_in_readme: bool = True
-    status: str = "" # "" "unread" "reading" "done" "adopted"
+    status: str = ""  # "" "unread" "reading" "done" "adopted"
     submission_time: str = ""
-    conflict_marker: bool = False  # 冲突标记
+    conflict_marker: bool = False
+    # 验证相关字段：记录不规范字段的 order 列表（逗号分隔）
+    invalid_fields: str = ""
+    
     def __post_init__(self):
         """初始化后处理"""
-        # 清理DOI格式
-        if self.doi:
-            self.doi = self._clean_doi(self.doi)
-    
-    def _clean_doi(self, doi: str) -> str:
-        """清理DOI格式，移除URL部分"""
-        if doi.startswith("http"):
-            # 提取DOI部分
-            doi_patterns = [
-                r"doi\.org/(10\.\d{4,9}/[-._;()/:A-Z0-9]+)",
-                r"dx\.doi\.org/(10\.\d{4,9}/[-._;()/:A-Z0-9]+)",
-                r"doi:(10\.\d{4,9}/[-._;()/:A-Z0-9]+)"
-            ]
-            import re
-            for pattern in doi_patterns:
-                match = re.search(pattern, doi, re.IGNORECASE)
-                if match:
-                    return match.group(1)
-        return doi.strip()
-    
+        # 获取配置实例
+        from src.core.config_loader import get_config_instance
+        config = get_config_instance()
+        conflict_marker = config.settings['database'].get('conflict_marker', '[💥冲突]')
+        
+        # 规范化字段
+        self.doi = clean_doi(self.doi, conflict_marker) if self.doi else ""
+        self.authors = format_authors(self.authors) if self.authors else ""
+        
+        # 规范化pipeline_image
+        if self.pipeline_image:
+            figure_dir = config.settings['paths'].get('figure_dir', 'figures')
+            self.pipeline_image = normalize_pipeline_image(self.pipeline_image, figure_dir)
+
+        # 规范化 Date (Publish Date)
+        if self.date:
+            _, normalized_date = validate_date(self.date)
+            self.date = normalized_date
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -77,105 +91,276 @@ class Paper:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Paper':
         """从字典创建Paper对象"""
-        # 过滤掉字典中不在dataclass字段中的键
         valid_fields = {f.name for f in fields(cls)}
         filtered_data = {k: v for k, v in data.items() if k in valid_fields}
         return cls(**filtered_data)
     
+    def get_key(self) -> tuple[str, str]:
+        """
+        获取论文的唯一键，用于论文唯一标识和匹配
+        注意返回格式: tuple : doi,title,均保持小写，注意不要写回
+        """
+        # 收集已处理论文的 Key (全小写，与读取时保持一致)
+        _p_doi = str(self.doi).strip() if self.doi else ""
+        _,normalized_doi=validate_doi(str(_p_doi),check_format=False)
+        p_doi = normalized_doi.lower()
 
+        p_title = str(self.title).strip().lower() if self.title else ""
+        return p_doi,p_title
     
-    def get_key(self) -> str:
-        """获取论文的唯一键（用于比较和去重）"""
-        return f"{self.doi}_{self.title}"
-    
-    def _normalize_doi_for_compare(self) -> str:
-        """清理 DOI 并忽略可能存在的冲突标记（conflict_marker）"""
-        conflict_marker=get_config_instance().settings['database'].get('conflict_marker','') 
-        if not self.doi:
-            return ""
-        s = str(self.doi).strip()
-        if conflict_marker:
-            s = s.replace(conflict_marker, "")
-        # 使用 _clean_doi 进一步清理 URL 前缀等
-        s = self._clean_doi(s)
-        return s.lower()
-
-    
-    def _validate_field(self,tag: Dict[str, Any], value: Any) -> bool:
+    # 统一的论文字段验证函数，流程：统一规范化->验证
+    def validate_paper_fields(
+        self, 
+        config_instance,
+        check_required: bool = True,
+        check_non_empty: bool = True
+    ) -> Tuple[bool, List[str]]:
         """
-        字段级校验封装：调用 get_config_instance().validate_value 并处理 DOI 中可能的 conflict_marker。
-        返回 True 表示合法。
-        """
-        if tag.get('variable') == 'doi':
-            # 对 DOI 先去除冲突标记再校验
-            val = self._normalize_doi_for_compare()
-            return get_config_instance().validate_value(tag, val)
-        return get_config_instance().validate_value(tag, value)
-    def is_valid(self) -> List[str]:
-        """
-        论文级校验，返回错误信息列表（空表示合法）。
-        - 校验必填字段
-        - 校验字段格式（使用 validate_field）
-        - 校验 category 是否为激活分类
+        统一的论文字段验证函数
+        流程：统一规范化->验证
+        
+        参数:
+            config_instance: 配置实例
+            check_required: 是否检查必填字段
+            check_non_empty: 是否检查非空字段（包括类型验证和validation字段验证）
+        
+        返回:
+            (是否有效, 错误信息列表)
         """
         errors = []
-        required_tags = get_config_instance().get_required_tags()
-        for tag in required_tags:
-            var = tag['variable']
-            val = getattr(self, var, "")
-            if val is None or str(val).strip() == "":
-                errors.append(f"{tag.get('display_name', var)} ({var}) 是必填字段")
+        invalid_vars = set()
+        
+        # 获取配置
+        conflict_marker = config_instance.settings['database'].get('conflict_marker')
+        required_tags = config_instance.get_required_tags() if check_required else []
+        active_tags = config_instance.get_active_tags()
 
-        # 字段格式校验
-        active_tags = get_config_instance().get_active_tags()
-        for tag in active_tags:
-            var = tag['variable']
-            val = getattr(self, var, "")
-            if val is None or str(val).strip() == "":
-                continue
-            if not self._validate_field(tag, val):
-                errors.append(f"{tag.get('display_name', var)} ({var}) 格式无效")
+        # 规范化 category 字段：支持多分类（用 ; 或 中文； 分隔），去重并限制最大数量
+        try:
+            if getattr(self, 'category', None):
+                raw_cat = str(self.category)
+                # 使用 update_file_utils 的方法进行统一规范化（若可用）
+                try:
+                    from src.core.update_file_utils import UpdateFileUtils
+                    ufu = UpdateFileUtils()
+                    normalized = ufu.normalize_category_value(raw_cat, config_instance)
+                except Exception:
+                    # 回退实现：手动分割并映射到 unique_name（保守处理）
+                    parts = [p.strip() for p in re.split(r'[;；]', raw_cat) if p.strip()]
+                    seen = set()
+                    out = []
+                    try:
+                        max_allowed = int(config_instance.settings['database'].get('max_categories_per_paper', 4))
+                    except Exception:
+                        max_allowed = 4
+                    for part in parts:
+                        cat = config_instance.get_category_by_name_or_unique_name(part)
+                        uname = cat.get('unique_name') if cat else part
+                        if uname not in seen:
+                            seen.add(uname)
+                            out.append(uname)
+                        if len(out) >= max_allowed:
+                            break
+                    normalized = ";".join(out)
+                # 写回规范化结果
+                self.category = normalized
+        except Exception:
+            # 规范化失败不阻断后续验证
+            pass
+        
+        # 1. 特殊字段验证
+        # 验证 invalid_fields 字段格式
+        if self.invalid_fields:
+            invalid_fields_valid, invalid_fields_error = validate_invalid_fields(self.invalid_fields)
+            if not invalid_fields_valid:
+                errors.append(f"invalid_fields 字段格式无效: {invalid_fields_error}")
+                invalid_vars.add('invalid_fields')
+        
+        # DOI验证
+        if self.doi:
+            doi_valid, cleaned_doi = validate_doi(self.doi, check_format=True, conflict_marker=conflict_marker)
+            if not doi_valid and check_non_empty:
+                errors.append(f"DOI格式无效: {self.doi}")
+                invalid_vars.add('doi')
+        
+        # 作者验证
+        if self.authors:
+            authors_valid, formatted_authors = validate_authors(self.authors)
+            if not authors_valid and check_non_empty:
+                errors.append(f"作者格式无效")
+                invalid_vars.add('authors')
+        
+        # Pipeline图片验证
+        if self.pipeline_image:
+            figure_dir = config_instance.settings['paths'].get('figure_dir', 'figures')
+            pipeline_valid, normalized_path = validate_pipeline_image(self.pipeline_image, figure_dir)
+            if not pipeline_valid and check_non_empty:
+                errors.append(f"Pipeline图片格式无效: {self.pipeline_image}")
+                invalid_vars.add('pipeline_image')
+            elif pipeline_valid:
+                # 更新规范化后的路径
+                self.pipeline_image = normalized_path
+        
+        # URL验证
+        if self.paper_url and not validate_url(self.paper_url) and check_non_empty:
+            errors.append(f"论文链接格式无效: {self.paper_url}")
+            invalid_vars.add('paper_url')
+        
+        if self.project_url and not validate_url(self.project_url) and check_non_empty:
+            errors.append(f"项目链接格式无效: {self.project_url}")
+            invalid_vars.add('project_url')
+        
+        # 日期验证
+        if self.date:
+            date_valid, formatted_date = validate_date(self.date)
+            if not date_valid and check_non_empty:
+                errors.append(f"日期格式无效: {self.date} (应为 YYYY-MM-DD)")
+                invalid_vars.add('date')
+                
+        # 2. 必填字段检查
+        if check_required:
+            for tag in required_tags:
+                var_name = tag['variable']
+                display_name = tag.get('display_name', var_name)
+                value = getattr(self, var_name, "")
+                
+                if not value or str(value).strip() == "":
+                    errors.append(f"必填字段为空: {display_name} ({var_name})")
+                    invalid_vars.add(var_name)
+        
+        # 3. 非空字段检查（类型验证和validation字段验证）
+        if check_non_empty:
+            for tag in active_tags:
+                var_name = tag['variable']
+                display_name = tag.get('display_name', var_name)
+                tag_type = tag.get('type', 'string')
+                validation_pattern = tag.get('validation')
+                value = getattr(self, var_name, "")
+                
+                # 跳过空值（除非是必填字段）
+                if not value or str(value).strip() == "":
+                    continue
+                
+                # 类型验证
+                if tag_type == 'bool':
+                    if str(value).lower() not in ['true', 'false', 'yes', 'no', '1', '0', 'y', 'n']:
+                        errors.append(f"字段类型不匹配: {display_name} 应为布尔值")
+                        invalid_vars.add(var_name)
+                elif (str(tag_type).startswith('enum')) and var_name == 'category':
+                    # 支持多分类，先按 ';' 分割
+                    try:
+                        parts = [p.strip() for p in re.split(r'[;；]', str(value)) if p.strip()]
+                    except Exception:
+                        parts = [str(value).strip()]
 
-        # category 检查
-        if self.category:
-            valid_categories = [cat['unique_name'] for cat in get_config_instance().get_active_categories()]
-            if self.category not in valid_categories:
-                errors.append(f"分类 '{self.category}' 无效，有效分类: {', '.join(valid_categories)}")
+                    valid_categories = {cat['unique_name'] for cat in config_instance.get_active_categories()}
 
+                    # 检查重复（原始输入是否包含重复项）
+                    if len(parts) != len(list(dict.fromkeys(parts))):
+                        errors.append(f"分类包含重复项: {value}")
+                        invalid_vars.add(var_name)
+
+                    # 检查每一项是否合法
+                    for p in parts:
+                        if p not in valid_categories:
+                            errors.append(f"分类无效: {p}，分类须为categories_config.py中已启用的分类")
+                            invalid_vars.add(var_name)
+
+                    # 检查数量不超过配置限制
+                    try:
+                        max_allowed = int(config_instance.settings['database'].get('max_categories_per_paper', 4))
+                    except Exception:
+                        max_allowed = 4
+                    if len(parts) > max_allowed:
+                        errors.append(f"分类数量超过限制: 最多允许 {max_allowed} 个分类")
+                        invalid_vars.add(var_name)
+                elif tag_type == 'int':
+                    try:
+                        int(value)
+                    except ValueError:
+                        errors.append(f"字段类型不匹配: {display_name} 应为整数")
+                        invalid_vars.add(var_name)
+                elif tag_type == 'float':
+                    try:
+                        float(value)
+                    except ValueError:
+                        errors.append(f"字段类型不匹配: {display_name} 应为浮点数")
+                        invalid_vars.add(var_name)
+                
+                # validation字段验证（正则表达式）
+                if validation_pattern:
+                    try:
+                        if not re.match(validation_pattern, str(value)):
+                            errors.append(f"字段格式无效: {display_name} 不符合验证规则")
+                            invalid_vars.add(var_name)
+                    except re.error:
+                        # 如果正则表达式有问题，跳过验证
+                        pass
+
+        # 根据 invalid_vars 生成 invalid_fields 字段内容（使用 order），多个用逗号分隔
+        if invalid_vars:
+            # 将 active_tags 按 order 排序，收集变量到 order 映射
+            var_to_order = {}
+            for tag in active_tags:
+                var = tag.get('variable')
+                order = tag.get('order')
+                if var is not None and order is not None:
+                    var_to_order[var] = str(order)
+
+            orders = []
+            for v in sorted(invalid_vars):
+                if v in var_to_order:
+                    orders.append(var_to_order[v])
+            self.invalid_fields = ",".join(orders)
+        else:
+            # 验证完全通过，清空 invalid_fields
+            self.invalid_fields = ""
+
+        return (len(errors) == 0, errors)
+        
+        return (len(errors) == 0, errors)
+    
+    # 检查时，注意看看和这个函数有没有必要存在
+    def is_valid(self, config_instance = None) -> List[str]:
+        """
+        兼容性方法，validate_paper_fields套壳，调用新的验证函数
+        """
+        if not config_instance:
+            from src.core.config_loader import get_config_instance
+            config_instance = get_config_instance()
+        
+        valid, errors = self.validate_paper_fields(
+            config_instance, 
+            check_required=True,
+            check_non_empty=True
+        )
         return errors
 
-def _normalize_doi_for_compare(doi: Optional[str]) -> str:
-    """清理 DOI 并忽略可能存在的冲突标记（conflict_marker）"""
-    conflict_marker = get_config_instance().settings['database'].get('conflict_marker','')
-    if not doi:
-        return ""
-    s = str(doi).strip()
-    if conflict_marker:
-        s = s.replace(conflict_marker, "")
-    # 使用 utils.clean_doi 进一步清理 URL 前缀等
-    s = clean_doi(s)
-    return s.lower()
 
+# Paper对象间级方法
 def is_same_identity(a: Union[Paper, Dict[str, Any]], b: Union[Paper, Dict[str, Any]]) -> bool:
     """
     判断 a 和 b 是否表示同一篇论文（基于 DOI 或 title）。
-    DOI 比较时会忽略 conflict_marker。
-    支持 Paper 对象或 dict。
     """
-    
-    def get_field(x, name):
-        if isinstance(x, Paper):
-            return getattr(x, name, "") or ""
-        return x.get(name, "") if isinstance(x, dict) else ""
+    def extract_key(obj) -> Tuple[str, str]:
+        if isinstance(obj, Paper):
+            return obj.get_key()
+        else:
+            # 如果是字典，模拟 Paper.get_key 的逻辑
+            raw_doi = obj.get('doi', "")
+            raw_title = obj.get('title', "")
+            
+            # 使用 utils 中的函数进行与 Paper.get_key 一致的处理
+            _, n_doi = validate_doi(str(raw_doi).strip(), check_format=False)
+            n_title = str(raw_title).strip().lower()
+            return n_doi.lower(), n_title
 
-    doi_a = _normalize_doi_for_compare(get_field(a, 'doi') )
-    doi_b = _normalize_doi_for_compare(get_field(b, 'doi') )
-    if doi_a and doi_b and doi_a == doi_b:
+    key_a_doi, key_a_title = extract_key(a)
+    key_b_doi, key_b_title = extract_key(b)
+
+    if key_a_title and key_b_title and key_a_title == key_b_title:
         return True
-
-    title_a = (get_field(a, 'title') or "").strip().lower()
-    title_b = (get_field(b, 'title') or "").strip().lower()
-    if title_a and title_b and title_a == title_b:
+    if key_a_doi and key_b_doi and key_a_doi == key_b_doi:
         return True
 
     return False
@@ -212,8 +397,9 @@ def _papers_fields_equal(new: Union[Paper, Dict[str, Any]], exist: Union[Paper, 
         b_dict = dict(exist)
 
     # 规范化 DOI 比较：移除 conflict_marker 并清理
-    a_doi = _normalize_doi_for_compare(a_dict.get('doi', ""))
-    b_doi = _normalize_doi_for_compare(b_dict.get('doi', ""))
+    _,a_doi = validate_doi(a_dict.get('doi', ""),check_format=False)
+    _,b_doi = validate_doi(b_dict.get('doi', ""),check_format=False)
+
     a_dict['doi'] = a_doi
     b_dict['doi'] = b_doi
 

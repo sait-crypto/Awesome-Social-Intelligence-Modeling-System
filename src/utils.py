@@ -1,12 +1,16 @@
+
 """
 通用工具函数
 """
+import urllib.parse
+import shutil
 import os
 import re
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional,Tuple
 from datetime import datetime
 from pathlib import Path
+
 
 
 def validate_url(url: str) -> bool:
@@ -16,7 +20,7 @@ def validate_url(url: str) -> bool:
     
     url_pattern = re.compile(
         r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z0-9-]{2,}\.?|'  # domain...
         r'localhost|'  # localhost...
         r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
         r'(?::\d+)?'  # optional port
@@ -25,23 +29,14 @@ def validate_url(url: str) -> bool:
     return bool(re.match(url_pattern, url))
 
 
-def validate_doi(doi: str) -> bool:
-    """验证DOI格式"""
-    if not doi:
-        return False
-    
-    # 清理DOI
-    doi = clean_doi(doi)
-    
-    # DOI正则表达式
-    doi_pattern = re.compile(r'^10\.\d{4,9}/[-._;()/:A-Z0-9]+$', re.IGNORECASE)
-    return bool(re.match(doi_pattern, doi))
-
-
-def clean_doi(doi: str) -> str:
-    """清理DOI，移除URL部分"""
+def clean_doi(doi: str, conflict_marker: str = None) -> str:
+    """清理DOI，移除URL部分和冲突标记"""
     if not doi:
         return ""
+    
+    # 如果提供了冲突标记，先移除
+    if conflict_marker:
+        doi = doi.replace(conflict_marker, "").strip()
     
     doi = doi.strip()
     
@@ -58,6 +53,271 @@ def clean_doi(doi: str) -> str:
     return doi
 
 
+def validate_doi(doi: str, check_format: bool = True, conflict_marker: str = None) -> Tuple[bool, str]:
+    """验证DOI格式，返回(是否有效, 清理后的DOI)"""
+    if not doi:
+        return (False, "")
+    
+    # 清理DOI
+    cleaned_doi = clean_doi(doi, conflict_marker)
+    
+    if not cleaned_doi:
+        return (False, "")
+    
+    # 如果不需要格式验证，直接返回
+    if not check_format:
+        return (True, cleaned_doi)
+    
+    # DOI正则表达式
+    doi_pattern = re.compile(r'^10\.\d{4,9}/[-._;()/:A-Z0-9]+$', re.IGNORECASE)
+    
+    if bool(re.match(doi_pattern, cleaned_doi)):
+        return (True, cleaned_doi)
+    else:
+        return (False, cleaned_doi)
+
+
+def format_authors(authors: str, max_length: int = 150) -> str:
+    """格式化作者列表"""
+    if not authors:
+        return ""
+    
+    authors = str(authors)
+    # 清理多余空格和换行
+    authors = ' '.join(authors.split())
+    
+    # 如果作者列表太长，截断
+    if len(authors) > max_length:
+        # 尝试在逗号处截断
+        parts = authors.split(',')
+        truncated = parts[0]
+        
+        for i in range(1, len(parts)):
+            if len(truncated + ', ' + parts[i]) <= max_length - 3:  # 为"..."留空间
+                truncated += ', ' + parts[i]
+            else:
+                truncated += ', ...'
+                break
+        
+        return truncated
+    
+    return authors
+
+
+def validate_authors(authors: str, max_length: int = 150) -> Tuple[bool, str]:
+    """验证作者格式，返回(是否有效, 格式化后的作者)"""
+    if not authors:
+        return (False, "")
+    
+    formatted = format_authors(authors, max_length)
+    return (len(formatted) > 0, formatted)
+
+
+def normalize_pipeline_image(path: str, figure_dir: str = "figures") -> str:
+    """
+    规范化pipeline图片路径
+    输入可以是：1) 文件名 2) 相对路径 3) 绝对路径
+    输出：相对于项目根的路径，如 "figures/image.png"
+    """
+    if not path or not str(path).strip():
+        return ""
+    
+    path_s = str(path).strip()
+    
+    # 统一使用正斜杠
+    path_s = path_s.replace('\\', '/')
+    figure_dir = figure_dir.replace('\\', '/').rstrip('/')
+    # 如果 figure_dir 是绝对路径（来自 setting.config），取其 basename 以保证返回值为相对路径（例如 "figures"）
+    if os.path.isabs(figure_dir):
+        figure_dir = os.path.basename(figure_dir)
+    
+    # 如果是绝对路径，提取文件名并放到相对的 figure_dir 下
+    if os.path.isabs(path_s):
+        filename = os.path.basename(path_s)
+        return f"{figure_dir}/{filename}"
+    
+    # 如果已经是相对路径且以figure_dir开头，直接返回
+    if path_s.startswith(figure_dir + '/'):
+        return path_s
+    
+    # 如果只是文件名（不包含路径分隔符），添加figure_dir前缀
+    if '/' not in path_s and '\\' not in path_s:
+        return f"{figure_dir}/{path_s}"
+    
+    # 其他情况：提取文件名并放到figure_dir下
+    filename = os.path.basename(path_s)
+    return f"{figure_dir}/{filename}"
+
+
+def validate_pipeline_image(path: str, figure_dir: str = "figures") -> Tuple[bool, str]:
+    """
+    验证 pipeline 图片（支持多图），返回 (是否有效, 规范化后的路径或多图以";"连接的字符串)
+    - 允许使用分隔符 `;` 或中文 `；` 输入多张图片
+    - 最多允许 3 张图片；超过则返回 False
+    - 每张图片使用 `normalize_pipeline_image` 规范化并验证扩展名与位于 figure_dir 下
+    """
+    if not path or not str(path).strip():
+        return (True, "")  # 允许为空
+
+    path_s = str(path).strip()
+
+    # 支持多分隔符：; 或 中文 ；
+    parts = [p.strip() for p in re.split(r'[;；]', path_s) if p.strip()]
+
+    if not parts:
+        return (True, "")
+
+    # 限制最多 3 张图片
+    if len(parts) > 3:
+        # 仍返回规范化的前3项以便提示，但判定为无效
+        normalized_parts = [normalize_pipeline_image(p, figure_dir) for p in parts[:3]]
+        return (False, ";".join(normalized_parts))
+
+    normalized_parts = []
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'}
+
+    # 规范化 figure_dir 用于比较
+    fig_dir_norm = figure_dir.replace('\\', '/').rstrip('/')
+    if os.path.isabs(fig_dir_norm):
+        fig_dir_norm = os.path.basename(fig_dir_norm)
+
+    for p in parts:
+        normalized = normalize_pipeline_image(p, figure_dir)
+        ext = os.path.splitext(normalized)[1].lower()
+        if ext not in valid_extensions:
+            return (False, normalized)
+        if not normalized.startswith(fig_dir_norm + '/'):
+            return (False, normalized)
+        normalized_parts.append(normalized)
+
+    # 以分号分隔返回规范化后的路径
+    return (True, ";".join(normalized_parts))
+
+def validate_date(date_str: Any) -> Tuple[bool, str]:
+    """
+    验证并规范化日期格式
+    流程：
+    1. 转换为字符串并去除空白
+    2. 尝试清洗（去除时分秒，统一分隔符）
+    3. 验证是否符合格式，支持日缺省和日月份缺省
+    
+    返回: (是否有效, 规范化后的日期字符串)
+    """
+    if date_str is None:
+        return (True, "")
+        
+    # 1. 转字符串并去除首尾空格
+    s_val = str(date_str).strip()
+    if not s_val:
+        return (True, "")
+
+    # 2. 去除时间部分
+    if ' ' in s_val:
+        s_val = s_val.split(' ')[0]
+    
+    original_val = s_val
+
+    try:
+        final_str = ""
+        
+        # 3. 统一分隔符：将 / 和 . 替换为 -
+        s_val = re.sub(r'[/\.]', '-', s_val)
+        
+        # 4. 处理纯数字格式
+        if s_val.isdigit():
+            if len(s_val) == 4:   # YYYY -> YYYY
+                final_str = s_val
+            elif len(s_val) == 6: # YYYYMM -> YYYY-MM
+                final_str = f"{s_val[:4]}-{s_val[4:]}"
+            elif len(s_val) == 8: # YYYYMMDD -> YYYY-MM-DD
+                final_str = f"{s_val[:4]}-{s_val[4:6]}-{s_val[6:]}"
+            else:
+                return (False, original_val)
+        
+        # 5. 处理带分隔符的格式
+        else:
+            parts = s_val.split('-')
+            # 过滤空串
+            parts = [p for p in parts if p]
+            
+            if not parts:
+                return (False, original_val)
+            
+            year = parts[0]
+            if len(year) != 4 or not year.isdigit():
+                return (False, original_val)
+
+            if len(parts) == 1:   # YYYY
+                final_str = year
+            elif len(parts) == 2: # YYYY-MM
+                month = int(parts[1])
+                if not (1 <= month <= 12): return (False, original_val)
+                final_str = f"{year}-{month:02d}"
+            elif len(parts) >= 3: # YYYY-MM-DD
+                month = int(parts[1])
+                day = int(parts[2])
+                # 利用 datetime 验证日期的合法性
+                try:
+                    datetime(int(year), month, day)
+                except ValueError:
+                    return (False, original_val)
+                final_str = f"{year}-{month:02d}-{day:02d}"
+            else:
+                return (False, original_val)
+
+        return (True, final_str)
+
+    except (ValueError, IndexError):
+        return (False, original_val)
+
+
+def validate_invalid_fields(invalid_fields: str) -> Tuple[bool, str]:
+    """
+    验证 invalid_fields 字段
+    invalid_fields 是逗号或中文逗号分隔的字段 order 列表，每个都应该是非负整数（>= 0）
+    
+    流程：
+    1. 如果为空，返回有效
+    2. 按 , 或 ， 分割
+    3. 验证每个部分是否都是非负整数
+    4. 返回验证结果和错误信息
+    
+    参数:
+        invalid_fields: 逗号分隔的字段order列表
+    
+    返回: (是否有效, 错误信息)
+    """
+    if not invalid_fields or str(invalid_fields).strip() == "":
+        return (True, "")
+    
+    invalid_fields_str = str(invalid_fields).strip()
+    
+    # 使用正则表达式按 , 或 ， 分割
+    parts = re.split(r'[,，]', invalid_fields_str)
+    
+    # 过滤空字符串
+    parts = [p.strip() for p in parts if p.strip()]
+    
+    if not parts:
+        return (True, "")
+    
+    # 验证每个部分是否都是非负整数
+    for part in parts:
+        # 检查是否全是数字
+        if not part.isdigit():
+            return (False, f"invalid_fields 中含有非整数值: '{part}'（应该是非负整数）")
+        
+        # 检查是否是非负整数（即 >= 0）
+        try:
+            value = int(part)
+            if value < 0:
+                return (False, f"invalid_fields 中含有负数: {value}（应该是非负整数）")
+        except ValueError:
+            return (False, f"invalid_fields 中含有无法转换为整数的值: '{part}'")
+    
+    return (True, "")
+
+    
 def extract_doi_from_url(url: str) -> Optional[str]:
     """从URL中提取DOI"""
     if not url:
@@ -90,7 +350,6 @@ def ensure_directory(path: str) -> bool:
 
 
 
-
 def truncate_text(text: str, max_length: int, ellipsis: str = "...") -> str:
     """截断文本，保留最大长度"""
     if not text:
@@ -101,31 +360,6 @@ def truncate_text(text: str, max_length: int, ellipsis: str = "...") -> str:
     
     return text[:max_length - len(ellipsis)] + ellipsis
 
-
-def format_authors(authors: str, max_length: int = 150) -> str:
-    """格式化作者列表"""
-    if not authors:
-        return ""
-    authors = str(authors)
-    # 清理空格
-    authors = ' '.join(authors.split())
-    
-    # 如果作者列表太长，截断
-    if len(authors) > max_length:
-        # 尝试在逗号处截断
-        parts = authors.split(',')
-        truncated = parts[0]
-        
-        for i in range(1, len(parts)):
-            if len(truncated + ', ' + parts[i]) <= max_length - 3:  # 为"..."留空间
-                truncated += ', ' + parts[i]
-            else:
-                truncated += ', ...'
-                break
-        
-        return truncated
-    
-    return authors
 
 
 def get_current_timestamp() -> str:
@@ -163,16 +397,36 @@ def merge_paper_data(existing: Dict, new: Dict, prefer_new: bool = True) -> Dict
     return result
 
 
+def _escape_md_text(text: str) -> str:
+    """对 Markdown 链接文本做基础转义（中括号/反斜杠/换行）"""
+    if text is None:
+        return ""
+    s = str(text)
+    s = s.replace("\\", "\\\\")
+    s = s.replace("\n", " ")
+    s = s.replace("]", "\\]")
+    s = s.replace("[", "\\[")
+    return s
+
 def create_hyperlink(text: str, url: str) -> str:
-    """创建Markdown超链接"""
+    """
+    生成 Markdown 风格超链接： [text](url)
+    - 当 url 为空或 None 时仅返回文本
+    - 对显示文本做基础转义以避免破坏 Markdown
+    """
     if not url:
-        return text
-    
-    # 确保URL格式正确
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
-    
-    return f"[{text}]({url})"
+        return _escape_md_text(text)
+    # 保证 URL 中的空格等被安全编码，但保留常见 URL 字符
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        if not parsed.scheme:
+            # 若缺少 scheme，假定为 https
+            url = "https://" + url
+        # 只对 URL 的路径/查询部分做 quote，保留 :// 和主机
+        url = urllib.parse.urlunsplit(parsed._replace(path=urllib.parse.quote(parsed.path, safe="/"), query=urllib.parse.quote_plus(parsed.query, safe="=&")) )
+    except Exception:
+        url = url.replace(" ", "%20")
+    return f"[{_escape_md_text(text)}]({url})"
 
 
 def escape_markdown(text: str) -> str:
@@ -208,54 +462,136 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-def read_json_file(filepath: str) -> Optional[Dict]:
-    """读取JSON文件"""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"读取JSON文件失败 {filepath}: {e}")
+def validate_figure(path: str, figure_dir: str) -> bool:
+    """
+    验证 pipeline 图像路径/文件名是否合法：
+    - 扩展名必须是 .jpg/.jpeg/.png
+    - 必须为相对路径，且位于 figure_dir 下（如果给的是带目录的路径）
+    - 当只给文件名时视为有效（后续会补全为 figure_dir/filename）
+    
+    注意：这里只验证格式和位置，不验证文件是否存在
+    """
+    if not path or not str(path).strip():
+        return False
+    
+    path_s = str(path).strip()
+    
+    # 检查文件扩展名
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'}
+    ext = os.path.splitext(path_s)[1].lower()
+    if ext not in valid_extensions:
+        return False
+    
+    # 规范化路径，确保使用正斜杠
+    path_s = path_s.replace('\\', '/')
+    
+    # 如果只是文件名（不包含路径分隔符），直接返回True
+    if '/' not in path_s:
+        return True
+    
+    # 如果包含路径，检查是否在figure_dir下
+    # 规范化figure_dir
+    fig_dir_norm = figure_dir.replace('\\', '/').rstrip('/')
+    
+    # 检查路径是否以figure_dir开头
+    if not path_s.startswith(fig_dir_norm + '/'):
+        return False
+    
+    return True
+
+
+def normalize_figure_path(path: str, figure_dir: str) -> str:
+    """
+    把用户输入的图像名/路径规范为相对于仓库根的路径（使用正斜杠）。
+    - 若仅是文件名：返回 figure_dir/filename
+    - 若已有路径且以 figure_dir 开头：返回规范化的路径
+    - 若已有路径但不以 figure_dir 开头：提取文件名并放到 figure_dir 下
+    
+    注意：这里不验证文件是否存在，只做路径规范化
+    """
+    if not path or not str(path).strip():
+        return ""
+    
+    path_s = str(path).strip()
+    
+    # 统一使用正斜杠
+    path_s = path_s.replace('\\', '/')
+    fig_dir_norm = figure_dir.replace('\\', '/').rstrip('/')
+    
+    # 如果只是文件名（不包含路径分隔符），添加figure_dir前缀
+    if '/' not in path_s and '\\' not in path_s:
+        return f"{fig_dir_norm}/{path_s}"
+    
+    # 如果已经以figure_dir开头，直接返回规范化的路径
+    if path_s.startswith(fig_dir_norm + '/'):
+        # 确保只有一个figure_dir前缀
+        parts = path_s.split('/')
+        if parts[0] == fig_dir_norm:
+            return path_s
+        else:
+            # 如果figure_dir包含多级目录，需要特殊处理
+            return f"{fig_dir_norm}/{os.path.basename(path_s)}"
+    
+    # 其他情况：提取文件名并放到figure_dir下
+    return f"{fig_dir_norm}/{os.path.basename(path_s)}"
+
+
+
+def figure_exists_in_repo(figure_path: str, project_root: str = None) -> bool:
+    """
+    检查图片是否存在于仓库中
+    - figure_path: 规范化后的图片路径
+    - project_root: 项目根目录，如果为None则使用当前工作目录
+    """
+    if not figure_path:
+        return False
+    
+    if project_root is None:
+        project_root = os.getcwd()
+    
+    # 构建完整路径
+    full_path = os.path.join(project_root, figure_path)
+    
+    # 检查文件是否存在
+    return os.path.isfile(full_path)
+
+
+def backup_file(filepath: str, backup_dir: str) -> Optional[str]:
+    """
+    统一备份文件函数
+    逻辑：原文件名(无后缀) + "__backup_" + timestamp + 后缀
+    例如：data.xlsx -> data__backup_20250101_120000.xlsx
+    
+    参数:
+        filepath: 源文件路径
+        backup_dir: 备份目录路径
+    
+    返回:
+        备份文件的完整路径，如果失败则返回 None
+    """
+    if not os.path.exists(filepath):
         return None
 
-
-def write_json_file(filepath: str, data: Dict, indent: int = 2) -> bool:
-    """写入JSON文件"""
     try:
-        ensure_directory(os.path.dirname(filepath))
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=indent)
-        return True
+        # 确保备份目录存在
+        ensure_directory(backup_dir)
+        
+        # 解析文件名
+        filename = os.path.basename(filepath)
+        name, ext = os.path.splitext(filename)
+        
+        # 生成时间戳
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # 构造备份文件名: 原名__backup_时间戳.后缀
+        backup_filename = f"{name}_backup_{timestamp}{ext}"
+        backup_path = os.path.join(backup_dir, backup_filename)
+        
+        # 执行复制
+        shutil.copy2(filepath, backup_path)
+        print(f"📦 [备份] {filename} 已备份至: {backup_path}")
+        return backup_path
+        
     except Exception as e:
-        print(f"写入JSON文件失败 {filepath}: {e}")
-        return False
-def normalize_json_papers(raw_papers: List[Dict[str, Any]], config_instance) -> List[Dict[str, Any]]:
-    """
-    把JSON中的每篇论文都规范化为只包含active tag的变量（使用variable作为键），
-    并将类型与category规范化。（未实现）
-    """
-    normalized_list = []
-    active_tags = config_instance.get_active_tags()
-    for item in raw_papers:
-        out = {}
-        for tag in active_tags:
-            var = tag['variable']
-            table_name = tag['table_name']
-            # 支持输入既有 variable 也有 table_name 两种键
-            val = item.get(var, item.get(table_name, ""))
-            if val is None:
-                val = ""
-            t = tag.get('type', 'string')
-            if t == 'bool':
-                out[var] = bool(val) if val not in ("", None) else False
-            elif t == 'int':
-                try:
-                    out[var] = int(val)
-                except Exception:
-                    out[var] = 0
-            else:
-                out[var] = str(val).strip()
-        # 规范化 category 存储为 unique_name
-        # if 'category' in out:
-        #     out['category'] = normalize_category_value(out.get('category', ""), config_instance)
-        normalized_list.append(out)
-    return normalized_list
+        print(f"⚠️ 备份失败 {filepath}: {e}")
+        return None

@@ -11,8 +11,8 @@
 """
 
 TAGS_CONFIG = {
-    "config_version": "1.0",
-    "last_updated": "2025-01-01",
+    "config_version": "3.0",
+    "last_updated": "2026-01-13",
     
     # 标签列表，按order排序
     "tags": [
@@ -64,9 +64,9 @@ TAGS_CONFIG = {
         {
             "variable": "date",          # 不可更改
             "order": 3,                     # 不可更改，必须是3
-            "table_name": "date",
-            "display_name": "date",         #3个标签在readme列表中共用一列，使用[display_name]分割3个字段
-            "description": "论文发布时间",
+            "table_name": "publish date",
+            "display_name": "publish date",         #3个标签在readme列表中共用一列，使用[display_name]分割3个字段
+            "description": "论文发布时间，年-月-日、年/月/日、年-月-日、年.月.日、YYYYMMDD格式，支持day缺省，或month与day均缺省",
             "type": "string",
             "validation": None,
             "show_in_readme": True,
@@ -81,8 +81,8 @@ TAGS_CONFIG = {
             "order": 4,                     # 不可更改，必须是4
             "table_name": "category",
             "display_name": "category",
-            "description": "论文的分类",
-            "type": "enum",                 #具体取值在categories_config.py中
+            "description": "论文的分类，可多选，用;分隔",
+            "type": "enum[]",                 #具体取值在categories_config.py中,[]表示可多选，之间用;隔开
             "validation": None,
             "show_in_readme": True,
             "enabled": True,
@@ -112,7 +112,7 @@ TAGS_CONFIG = {
             "order": 6,
             "table_name": "summary innovation",
             "display_name": "innovation",             #5个标签在readme列表中共用一列，使用[display_name]分割5个字段
-            "description": "论文的主要创新点",
+            "description": "论文的主要创新点，即为什么值得收集/放进综述",
             "type": "string",
             "validation": None,
             "show_in_readme": True,
@@ -140,7 +140,7 @@ TAGS_CONFIG = {
         {
             "variable": "summary_conclusion",
             "order": 8,
-            "table_name": "summary_conclusion",
+            "table_name": "summary conclusion",
             "display_name": "conclusion/contribution",      #5个标签在readme列表中共用一列，使用[display_name]分割5个字段
             "description": "论文的主要结论/贡献",
             "type": "string",
@@ -155,7 +155,7 @@ TAGS_CONFIG = {
         {
             "variable": "summary_limitation",
             "order": 9,
-            "table_name": "summary_limitation",
+            "table_name": "summary limitation",
             "display_name": "limitation/future",      #5个标签在readme列表中共用一列，使用[display_name]分割5个字段
             "description": "论文的局限性或未来工作",
             "type": "string",
@@ -187,7 +187,7 @@ TAGS_CONFIG = {
             "variable": "project_url",
             "order": 11,
             "table_name": "project url",
-            "display_name": "project",      #2个标签在readme列表中共用一列，使用[display_name]分割2个字段
+            "display_name": "project url",      #2个标签在readme列表中共用一列，使用[display_name]分割2个字段
             "description": "项目链接",
             "type": "string",
             "validation": r"^https?://",    # 必须是以http://或https://开头
@@ -206,7 +206,7 @@ TAGS_CONFIG = {
             "description": "发表的会议或期刊名称",
             "type": "string",
             "validation": None,
-            "show_in_readme": False,
+            "show_in_readme": True,
             "enabled": True,
             "immutable": True,
             "required": False,           
@@ -217,7 +217,7 @@ TAGS_CONFIG = {
         {
             "variable": "title_translation",
             "order": 13,
-            "table_name": "title_translation",
+            "table_name": "title translation",
             "display_name": "标题翻译",
             "description": "可以忽略，中文标题翻译",
             "type": "string",
@@ -232,7 +232,7 @@ TAGS_CONFIG = {
         {
             "variable": "analogy_summary",
             "order": 14,
-            "table_name": "analogy_summary",
+            "table_name": "analogy summary",
             "display_name": "类比总结",
             "description": "一句话类比总结",
             "type": "string",
@@ -248,9 +248,9 @@ TAGS_CONFIG = {
         {
             "variable": "pipeline_image",
             "order": 15,
-            "table_name": "pipeline_image",
+            "table_name": "pipeline figure",
             "display_name": "Pipeline图",
-            "description": "方法流程图路径（相对路径）",  #直接在readme的论文列表中根据路径显示图片
+            "description": "请将Pipeline图片放到figures文件夹下，在此填写图片全名或相对路径；可用`;`或`；`分隔，最多3张图片",  #直接在readme的论文列表中根据路径显示图片
             "type": "string",
             "validation": None,
             "show_in_readme": True,
@@ -280,7 +280,7 @@ TAGS_CONFIG = {
             "order": 17,
             "table_name": "contributor",
             "display_name": "提供者",
-            "description": "提交论文的组员标识符",
+            "description": "您的标识或姓名，请尽量保持一致，以便统计贡献者",
             "type": "string",
             "validation": None,
             "show_in_readme": False,
@@ -295,10 +295,10 @@ TAGS_CONFIG = {
             "order": 18,
             "table_name": "notes",
             "display_name": "notes",
-            "description": "其他备注信息",
+            "description": "其他笔记信息",
             "type": "text",
             "validation": None,
-            "show_in_readme": False,
+            "show_in_readme": True,
             "enabled": True,
             "immutable": False,
             "required": False,              
@@ -347,17 +347,31 @@ TAGS_CONFIG = {
             "validation": None,
             "show_in_readme": False,
             "enabled": True,
-            "immutable": False,
+            "immutable": True,
             "required": False,     
             "system_var": True,            #控制字段，为真时只在数据库中显示           
         },
         {
             "variable": "conflict_marker",
-            "order": 21,
-            "table_name": "conflict_marker",
+            "order": 22,
+            "table_name": "conflict marker",
             "display_name": "conflict marker",
             "description": "冲突标记",
             "type": "bool",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": True,
+            "required": False,     
+            "system_var": True,            #控制字段，为真时只在数据库中显示           
+        },
+        {
+            "variable": "invalid_fields",
+            "order": 22,
+            "table_name": "invalid fields",
+            "display_name": "invalid fields",
+            "description": "该论文哪些字段不规范，需要人工审核",
+            "type": "string",
             "validation": None,
             "show_in_readme": False,
             "enabled": True,

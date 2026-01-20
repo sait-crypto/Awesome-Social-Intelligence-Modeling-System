@@ -19,7 +19,7 @@ from config import tag_config, categories_config
 
 class ConfigLoader:
     """配置加载器，读取所有配置文件"""
-    
+    INLINE_COMMENT_PREFIXES = ('//', ';', '#')  # 配置文件注释前缀，为健壮性，除#外，也支持 //和; 作为行注释前缀
     def __init__(self):
         # 以模块位置上溯两级作为项目根（保证以项目根为基准解析所有相对路径）
         self.project_root = Path(__file__).resolve().parents[2]
@@ -35,9 +35,11 @@ class ConfigLoader:
         self.paths = self.settings.get('paths', {})
     
     def _load_settings(self) -> Dict[str, Any]:
-        """加载setting.config文件"""
-        config = configparser.ConfigParser()
-        settings_path = (self.config_path / 'setting.config').resolve()
+        """加载config.ini文件"""
+        # 为健壮性，除#外，也支持 //和; 作为注释
+        # ConfigParser函数支持=和;作为键值对分隔符，因此配置文件中使用:也可，出于习惯，推荐=
+        config = configparser.ConfigParser(inline_comment_prefixes=self.INLINE_COMMENT_PREFIXES)
+        settings_path = (self.config_path / 'config.ini').resolve()
 
         if not settings_path.exists():
             return self._create_default_settings()
@@ -50,13 +52,36 @@ class ConfigLoader:
         # 处理 paths：统一使用 self.project_root 作为相对路径基准，并规范化为绝对路径字符串
         if 'paths' in settings:
             paths = settings['paths'] or {}
-            normalized: Dict[str, Optional[str]] = {}
+            normalized: Dict[str, Any] = {}
             # 保证有默认项
             paths.setdefault('update_json', 'submit_template.json')
+            
+            # 特殊处理 extra_update_file 列表
+            extra_files_list = []
+            
             for k, v in paths.items():
                 if not v:
                     normalized[k] = None
                     continue
+                
+                # 处理 extra_update_file (逗号分割的列表)
+                if k == 'extra_update_file':
+                    raw_paths = [p.strip() for p in v.split(',') if p.strip()]
+                    for raw_p in raw_paths:
+                        p_obj = Path(raw_p)
+                        try:
+                            if not p_obj.is_absolute():
+                                abs_path = str((self.project_root / p_obj).resolve())
+                            else:
+                                abs_path = str(p_obj.resolve())
+                            extra_files_list.append(abs_path)
+                        except Exception:
+                            extra_files_list.append(str(raw_p))
+                    # 保存原始字符串
+                    normalized[k] = v
+                    continue
+
+                # 处理普通路径
                 p = Path(v)
                 try:
                     if not p.is_absolute():
@@ -66,7 +91,10 @@ class ConfigLoader:
                 except Exception:
                     # 回退到原始字符串（避免抛出）
                     normalized[k] = str(p)
+            
             settings['paths'] = normalized
+            # 将解析后的额外文件列表单独存入
+            settings['paths']['extra_update_files_list'] = extra_files_list
 
         return settings
 
@@ -79,25 +107,42 @@ class ConfigLoader:
                 'core_excel': str((root_dir / 'master' / 'paper_database.xlsx').resolve()),
                 'update_excel': str((root_dir / 'submit_template.xlsx').resolve()),
                 'update_json': str((root_dir / 'submit_template.json').resolve()),
+                'my_update_excel': str((root_dir / 'my_submit.xlsx').resolve()),
+                'my_update_json': str((root_dir / 'my_submit.json').resolve()),
+                'extra_update_file': '', # 默认为空
                 'backup_dir': str((root_dir / 'master' / 'backups').resolve()),
             },
             'ai': {
                 'enable_ai_generation': 'true',
-                'deepseek_api_key_path': 'F:\\Files Personal\\BaiduSyncdisk\\Files Personal Sync\\profile\\Keys\\survey_deepseek_api.txt',
+                'deepseek_api_key_path': 'key.txt',
                 'api_key_github_secret_name': 'DEEPSEEK_API',
+                'ai_generate_mark':'[AI generated]'
             },
+            # Excel / 表格样式配置（可通过 config.ini 动态修改）
+            # 颜色均使用不带#的16进制 RGB 值
             'excel': {
-                'password_path': 'F:\\Files Personal\\BaiduSyncdisk\\Files Personal Sync\\profile\\Keys\\paper_database_key.txt',
+                'header_fill_color': 'BDD7EE',          # 表头默认浅蓝
+                'required_header_color': '366092',      # 必填字段表头深蓝
+                'required_column_fill': 'DDEBF7',       # 必填列单元格浅蓝
+                'conflict_fill_color': 'FFCCCC',        # 冲突行红色（优先级高）
+                'header_font_color': 'FFFFFF',          # 表头字体颜色
+                'invalid_fill_color': 'FF0000',         # 无效条目字体颜色
+                'password_path': 'key.txt',
                 'excel_key_github_secret_name': 'EXCEL_KEY',
             },
             'database': {
                 'default_contributor': 'anonymous',
-                'conflict_marker': '[冲突标记]',
+                'conflict_marker': '[冲突]',
+                'translation_separator':'[翻译]',
+                'value_deprecation_mark':'[Deprecated]',
+                'max_categories_per_paper': '4'
             },
             'readme': {
+                'truncate_translation':'true',
                 'max_title_length': '100',
                 'max_authors_length': '150',
                 'date_format': 'YYYY-MM-DD',
+                'enable_markdown':'false'
             }
         }
         
@@ -112,7 +157,7 @@ class ConfigLoader:
         for section, section_data in settings.items():
             config[section] = section_data
         
-        settings_path = os.path.join(self.config_path, 'setting.config')
+        settings_path = os.path.join(self.config_path, 'config.ini')
         os.makedirs(os.path.dirname(settings_path), exist_ok=True)
         
         with open(settings_path, 'w', encoding='utf-8') as f:
@@ -159,12 +204,54 @@ class ConfigLoader:
                 return tag.get(field_name,"")
 
         return ''
+    
     def get_category_by_unique_name(self, unique_name: str) -> Optional[Dict[str, Any]]:
         """根据唯一标识名获取分类配置"""
         for category in self.categories_config.get('categories', []):
             if category.get('unique_name') == unique_name:
                 return category
         return None
+    
+    def get_categories_change_list(self) -> List[Dict[str, str]]:
+        """获取分类变更列表，用于自动处理旧unique_name向新unique_name的转换
+        
+        Returns:
+            CATEGORIES_CHANGE_LIST 列表，每个元素包含 old_unique_name 和 new_unique_name
+        """
+        return self.categories_config.get('categories_change_list', [])
+    
+    def get_category_by_name_or_unique_name(self, identifier: str) -> Optional[Dict[str, Any]]:
+        """根据 unique_name 或 name 获取分类配置
+        
+        优先使用 unique_name 匹配；如果未找到，则按 name 匹配（仅返回第一个匹配）。
+        当使用 name 匹配时输出警告，建议使用 unique_name。
+        
+        Args:
+            identifier: 分类的 unique_name 或 name
+        
+        Returns:
+            分类字典，若未找到则返回 None
+        """
+        # 首先按 unique_name 匹配
+        for category in self.categories_config.get('categories', []):
+            if category.get('unique_name') == identifier:
+                return category
+        
+        # 如果按 unique_name 未找到，则按 name 匹配（仅返回第一个）
+        for category in self.categories_config.get('categories', []):
+            if category.get('name') == identifier:
+                import warnings
+                warnings.warn(
+                    f"分类标识已弃用：使用 name='{identifier}' 进行查询。"
+                    f"请改用 unique_name='{category.get('unique_name')}' 进行查询。"
+                    f"name 只代表第一个同名分类，建议统一使用 unique_name 作为标识。",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+                return category
+        
+        return None
+    
     def get_category_field(self, unique_name: str,field_name:str) -> str:
         """根据唯一标识名和category域名获取具体category的具体字段值"""
         for category in self.categories_config.get('categories', []):

@@ -5,6 +5,7 @@ on:
     paths:
       - 'submit_template.json'
       - 'submit_template.xlsx'
+      - 'figures/**'
     branches: [ main ]
     types: [opened, synchronize, labeled, reopened]
   workflow_dispatch:  # 允许手动触发
@@ -136,28 +137,36 @@ jobs:
         # 设置处理模式信息
         echo "PROCESSING_MODE=${{ env.AUTO_PROCESS_MODE }}" >> $GITHUB_ENV
         
-    - name: Run update processor
-      id: update-process
+    - name: Validate update templates
+      id: validate-templates
       run: |
-        echo "🔄 运行更新处理器..."
-        
-        # 运行更新脚本
+        echo "🔎 验证更新模板文件（JSON / Excel / figures）..."
         cd scripts
-        python update.py
-        
-        # 检查更新结果
-        if [ -f "update_result.json" ]; then
-          RESULT=$(cat update_result.json)
+        python validate_update_files.py
+
+    - name: Process validated PR and update main
+      id: process-pr
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "🔧 合并新图片并运行更新处理器..."
+        cd scripts
+        python process_pr_update.py
+
+    - name: Check update result
+      id: update-result
+      run: |
+        if [ -f "scripts/update_result.json" ]; then
+          RESULT=$(cat scripts/update_result.json)
           echo "result=$RESULT" >> $GITHUB_OUTPUT
           echo "✅ 更新处理器执行完成"
         else
           echo "result={\"success\": False, \"message\": \"未生成结果文件\"}" >> $GITHUB_OUTPUT
           echo "⚠️  更新处理器未生成结果文件"
         fi
-      continue-on-error: True
     
     - name: Generate README
-      if: steps.update-process.outcome == 'success'
+      if: steps.process-pr.outcome == 'success'
       run: |
         echo "📄 生成 README..."
         cd scripts
@@ -173,7 +182,7 @@ jobs:
         fi
     
     - name: Commit changes
-      if: steps.update-process.outcome == 'success'
+      if: steps.process-pr.outcome == 'success'
       run: |
         echo "💾 提交更改..."
         
@@ -219,7 +228,7 @@ jobs:
           SUMMARY+="**处理模式:** 👨‍💼 手动批准\n\n"
         fi
         
-        if [ "${{ steps.update-process.outcome }}" = "success" ]; then
+        if [ "${{ steps.process-pr.outcome }}" = "success" ]; then
           SUMMARY+="✅ **成功处理提交**\n\n"
           
           # 添加成功详情
@@ -337,7 +346,7 @@ jobs:
           // 管理标签
           const labels = ['paper-submission'];
           
-          if ('${{ steps.update-process.outcome }}' === 'success') {
+          if ('${{ steps.process-pr.outcome }}' === 'success') {
             labels.push('processed-successfully');
             
             // 在手动模式下，处理完成后移除批准标签
