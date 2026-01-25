@@ -45,3 +45,6 @@ my_submit.json
 
 # 日志文件
 *.log
+
+# 私密文件
+todo_list.md

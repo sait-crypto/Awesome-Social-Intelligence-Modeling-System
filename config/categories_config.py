@@ -64,6 +64,7 @@ CATEGORIES_CONFIG = {
             "name": "Uncategorized",  # 显示名称
             "primary_category": None,# 所属一级分类，None表示本身为一级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  未分类",
         },
         {
             "unique_name": "Base Techniques",
@@ -71,6 +72,7 @@ CATEGORIES_CONFIG = {
             "name": "Base Techniques",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  基础技术",
         },
         {
             "unique_name": "Perception and Classification",
@@ -78,6 +80,7 @@ CATEGORIES_CONFIG = {
             "name": "Perception and Classification",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  感知与分类",
         },
         {
             "unique_name": "Understanding",
@@ -85,6 +88,7 @@ CATEGORIES_CONFIG = {
             "name": "Understanding",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  理解",
         },
         {
             "unique_name": "Generation",
@@ -92,6 +96,7 @@ CATEGORIES_CONFIG = {
             "name": "Generation",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  生成",
         },
         {
             "unique_name": "Simulation and Deduction",
@@ -99,6 +104,7 @@ CATEGORIES_CONFIG = {
             "name": "Simulation and Deduction",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  仿真与推理",
         },
         {
             "unique_name": "Social Media Security",
@@ -106,6 +112,7 @@ CATEGORIES_CONFIG = {
             "name": "Social Media Security",  # 显示名称
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,                # 是否启用该分类
+            "description": "[一级分类] —  社交媒体安全",
         },
         {
             "unique_name": "Other",
@@ -113,6 +120,7 @@ CATEGORIES_CONFIG = {
             "name": "Other",
             "primary_category": None,# None表示本身为1级分类
             "enabled": True,
+            "description": "[一级分类] —  其他",
         },
         
         # ============二级分类===============
@@ -122,27 +130,32 @@ CATEGORIES_CONFIG = {
             "name": "Hate Speech Analysis",  # 显示名称
             "primary_category": "Perception and Classification",# 所属一级分类，使用一级分类的 `unique_name` 表示
             "enabled": True,                # 是否启用该分类
-        },
-        {
-            "unique_name": "Sentiment Analysis",
-            "order": 2,
-            "name": "Sentiment Analysis",
-            "primary_category": "Perception and Classification",
-            "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  仇恨言论分析",
         },
         {
             "unique_name": "Misinformation Analysis",
-            "order": 3,
+            "order": 2,
             "name": "Misinformation Analysis",
             "primary_category": "Perception and Classification",
             "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  虚假信息分析",
         },
+        {
+            "unique_name": "Sentiment Analysis",
+            "order": 3,
+            "name": "Sentiment Analysis",
+            "primary_category": "Perception and Classification",
+            "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  情感分析",
+        },
+
         {
             "unique_name": "Multimodal Analysis",
             "order": 4,
             "name": "Meme Analysis",
             "primary_category": "Perception and Classification",
             "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  模因/多模态分析",
         },
         {
             "unique_name": "Steganography Detection",
@@ -150,98 +163,203 @@ CATEGORIES_CONFIG = {
             "name": "Steganography Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  隐写检测",
         },
         {
-            "unique_name": "Event Extraction",
+            "unique_name": "User Stance Detection",
             "order": 6,
-            "name": "Event Extraction",
+            "name": "User Stance Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
-        },
-        {
-            "unique_name": "Topic Modeling",
-            "order": 7,
-            "name": "Topic Modeling",
-            "primary_category": "Understanding",
-            "enabled": True,
-        },
-        {
-            "unique_name": "User Opinion Mining",
-            "order": 8,
-            "name": "User Opinion Mining",
-            "primary_category": "Perception and Classification",
-            "enabled": True,
-        },
-        {
-            "unique_name": "User Profiling",
-            "order": 9,
-            "name": "User Profiling",
-            "primary_category": "Understanding",
-            "enabled": True,
-        },
-        {
-            "unique_name": "User Behavior Prediction",
-            "order": 10,
-            "name": "User Behavior Prediction",
-            "primary_category": "Perception and Classification",
-            "enabled": True,
-        },
-        {
-            "unique_name": "Comment Generation",
-            "order": 11,
-            "name": "Comment Generation",
-            "primary_category": "Generation",
-            "enabled": True,
-        },
-        {
-            "unique_name": "Information Diffusion Analysis",
-            "order": 12,
-            "name": "Information Diffusion Analysis",
-            "primary_category": "Simulation and Deduction",
-            "enabled": True,
-        },
-        {
-            "unique_name": "Macrosocial Phenomena Analysis",
-            "order": 13,
-            "name": "Macrosocial Phenomena Analysis",
-            "primary_category": "Simulation and Deduction",
-            "enabled": True,
-        },
-        {
-            "unique_name": "Social Simulation",
-            "order": 14,
-            "name": "Social Simulation",
-            "primary_category": "Simulation and Deduction",
-            "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  用户立场检测",
         },
         {
             "unique_name": "Malicious Bot Detection",
-            "order": 15,
+            "order": 7,
             "name": "Malicious Bot Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  恶意机器人检测",
         },
         {
-            "unique_name": "Community Detection",
-            "order": 16,
-            "name": "Community Detection",
-            "primary_category": "Perception and Classification",
+            "unique_name": "Event Extraction",
+            "order": 8,
+            "name": "Event Extraction",
+            "primary_category": "Understanding",
             "enabled": True,
+            "description": "[二级分类]（Understanding） —  事件抽取",
         },
         {
-            "unique_name": "Dynamic Community Analysis",
-            "order": 17,
-            "name": "Dynamic Community Analysis",
-            "primary_category": "Simulation and Deduction",
+            "unique_name": "Topic Modeling",
+            "order": 9,
+            "name": "Topic Modeling",
+            "primary_category": "Understanding",
             "enabled": True,
+            "description": "[二级分类]（Understanding） —  主题建模",
         },
         {
             "unique_name": "Social Psychological Phenomena Analysis",
-            "order": 18,
+            "order": 10,
             "name": "Social Psychological Phenomena Analysis",
             "primary_category": "Understanding",
             "enabled": True,
+            "description": "[二级分类]（Understanding） —  社会心理现象分析",
         },
+        {
+            "unique_name": "Social Popularity Prediction",
+            "order": 11,
+            "name": "Social Popularity Prediction",
+            "primary_category": "Understanding",
+            "enabled": True,
+            "description": "[二级分类]（Understanding） —  社交流行度预测",
+        },
+        {
+            "unique_name": "Community Detection",
+            "order": 12,
+            "name": "User Identity Understanding",
+            "primary_category": "Understanding",
+            "enabled": True,
+            "description": "[二级分类]（Understanding） —  用户身份理解（Community Detection）",
+        },
+        {
+            "unique_name": "User Profiling",
+            "order": 13,
+            "name": "User Profiling",
+            "primary_category": "Understanding",
+            "enabled": True,
+            "description": "[二级分类]（Understanding） —  用户画像",
+        },
+        {
+            "unique_name": "User Behavior Prediction",
+            "order": 14,
+            "name": "User Behavior Prediction",
+            "primary_category": "Perception and Classification",
+            "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  用户行为预测",
+        },
+        {
+            "unique_name": "Dynamic Community Analysis",
+            "order": 15,
+            "name": "Dynamic Community Analysis",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  动态社区分析",
+        },
+        {
+            "unique_name": "Information Diffusion Analysis",
+            "order": 16,
+            "name": "Information Diffusion Analysis",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  信息扩散分析",
+        },
+        {
+            "unique_name": "Comment Generation",
+            "order": 17,
+            "name": "Comment Generation",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  评论生成",
+        },
+        {
+            "unique_name": "Debate Generation",
+            "order": 18,
+            "name": "Debate Generation",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  辩论生成",
+        },
+
+        {
+            "unique_name": "Rumor Refutation Generation",
+            "order": 19,
+            "name": "Rumor Refutation Generation",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  谣言反驳生成",
+        },
+        {
+            "unique_name": "Psychological Healing",
+            "order": 20,
+            "name": "Psychological Healing",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  心理疗愈/心理干预",
+        },
+        {
+            "unique_name": "Misinformation Generation",
+            "order": 21,
+            "name": "Misinformation Generation",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  虚假信息生成",
+        },
+        {
+            "unique_name": "Social Bots",
+            "order": 22,
+            "name": "Social Bots",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  社交机器人",
+        },
+        {
+            "unique_name": "Social Simulation",
+            "order": 23,
+            "name": "Social Simulation",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  社会仿真",
+        },
+        {
+            "unique_name": "Social Network Simulation",
+            "order": 24,
+            "name": "Social Network Simulation",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  社会网络仿真",
+        },
+        {
+            "unique_name": "Town/Community Simulation",
+            "order": 25,
+            "name": "Town/Community Simulation",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  城镇/社区仿真",
+        },
+        {
+            "unique_name": "Game Simulation",
+            "order": 26,
+            "name": "Game Simulation",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  游戏仿真",
+        },
+        {
+            "unique_name": "Family Simulation",
+            "order": 27,
+            "name": "Family Simulation",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  家庭仿真",
+        },
+        {
+            "unique_name": "Macrosocial Phenomena Analysis",
+            "order": 28,
+            "name": "Macrosocial Phenomena Analysis",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  宏观社会现象分析",
+        },
+        {
+            "unique_name": "Frontier Applications",
+            "order": 29,
+            "name": "Frontier Applications",
+            "primary_category": "Simulation and Deduction",
+            "enabled": True,
+            "description": "[二级分类]（Simulation and Deduction） —  前沿应用",
+        },
+
+
 
     ],
     

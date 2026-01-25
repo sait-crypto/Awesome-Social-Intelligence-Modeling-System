@@ -259,7 +259,8 @@ class ReadmeGenerator:
             return ""
 
         # 检查文件是否存在于仓库中
-        project_root = os.path.dirname(os.path.dirname(__file__))
+        from src.core.config_loader import get_config_instance
+        project_root = str(get_config_instance().project_root)
 
         existing_imgs = []
         for p in parts[:3]:

@@ -195,7 +195,7 @@ class DatabaseManager:
     
     
     #唯一对外接口
-    def add_papers(self, new_papers: List[Paper], conflict_resolution: str = 'mark') -> Tuple[List[Paper], List[Paper],List[Paper] ]:
+    def add_papers(self, new_papers: List[Paper], conflict_resolution: str = 'mark') -> Tuple[List[Paper], List[Paper],List[str] ]:
         """
         添加新论文到数据库，同时验证冲突
         
@@ -204,7 +204,7 @@ class DatabaseManager:
             conflict_resolution: 冲突解决策略 ('mark', 'skip', 'replace')
         
         返回:
-            Tuple[成功添加的论文列表, 冲突论文列表（被标记后需要加入数据库的）,验证失败论文列表]
+            Tuple[成功添加的论文列表, 冲突论文列表（被标记后需要加入数据库的）,验证失败消息列表]
         """
         # 加载现有数据库
         df = self.load_database()
@@ -215,7 +215,7 @@ class DatabaseManager:
         invalid_count = 0
         for p in old_papers:
             try:
-                valid, errors = p.validate_paper_fields(self.config, check_required=True, check_non_empty=True)
+                valid, errors, _ = p.validate_paper_fields(self.config, check_required=True, check_non_empty=True)
                 if not valid or getattr(p, 'invalid_fields', ""):
                     invalid_count += 1
                     invalid_msg_str = f"论文 '{p.title[:50]}' ，invalid_fields={p.invalid_fields}，错误示例: {errors[:3]}"
@@ -275,13 +275,14 @@ class DatabaseManager:
                     all_same_papers.append(main_paper)
                     all_same_papers.extend(conflict_list)
                 
-                if is_duplicate_paper(all_same_papers, new_paper, complete_compare=False):
+                is_duplicate, conflict_field = is_duplicate_paper(all_same_papers, new_paper, complete_compare=False)
+                if is_duplicate:
                     print(f"论文: {new_paper.title}——重复提交，跳过添加")
                     continue
                 
                 # 不是完全相同，按冲突策略处理
                 if conflict_resolution == 'skip':
-                    print(f"论文: {new_paper.title}——存在冲突，已跳过")
+                    print(f"论文: {new_paper.title}——在'{conflict_field}'字段与原有论文存在冲突，已跳过")
                     continue
                 
                 elif conflict_resolution == 'replace':
@@ -292,7 +293,7 @@ class DatabaseManager:
                     
                     non_conflict_papers.append((new_paper, []))
                     added_papers.append(new_paper)
-                    print(f"论文: {new_paper.title}——替换原有论文")
+                    print(f"论文: {new_paper.title}——在'{conflict_field}'字段与原有论文存在冲突，替换原有论文")
                 
                 elif conflict_resolution == 'mark':
                     new_paper.conflict_marker = True
@@ -301,7 +302,7 @@ class DatabaseManager:
                         # 添加到对应主论文的冲突列表中
                         non_conflict_papers[main_paper_idx][1].append(new_paper)
                         conflict_papers.append(new_paper)
-                        print(f"论文: {new_paper.title}——与现有论文冲突，已标记并作为冲突论文添加")
+                        print(f"论文: {new_paper.title}——在'{conflict_field}'字段与原有论文存在冲突，已标记并作为冲突论文添加")
                     else:
                         # 所有同身份论文都有冲突标记，这是一个特殊情况
                         # 将第一篇作为主论文，并添加冲突

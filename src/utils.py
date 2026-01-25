@@ -1,4 +1,3 @@
-
 """
 通用工具函数
 """
@@ -49,7 +48,9 @@ def clean_doi(doi: str, conflict_marker: str = None) -> str:
         if doi.lower().startswith(prefix.lower()):
             doi = doi[len(prefix):]
             break
-    
+    #进一步，清除doi/字串及前面的内容
+    match = re.search(r"doi/(.*)", doi, flags=re.IGNORECASE)
+    doi = match.group(1) if match else doi
     return doi
 
 
@@ -211,12 +212,13 @@ def validate_date(date_str: Any) -> Tuple[bool, str]:
     if not s_val:
         return (True, "")
 
+    # 捕获原始值，防止后续split空格时截断非标准日期（如 "Oct 27, 2025"）
+    original_val = s_val
+
     # 2. 去除时间部分
     if ' ' in s_val:
         s_val = s_val.split(' ')[0]
     
-    original_val = s_val
-
     try:
         final_str = ""
         
@@ -442,7 +444,17 @@ def escape_markdown(text: str) -> str:
         text = text.replace(char, '\\' + char)
     
     return text
-
+def escape_markdown_base(text: str) -> str:
+    """只转义容易引起问题的Markdown字符：反斜杠、方括号、圆括号"""
+    if not text:
+        return ""
+    text = str(text)
+    special_chars = ['\\', '[', ']', '(', ')']
+    
+    for char in special_chars:
+        text = text.replace(char, '\\' + char)
+    
+    return text
 
 def sanitize_filename(filename: str) -> str:
     """清理文件名，移除非法字符"""
@@ -547,7 +559,8 @@ def figure_exists_in_repo(figure_path: str, project_root: str = None) -> bool:
         return False
     
     if project_root is None:
-        project_root = os.getcwd()
+        from src.core.config_loader import get_config_instance
+        project_root = str(get_config_instance().project_root)
     
     # 构建完整路径
     full_path = os.path.join(project_root, figure_path)
@@ -558,40 +571,58 @@ def figure_exists_in_repo(figure_path: str, project_root: str = None) -> bool:
 
 def backup_file(filepath: str, backup_dir: str) -> Optional[str]:
     """
-    统一备份文件函数
-    逻辑：原文件名(无后缀) + "__backup_" + timestamp + 后缀
-    例如：data.xlsx -> data__backup_20250101_120000.xlsx
+    统一备份文件/文件夹函数（兼容文件和文件夹）
+    逻辑：
+    - 文件：原文件名(无后缀) + "__backup_" + timestamp + 后缀
+      例如：data.xlsx -> data__backup_20250101_120000.xlsx
+    - 文件夹：原文件夹名 + "__backup_" + timestamp
+      例如：figures -> figures__backup_20250101_120000
     
     参数:
-        filepath: 源文件路径
+        filepath: 源文件/文件夹路径
         backup_dir: 备份目录路径
     
     返回:
-        备份文件的完整路径，如果失败则返回 None
+        备份路径（文件/文件夹），失败则返回 None
     """
+    # 检查源路径是否存在
     if not os.path.exists(filepath):
+        print(f"❌ [备份失败] 路径不存在: {filepath}")
         return None
 
     try:
-        # 确保备份目录存在
+        # 确保备份根目录存在
         ensure_directory(backup_dir)
         
-        # 解析文件名
-        filename = os.path.basename(filepath)
-        name, ext = os.path.splitext(filename)
-        
+        # 解析源路径的基础名称（文件名/文件夹名）
+        base_name = os.path.basename(filepath)
         # 生成时间戳
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # 区分处理：文件 vs 文件夹
+        if os.path.isfile(filepath):
+            # 处理文件：拆分后缀
+            name, ext = os.path.splitext(base_name)
+            backup_name = f"{name}__backup_{timestamp}{ext}"
+            backup_path = os.path.join(backup_dir, backup_name)
+            # 复制文件（保留元数据）
+            shutil.copy2(filepath, backup_path)
+        elif os.path.isdir(filepath):
+            # 处理文件夹：无后缀，直接拼接
+            backup_name = f"{base_name}__backup_{timestamp}"
+            backup_path = os.path.join(backup_dir, backup_name)
+            # 递归复制文件夹（处理目标已存在的情况）
+            if os.path.exists(backup_path):
+                # 若备份文件夹已存在，追加随机后缀避免冲突（可选逻辑）
+                backup_path += f"_{os.urandom(4).hex()}"
+            shutil.copytree(filepath, backup_path)
+        else:
+            print(f"❌ [备份失败] 既不是文件也不是文件夹: {filepath}")
+            return None
         
-        # 构造备份文件名: 原名__backup_时间戳.后缀
-        backup_filename = f"{name}_backup_{timestamp}{ext}"
-        backup_path = os.path.join(backup_dir, backup_filename)
-        
-        # 执行复制
-        shutil.copy2(filepath, backup_path)
-        print(f"📦 [备份] {filename} 已备份至: {backup_path}")
+        print(f"📦 [备份成功] {base_name} 已备份至: {backup_path}")
         return backup_path
-        
+
     except Exception as e:
-        print(f"⚠️ 备份失败 {filepath}: {e}")
+        print(f"❌ [备份失败] {filepath} 备份出错: {str(e)}")
         return None

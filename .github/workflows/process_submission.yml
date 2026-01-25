@@ -1,0 +1,208 @@
+name: Process Paper Submission
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+    branches:
+      - main
+
+jobs:
+  process-submission:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    if: >
+      (vars.AUTO_PROCESS_SUBMISSIONS == 'true' || 
+       contains(github.event.pull_request.labels.*.name, 'Action: Process')) 
+
+    steps:
+      # --- 步骤 0: 代码检出 ---
+      - name: Checkout Main (Trusted Logic & Base Data)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main_workspace
+          fetch-depth: 0
+
+      - name: Checkout PR (Untrusted Data)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          path: pr_workspace
+          fetch-depth: 0
+
+      # --- 步骤 1: 构造混合安全环境 ---
+      - name: Setup Hybrid Environment
+        run: |
+          # 1. 基础环境全是 Main 的 (包含脚本、Core Excel、README、现有的 Figures 和 Backups)
+          cp -r main_workspace/* .
+          cp -r main_workspace/.git .
+          
+          # [安全加固] 清理 PR 空间中的潜在恶意符号链接
+          find pr_workspace -type l -delete
+          
+          # 2. 只从 PR workspace 拿特定的数据文件 (Templates)
+          if [ -f pr_workspace/submit_template.xlsx ]; then
+            cp pr_workspace/submit_template.xlsx .
+          fi
+          if [ -f pr_workspace/submit_template.json ]; then
+            cp pr_workspace/submit_template.json .
+          fi
+          
+          # 3. Figures 暂存 (供脚本读取，稍后智能合并)
+          if [ -d pr_workspace/figures ]; then
+            mkdir -p pr_workspace_figures
+            cp -r pr_workspace/figures/* pr_workspace_figures/ || true
+          fi
+          
+          # [已修改] 移除了从 PR 复制 backups 的逻辑
+          # 现在的 backups/ 目录只包含 main 分支原有的内容
+          # 新的备份将由后续的 update.py 脚本在此目录中生成
+          
+          echo "Secure Hybrid Environment Ready."
+
+      # --- 步骤 2: 安装依赖 ---
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install Dependencies
+        run: uv sync --frozen
+
+      # --- 步骤 3: 基础完整性检查 ---
+      - name: Validate File Integrity
+        run: |
+          if [ -f pr_workspace/submit_template.xlsx ]; then
+            file_size=$(stat -c%s "pr_workspace/submit_template.xlsx")
+            if [ $file_size -gt 5242880 ]; then
+              echo "Error: Excel file too large ($file_size bytes)" && exit 1
+            fi
+            uv run python -c "import openpyxl; wb=openpyxl.load_workbook('submit_template.xlsx', data_only=True); print('Excel structure valid')"
+          fi
+
+      # --- 步骤 4: 业务逻辑验证 ---
+      - name: Validate Submission
+        id: validate
+        env:
+          PYTHONPATH: .
+          PR_FIGURES_DIR: pr_workspace_figures
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run python scripts/validate_submission.py 2>&1 | tee validation_log.txt
+
+      - name: Comment on Validation Failure
+        if: failure() && steps.validate.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logContent = '';
+            try { logContent = fs.readFileSync('validation_log.txt', 'utf8'); } catch(e) { logContent = 'Log missing'; }
+            const author = context.payload.pull_request.user.login;
+            const body = `### ❌ Validation Failed\nHi! @${author}, issues found:\n<details><summary>Log</summary>\n\n\`\`\`text\n${logContent}\n\`\`\`\n</details>`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      # --- 步骤 5: 处理图片 ---
+      - name: Update Figures
+        if: success()
+        env:
+          PYTHONPATH: .
+          PR_FIGURES_DIR: pr_workspace_figures
+        run: uv run python scripts/update_submission_figures.py
+
+      # --- 步骤 6: 核心更新 (生成新备份) ---
+      - name: Run Core Update
+        id: core_update
+        if: success()
+        env:
+          PYTHONPATH: .
+          DEEPSEEK_API: ${{ secrets.DEEPSEEK_API }}
+          EXCEL_KEY: ${{ secrets.EXCEL_KEY }}
+        run: |
+          set -o pipefail
+          # update.py 运行成功后，会在 backups/ 目录生成新的备份文件
+          uv run python src/update.py 2>&1 | tee update_log.txt
+
+      - name: Comment Update Log
+        if: steps.core_update.conclusion != 'skipped'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let logContent = '';
+            try { logContent = fs.readFileSync('update_log.txt', 'utf8'); } catch(e) { logContent = 'Log missing.'; }
+            const author = context.payload.pull_request.user.login;
+            const statusIcon = '${{ steps.core_update.outcome }}' === 'success' ? '✅' : '⚠️';
+            const body = `### ${statusIcon} Core Update Log\nHi! @${author}, update executed.\n<details><summary>Full Log</summary>\n\n\`\`\`text\n${logContent}\n\`\`\`\n</details>`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      # --- 步骤 7: 提交 (双向同步) ---
+      - name: Commit and Push
+        if: success()
+        env:
+          PYTHONPATH: .
+          PR_USER: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          CORE_EXCEL_PATH=$(uv run python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['core_excel'])")
+          
+          # 强制添加文件
+          # git add backups/ 会添加 Main 原有的备份 + 本次 update.py 新生成的备份
+          # PR 中用户自己上传到 backups/ 的文件因为没有被 cp 过来，所以不会被添加
+          git add -f "$CORE_EXCEL_PATH" README.md figures/ backups/
+          
+          commit_msg=$(printf "@%s,Thank for Contribution--Auto-process papers submission [skip ci]" "$PR_USER")
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "$commit_msg"
+            # 推送到 main
+            git push origin HEAD:main
+            echo "✅ Pushed to main"
+          fi
+          
+          # 同步回 Fork
+          echo "Attempting to push back to PR branch..."
+          git remote add fork_repo "https://x-access-token:$GITHUB_TOKEN@github.com/$PR_HEAD_REPO.git"
+          git push fork_repo HEAD:$PR_HEAD_REF || echo "⚠️ Could not push to fork. This is normal if maintainer edits are disabled or token lacks permission."
+
+      # --- 步骤 8: 通知 ---
+      - name: Send Notification
+        if: always()
+        env:
+          PYTHONPATH: .
+          NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          workflow_status: ${{ job.status }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_USER: ${{ github.event.pull_request.user.login }}
+        run: uv run python scripts/send_notification.py

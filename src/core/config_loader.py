@@ -21,8 +21,12 @@ class ConfigLoader:
     """配置加载器，读取所有配置文件"""
     INLINE_COMMENT_PREFIXES = ('//', ';', '#')  # 配置文件注释前缀，为健壮性，除#外，也支持 //和; 作为行注释前缀
     def __init__(self):
-        # 以模块位置上溯两级作为项目根（保证以项目根为基准解析所有相对路径）
-        self.project_root = Path(__file__).resolve().parents[2]
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的可执行文件，使用可执行文件所在目录作为项目根
+            self.project_root = Path(sys.executable).resolve().parents[0]
+        else:
+            # 以模块位置上溯两级作为项目根（保证以项目根为基准解析所有相对路径）
+            self.project_root = Path(__file__).resolve().parents[2]
         # config 目录在项目根下的 config 子目录
         self.config_path = (self.project_root / 'config').resolve()
 
@@ -104,13 +108,13 @@ class ConfigLoader:
         root_dir = getattr(self, 'project_root', Path(__file__).resolve().parents[2])
         default_settings = {
             'paths': {
-                'core_excel': str((root_dir / 'master' / 'paper_database.xlsx').resolve()),
+                'core_excel': str((root_dir / 'paper_database.xlsx').resolve()),
                 'update_excel': str((root_dir / 'submit_template.xlsx').resolve()),
                 'update_json': str((root_dir / 'submit_template.json').resolve()),
                 'my_update_excel': str((root_dir / 'my_submit.xlsx').resolve()),
                 'my_update_json': str((root_dir / 'my_submit.json').resolve()),
                 'extra_update_file': '', # 默认为空
-                'backup_dir': str((root_dir / 'master' / 'backups').resolve()),
+                'backup_dir': str((root_dir /  'backups').resolve()),
             },
             'ai': {
                 'enable_ai_generation': 'true',

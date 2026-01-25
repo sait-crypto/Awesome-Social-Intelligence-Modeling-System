@@ -9,15 +9,14 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from dataclasses import asdict
 
-# 添加项目根目录到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.convert import ReadmeGenerator
 from src.core.config_loader import get_config_instance
 from src.core.database_manager import DatabaseManager
 from src.core.database_model import Paper, is_duplicate_paper
 from src.ai_generator import AIGenerator
-from src.utils import  get_current_timestamp
+from src.utils import  get_current_timestamp,backup_file
 from src.core.update_file_utils import get_update_file_utils
 import pandas as pd
 
@@ -222,12 +221,7 @@ class UpdateProcessor:
                     result['errors'].append(err)
                     print(f"警告: {err}")
 
-        # 循环结束，整理最终结果
-        if result['new_papers'] > 0 or result['updated_papers'] > 0 or result['ai_generated'] > 0:
-            result['success'] = True
-        elif not result['errors']:
-             # 没有错误，但也没添加任何东西 (可能是文件为空)
-             pass
+
         
         # 整理冲突信息
         conflicts_list = []
@@ -244,6 +238,14 @@ class UpdateProcessor:
         result['conflicts'] = conflicts_list
         # 整理验证失败信息
         result['invalid_msg']=list(dict.fromkeys(total_invalid_msg))#去重
+
+        # 循环结束，整理最终结果
+        if result['new_papers'] > 0 or result['updated_papers'] > 0 or result['ai_generated'] > 0 or result['conflicts']:
+            result['success'] = True
+        elif not result['errors']:
+             # 没有错误，但也没添加或更改任何东西 (可能是文件为空)
+             pass
+        
         return result
     
     
@@ -252,7 +254,7 @@ class UpdateProcessor:
         unique_papers = []
         
         for paper in papers:
-            if is_duplicate_paper(unique_papers, paper,complete_compare=False):
+            if is_duplicate_paper(unique_papers, paper,complete_compare=False)[0]:
                 continue
             unique_papers.append(paper)
 
@@ -293,7 +295,7 @@ class UpdateProcessor:
             if result['conflicts']:
                 print(f"⚠ 发现 {len(result['conflicts'])} 处冲突需要手动处理，已添加到数据库，请尽快处理并运行convert.py更新到readme")
                 for i, conflict in enumerate(result['conflicts'], 1):
-                    new_title = conflict['new'].get('title', '未知标题')[:50] if conflict['new'] else '未知标题'
+                    new_title = conflict['new'].get('title', '未知标题')[:80] if conflict['new'] else '未知标题'
                     print(f"  {i}. 冲突论文: {new_title}...")
             
             if result['errors']:
@@ -322,7 +324,7 @@ def main():
     
     # 发送通知
     processor.print_result(result)
-    
+    backup_file("figures","backups")
     # 如果更新成功，重新生成README
     if result['success']:  #and result['new_papers'] > 0
         print("\n重新生成README...")
