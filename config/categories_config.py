@@ -43,9 +43,13 @@ CATEGORIES_CHANGE_LIST = [
     #     "old_unique_name": "Base Techniques",
     #     "new_unique_name": "Hate Speech Analysis",
     # },
-        {
+    {
         "old_unique_name": "Social Content Generation",   # 旧的唯一标识符（被替换）
         "new_unique_name": "Comment Generation",   # 新的唯一标识符（替换目标）
+    },
+    {
+        "old_unique_name": "Malicious Bot Detection",   # 旧的唯一标识符（被替换）
+        "new_unique_name": "Malicious User Detection",   # 新的唯一标识符（替换目标）
     }
 ]
 
@@ -141,8 +145,16 @@ CATEGORIES_CONFIG = {
             "description": "[二级分类]（Perception and Classification） —  虚假信息分析",
         },
         {
-            "unique_name": "Sentiment Analysis",
+            "unique_name": "Controversy Analysis",
             "order": 3,
+            "name": "Controversy Analysis",
+            "primary_category": "Perception and Classification",
+            "enabled": True,
+            "description": "[二级分类]（Perception and Classification） —  争议内容分析",
+        },
+        {
+            "unique_name": "Sentiment Analysis",
+            "order": 4,
             "name": "Sentiment Analysis",
             "primary_category": "Perception and Classification",
             "enabled": True,
@@ -151,7 +163,7 @@ CATEGORIES_CONFIG = {
 
         {
             "unique_name": "Multimodal Analysis",
-            "order": 4,
+            "order": 5,
             "name": "Meme Analysis",
             "primary_category": "Perception and Classification",
             "enabled": True,
@@ -159,7 +171,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Steganography Detection",
-            "order": 5,
+            "order": 6,
             "name": "Steganography Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
@@ -167,23 +179,23 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "User Stance Detection",
-            "order": 6,
+            "order": 7,
             "name": "User Stance Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
             "description": "[二级分类]（Perception and Classification） —  用户立场检测",
         },
         {
-            "unique_name": "Malicious Bot Detection",
-            "order": 7,
-            "name": "Malicious Bot Detection",
+            "unique_name": "Malicious User Detection",
+            "order": 8,
+            "name": "Malicious User Detection",
             "primary_category": "Perception and Classification",
             "enabled": True,
-            "description": "[二级分类]（Perception and Classification） —  恶意机器人检测",
+            "description": "[二级分类]（Perception and Classification） —  恶意用户检测",
         },
         {
             "unique_name": "Event Extraction",
-            "order": 8,
+            "order": 9,
             "name": "Event Extraction",
             "primary_category": "Understanding",
             "enabled": True,
@@ -191,7 +203,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Topic Modeling",
-            "order": 9,
+            "order": 10,
             "name": "Topic Modeling",
             "primary_category": "Understanding",
             "enabled": True,
@@ -199,7 +211,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Social Psychological Phenomena Analysis",
-            "order": 10,
+            "order": 11,
             "name": "Social Psychological Phenomena Analysis",
             "primary_category": "Understanding",
             "enabled": True,
@@ -207,7 +219,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Social Popularity Prediction",
-            "order": 11,
+            "order": 12,
             "name": "Social Popularity Prediction",
             "primary_category": "Understanding",
             "enabled": True,
@@ -215,7 +227,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Community Detection",
-            "order": 12,
+            "order": 13,
             "name": "User Identity Understanding",
             "primary_category": "Understanding",
             "enabled": True,
@@ -223,7 +235,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "User Profiling",
-            "order": 13,
+            "order": 14,
             "name": "User Profiling",
             "primary_category": "Understanding",
             "enabled": True,
@@ -231,31 +243,31 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "User Behavior Prediction",
-            "order": 14,
+            "order": 15,
             "name": "User Behavior Prediction",
-            "primary_category": "Perception and Classification",
+            "primary_category": "Understanding",
             "enabled": True,
-            "description": "[二级分类]（Perception and Classification） —  用户行为预测",
+            "description": "[二级分类]（Understanding） —  用户行为预测",
         },
         {
             "unique_name": "Dynamic Community Analysis",
-            "order": 15,
+            "order": 16,
             "name": "Dynamic Community Analysis",
-            "primary_category": "Simulation and Deduction",
+            "primary_category": "Understanding",
             "enabled": True,
-            "description": "[二级分类]（Simulation and Deduction） —  动态社区分析",
+            "description": "[二级分类]（Understanding） —  动态社区分析",
         },
         {
             "unique_name": "Information Diffusion Analysis",
-            "order": 16,
+            "order": 17,
             "name": "Information Diffusion Analysis",
-            "primary_category": "Simulation and Deduction",
+            "primary_category": "Understanding",
             "enabled": True,
-            "description": "[二级分类]（Simulation and Deduction） —  信息扩散分析",
+            "description": "[二级分类]（Understanding） —  信息扩散分析",
         },
         {
             "unique_name": "Comment Generation",
-            "order": 17,
+            "order": 18,
             "name": "Comment Generation",
             "primary_category": "Generation",
             "enabled": True,
@@ -263,7 +275,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Debate Generation",
-            "order": 18,
+            "order": 19,
             "name": "Debate Generation",
             "primary_category": "Generation",
             "enabled": True,
@@ -272,7 +284,7 @@ CATEGORIES_CONFIG = {
 
         {
             "unique_name": "Rumor Refutation Generation",
-            "order": 19,
+            "order": 20,
             "name": "Rumor Refutation Generation",
             "primary_category": "Generation",
             "enabled": True,
@@ -280,7 +292,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Psychological Healing",
-            "order": 20,
+            "order": 21,
             "name": "Psychological Healing",
             "primary_category": "Generation",
             "enabled": True,
@@ -288,15 +300,23 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Misinformation Generation",
-            "order": 21,
+            "order": 22,
             "name": "Misinformation Generation",
             "primary_category": "Generation",
             "enabled": True,
             "description": "[二级分类]（Generation） —  虚假信息生成",
         },
         {
+            "unique_name": "Humor Generation",
+            "order": 23,
+            "name": "Humor Generation",
+            "primary_category": "Generation",
+            "enabled": True,
+            "description": "[二级分类]（Generation） —  幽默信息生成",
+        },
+        {
             "unique_name": "Social Bots",
-            "order": 22,
+            "order": 24,
             "name": "Social Bots",
             "primary_category": "Generation",
             "enabled": True,
@@ -304,7 +324,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Social Simulation",
-            "order": 23,
+            "order": 25,
             "name": "Social Simulation",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -312,7 +332,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Social Network Simulation",
-            "order": 24,
+            "order": 26,
             "name": "Social Network Simulation",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -320,7 +340,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Town/Community Simulation",
-            "order": 25,
+            "order": 27,
             "name": "Town/Community Simulation",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -328,7 +348,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Game Simulation",
-            "order": 26,
+            "order": 28,
             "name": "Game Simulation",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -336,7 +356,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Family Simulation",
-            "order": 27,
+            "order": 29,
             "name": "Family Simulation",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -344,7 +364,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Macrosocial Phenomena Analysis",
-            "order": 28,
+            "order": 30,
             "name": "Macrosocial Phenomena Analysis",
             "primary_category": "Simulation and Deduction",
             "enabled": True,
@@ -352,7 +372,7 @@ CATEGORIES_CONFIG = {
         },
         {
             "unique_name": "Frontier Applications",
-            "order": 29,
+            "order": 31,
             "name": "Frontier Applications",
             "primary_category": "Simulation and Deduction",
             "enabled": True,

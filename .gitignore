@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.spec
 
 # IDE
 .vscode/
@@ -29,6 +30,9 @@ wheels/
 # 数据库和备份
 my_submit.xlsx
 my_submit.json
+**/*my_submit*
+figures_temp/
+from_others/
 
 # 配置文件中的敏感信息
 

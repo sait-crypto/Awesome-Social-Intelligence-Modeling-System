@@ -5,7 +5,7 @@ a = Analysis(
     ['src\\submit_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('config/config.ini', 'config')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

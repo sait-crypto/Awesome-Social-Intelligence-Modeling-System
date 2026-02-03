@@ -130,7 +130,7 @@ jobs:
         if: success()
         env:
           PYTHONPATH: .
-          DEEPSEEK_API: ${{ secrets.DEEPSEEK_API }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
           EXCEL_KEY: ${{ secrets.EXCEL_KEY }}
         run: |
           set -o pipefail

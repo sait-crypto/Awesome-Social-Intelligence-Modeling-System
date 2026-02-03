@@ -22,7 +22,7 @@ TAGS_CONFIG = {
             "order": 0,                     # 不可更改，必须是0
             "table_name": "doi",            # 在Excel中的列名，可更改
             "display_name": "DOI",          # 在README中显示的列名，可更改
-            "description": "论文的唯一DOI标识符，系统会自动清理格式",
+            "description": "论文的唯一DOI标识符。当论文没有DOI时，可以编一个独特占位符，如：10.0000/placeholder-PASUM",
             "type": "string",
             "validation":None,           # r"^10\.\d{4,9}/[-._;()/:A-Z0-9]+$",  # DOI正则表达式
             "show_in_readme": True,         # 是否在README中显示
@@ -36,7 +36,7 @@ TAGS_CONFIG = {
             "variable": "title",            # 不可更改
             "order": 1,                     # 不可更改，必须是1
             "table_name": "title",
-            "display_name": "标题",         #3个标签在readme列表中共用一列，使用[display_name]分割3个字段
+            "display_name": "title",         #3个标签在readme列表中共用一列，使用[display_name]分割3个字段
             "description": "论文的完整标题",
             "type": "string",
             "validation": None,             # 无特殊验证规则
@@ -81,7 +81,7 @@ TAGS_CONFIG = {
             "order": 4,                     # 不可更改，必须是4
             "table_name": "category",
             "display_name": "category",
-            "description": "论文的分类，可多选，用;分隔",
+            "description": "论文的分类，可多选，用;分隔。注：有明确二级分类时，不需要填写它对应的一级分类",
             "type": "enum[]",                 #具体取值在categories_config.py中,[]表示可多选，之间用;隔开
             "validation": None,
             "show_in_readme": True,
@@ -250,7 +250,7 @@ TAGS_CONFIG = {
             "order": 15,
             "table_name": "pipeline figure",
             "display_name": "Pipeline图",
-            "description": "请将引用图片放到figures文件夹下，在此填写图片全名或相对路径（带后缀）；多张图片可用`;`或`；`分隔，最多3张",  #直接在readme的论文列表中根据路径显示图片
+            "description": "请将引用图片放到figures文件夹下，在此填写图片全名或相对路径（带后缀）建议以论文/方法简写命名；多张图片可用`;`或`；`分隔，最多3张。例：BECE-1.png;BECE-2.png",  #直接在readme的论文列表中根据路径显示图片
             "type": "string",
             "validation": None,
             "show_in_readme": True,
@@ -408,6 +408,20 @@ TAGS_CONFIG = {
         #     "required": True,     #默认为False，对于空值会被自动填充为False
         #     "system_var": True,            #控制字段，为真时只在数据库中显示           
         # },
+        {
+            "variable": "paper_file",
+            "order": 23,
+            "table_name": "paper file",
+            "display_name": "论文文件",
+            "description": "本地论文PDF路径(papers/下)",
+            "type": "string",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": False,
+            "required": False,
+            "system_var": False,
+        },
 
         #需要将逻辑调整为类似category_config的结构，通过唯一名称识别，variable和table_name合并，order变为可以自由调整的项（更新时自动）
     ]

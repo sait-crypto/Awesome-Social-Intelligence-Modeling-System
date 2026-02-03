@@ -26,6 +26,7 @@ class ConfigLoader:
             self.project_root = Path(sys.executable).resolve().parents[0]
         else:
             # 以模块位置上溯两级作为项目根（保证以项目根为基准解析所有相对路径）
+            # src/core -> src -> root (2 levels up from src, so 3 levels from here)
             self.project_root = Path(__file__).resolve().parents[2]
         # config 目录在项目根下的 config 子目录
         self.config_path = (self.project_root / 'config').resolve()
@@ -37,18 +38,26 @@ class ConfigLoader:
 
         # 便于其他模块直接使用绝对路径
         self.paths = self.settings.get('paths', {})
+        
+        # 加载全局 API Key 池
+        self.api_keys = self._load_global_api_keys()
     
     def _load_settings(self) -> Dict[str, Any]:
-        """加载config.ini文件"""
+        """加载config.ini文件，优先加载默认配置，再覆盖用户配置"""
         # 为健壮性，除#外，也支持 //和; 作为注释
-        # ConfigParser函数支持=和;作为键值对分隔符，因此配置文件中使用:也可，出于习惯，推荐=
         config = configparser.ConfigParser(inline_comment_prefixes=self.INLINE_COMMENT_PREFIXES)
-        settings_path = (self.config_path / 'config.ini').resolve()
+        
+        default_path = (self.config_path / 'config_default.ini').resolve()
+        user_path = (self.config_path / 'config.ini').resolve()
 
-        if not settings_path.exists():
-            return self._create_default_settings()
+        # 1. 读取默认配置
+        if default_path.exists():
+            config.read(str(default_path), encoding='utf-8')
 
-        config.read(str(settings_path), encoding='utf-8')
+        # 2. 读取用户配置（覆盖默认）
+        if user_path.exists():
+            config.read(str(user_path), encoding='utf-8')
+
         settings: Dict[str, Any] = {}
         for section in config.sections():
             settings[section] = dict(config.items(section))
@@ -100,74 +109,143 @@ class ConfigLoader:
             # 将解析后的额外文件列表单独存入
             settings['paths']['extra_update_files_list'] = extra_files_list
 
+        # 处理 AI 配置的 Profiles JSON 解析
+        if 'ai' in settings:
+            settings['ai']['profiles'] = self._process_ai_profiles(settings['ai'])
+
         return settings
 
-    def _create_default_settings(self) -> Dict[str, Any]:
-        """创建默认设置"""
-        # 以 project_root 为基准生成默认路径
-        root_dir = getattr(self, 'project_root', Path(__file__).resolve().parents[2])
-        default_settings = {
-            'paths': {
-                'core_excel': str((root_dir / 'paper_database.xlsx').resolve()),
-                'update_excel': str((root_dir / 'submit_template.xlsx').resolve()),
-                'update_json': str((root_dir / 'submit_template.json').resolve()),
-                'my_update_excel': str((root_dir / 'my_submit.xlsx').resolve()),
-                'my_update_json': str((root_dir / 'my_submit.json').resolve()),
-                'extra_update_file': '', # 默认为空
-                'backup_dir': str((root_dir /  'backups').resolve()),
-            },
-            'ai': {
-                'enable_ai_generation': 'true',
-                'deepseek_api_key_path': 'key.txt',
-                'api_key_github_secret_name': 'DEEPSEEK_API',
-                'ai_generate_mark':'[AI generated]'
-            },
-            # Excel / 表格样式配置（可通过 config.ini 动态修改）
-            # 颜色均使用不带#的16进制 RGB 值
-            'excel': {
-                'header_fill_color': 'BDD7EE',          # 表头默认浅蓝
-                'required_header_color': '366092',      # 必填字段表头深蓝
-                'required_column_fill': 'DDEBF7',       # 必填列单元格浅蓝
-                'conflict_fill_color': 'FFCCCC',        # 冲突行红色（优先级高）
-                'header_font_color': 'FFFFFF',          # 表头字体颜色
-                'invalid_fill_color': 'FF0000',         # 无效条目字体颜色
-                'password_path': 'key.txt',
-                'excel_key_github_secret_name': 'EXCEL_KEY',
-            },
-            'database': {
-                'default_contributor': 'anonymous',
-                'conflict_marker': '[冲突]',
-                'translation_separator':'[翻译]',
-                'value_deprecation_mark':'[Deprecated]',
-                'max_categories_per_paper': '4'
-            },
-            'readme': {
-                'truncate_translation':'true',
-                'max_title_length': '100',
-                'max_authors_length': '150',
-                'date_format': 'YYYY-MM-DD',
-                'enable_markdown':'false'
+    def _load_global_api_keys(self) -> List[str]:
+        """从文件或环境变量加载全局 API Keys 列表"""
+        keys = []
+        
+        # 1. 尝试从环境变量获取 (GitHub Secrets: AI_API_KEY)
+        env_keys = os.environ.get('AI_API_KEY', '')
+        if env_keys:
+            if '\n' in env_keys:
+                keys.extend([k.strip() for k in env_keys.split('\n') if k.strip()])
+            else:
+                keys.extend([k.strip() for k in env_keys.split(',') if k.strip()])
+            if keys: return keys
+
+        # 2. 尝试从本地文件获取 (key_path)
+        key_path = self.settings.get('ai', {}).get('key_path', '')
+        if key_path:
+            try:
+                p = Path(key_path)
+                if not p.is_absolute():
+                    p = self.project_root / p
+                
+                if p.exists() and p.is_file():
+                    with open(p, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        keys.extend([line.strip() for line in content.splitlines() if line.strip()])
+            except Exception as e:
+                print(f"读取 API Key 文件失败: {e}")
+
+        return keys
+
+    def _process_ai_profiles(self, ai_settings: Dict[str, Any]) -> List[Dict]:
+        """处理AI Profiles：解析JSON"""
+        raw_profiles = ai_settings.get('profiles_json', '[]')
+        profiles = []
+        try:
+            profiles = json.loads(raw_profiles)
+        except Exception:
+            profiles = []
+        
+        if not isinstance(profiles, list):
+            profiles = []
+
+        # 转换为字典以便去重/查找
+        profiles_dict = {p.get('name'): p for p in profiles if 'name' in p}
+
+        # 确保有默认
+        if not profiles_dict:
+            # 尝试迁移旧字段 (仅作内存兼容，不回写，除非用户保存)
+            path_val = ai_settings.get('deepseek_api_key_path', '')
+            env_val = ai_settings.get('api_key_github_secret_name', 'DEEPSEEK_API')
+            source = path_val if path_val else env_val
+            
+            profiles_dict['default_deepseek'] = {
+                "name": "default_deepseek",
+                "provider": "deepseek",
+                "api_key_source": source,
+                "api_url": "https://api.deepseek.com/v1/chat/completions",
+                "model": "deepseek-chat"
             }
-        }
         
-        # 保存默认设置
-        self._save_default_settings(default_settings)
-        return default_settings
-    
-    def _save_default_settings(self, settings: Dict[str, Any]):
-        """保存默认设置到文件"""
+        return list(profiles_dict.values())
+
+    def resolve_api_key(self, profile_index: int = 0, source_override: str = None) -> Optional[str]:
+        """
+        解析 API Key
+        逻辑：
+        1. 如果提供了 source_override (Profile 中特定的 Key/Path/Env)，尝试解析它。
+        2. 否则，从全局 Key 池中按索引获取。
+        """
+        # 1. 特定覆盖
+        if source_override:
+            clean_source = str(source_override).strip()
+            # 可能是直接的 Key (简单启发式：看起来像Key且不是文件路径)
+            if len(clean_source) > 20 and ' ' not in clean_source and os.sep not in clean_source and '.' not in clean_source:
+                 return clean_source
+
+            # 尝试环境变量
+            env = os.environ.get(clean_source)
+            if env: return env.strip()
+            # 尝试文件
+            try:
+                p = Path(clean_source)
+                if not p.is_absolute(): p = self.project_root / p
+                if p.exists():
+                    with open(p, 'r', encoding='utf-8') as f: return f.read().strip()
+            except: pass
+
+        # 2. 全局 Key 池
+        if self.api_keys:
+            if 0 <= profile_index < len(self.api_keys):
+                return self.api_keys[profile_index]
+            elif len(self.api_keys) > 0:
+                return self.api_keys[0] # Fallback to first
+        
+        return None
+
+    def save_ai_settings(self, enable_ai: bool, active_profile_name: str, profiles_list: List[Dict], key_path: str = None):
+        """保存 AI 设置到 config.ini"""
         config = configparser.ConfigParser()
+        user_path = self.config_path / 'config.ini'
         
-        for section, section_data in settings.items():
-            config[section] = section_data
+        if user_path.exists():
+            config.read(str(user_path), encoding='utf-8')
         
-        settings_path = os.path.join(self.config_path, 'config.ini')
-        os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+        if 'ai' not in config:
+            config['ai'] = {}
+            
+        config['ai']['enable_ai_generation'] = str(enable_ai).lower()
+        config['ai']['active_profile'] = active_profile_name
+        config['ai']['profiles_json'] = json.dumps(profiles_list)
         
-        with open(settings_path, 'w', encoding='utf-8') as f:
+        # 只有当显式传入 key_path 时才保存，否则保留原值
+        if key_path is not None:
+            config['ai']['key_path'] = key_path
+        
+        # 清理旧字段
+        for old_key in ['deepseek_api_key_path', 'api_key_github_secret_name']:
+            if old_key in config['ai']:
+                del config['ai'][old_key]
+        
+        with open(user_path, 'w', encoding='utf-8') as f:
             config.write(f)
         
-        print(f"已创建默认配置文件: {settings_path}")
+        # 刷新
+        self.settings = self._load_settings()
+        self.api_keys = self._load_global_api_keys()
+
+    def get_ai_provider_defaults(self, provider: str) -> Dict[str, str]:
+        """获取 Provider 的默认值"""
+        # (此处由 AIGenerator.get_provider_defaults 实现，保持空实现避免循环)
+        return {} 
     
     def _load_tags_config(self) -> Dict[str, Any]:
         """加载标签配置"""
@@ -217,41 +295,19 @@ class ConfigLoader:
         return None
     
     def get_categories_change_list(self) -> List[Dict[str, str]]:
-        """获取分类变更列表，用于自动处理旧unique_name向新unique_name的转换
-        
-        Returns:
-            CATEGORIES_CHANGE_LIST 列表，每个元素包含 old_unique_name 和 new_unique_name
-        """
+        """获取分类变更列表"""
         return self.categories_config.get('categories_change_list', [])
     
     def get_category_by_name_or_unique_name(self, identifier: str) -> Optional[Dict[str, Any]]:
-        """根据 unique_name 或 name 获取分类配置
-        
-        优先使用 unique_name 匹配；如果未找到，则按 name 匹配（仅返回第一个匹配）。
-        当使用 name 匹配时输出警告，建议使用 unique_name。
-        
-        Args:
-            identifier: 分类的 unique_name 或 name
-        
-        Returns:
-            分类字典，若未找到则返回 None
-        """
+        """根据 unique_name 或 name 获取分类配置"""
         # 首先按 unique_name 匹配
         for category in self.categories_config.get('categories', []):
             if category.get('unique_name') == identifier:
                 return category
         
-        # 如果按 unique_name 未找到，则按 name 匹配（仅返回第一个）
+        # 如果按 unique_name 未找到，则按 name 匹配
         for category in self.categories_config.get('categories', []):
             if category.get('name') == identifier:
-                import warnings
-                warnings.warn(
-                    f"分类标识已弃用：使用 name='{identifier}' 进行查询。"
-                    f"请改用 unique_name='{category.get('unique_name')}' 进行查询。"
-                    f"name 只代表第一个同名分类，建议统一使用 unique_name 作为标识。",
-                    DeprecationWarning,
-                    stacklevel=2
-                )
                 return category
         
         return None
@@ -290,34 +346,29 @@ class ConfigLoader:
     
     def validate_value(self, tag: Dict[str, Any], value: Any) -> bool:
         """验证值是否符合标签的验证规则"""
-        # 处理空值：必填项为空则验证失败，非必填为空则通过
         if value is None or value == "":
             return not tag.get('required', False)
         
-        # 从标签中获取可能的正则验证规则
         validation_pattern = tag.get('validation')
         
         try:
             t = tag.get('type')
             if t == 'string':
-                # 如果有正则规则则用之验证；没有规则则认为合法
                 if validation_pattern:
                     return bool(re.match(validation_pattern, str(value)))
                 return True
             elif t == 'bool':
                 return str(value).lower() in ['true', 'false', 'yes', 'no', '1', '0']
             elif t == 'enum':
-                # 枚举类型由UI层或其它逻辑保证合法性
                 return True
             else:
                 return True
         except Exception:
-            # 出现异常则认为验证失败
             return False
 
 
 # 创建全局配置加载器单例
-_config_instance=None
+_config_instance = None
 def get_config_instance():
     """获取全局配置加载器单例"""
     global _config_instance

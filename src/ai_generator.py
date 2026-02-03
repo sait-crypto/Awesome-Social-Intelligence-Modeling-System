@@ -1,336 +1,335 @@
-"""
-AI生成器
-使用DeepSeek API生成论文摘要、翻译等内容
-"""
 import os
 import json
 import requests
-from typing import Dict, List, Optional, Any, Tuple
 import time
+from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import asdict
-from src.core.update_file_utils import get_update_file_utils
 from src.core.config_loader import get_config_instance
 from src.core.database_model import Paper
 
+# 统一的 Provider 配置数据结构
+PROVIDER_CONFIGS = [
+    {
+        "provider": "deepseek",
+        "api_url": "https://api.deepseek.com/v1/chat/completions",
+        "models": ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"]
+    },
+    {
+        "provider": "gemini",
+        "api_url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "models": ["gemini-3-flash-preview", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
+    },
+    {
+        "provider": "openai_compatible",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "models": ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"]
+    }
+]
+
+# 全局系统提示：在所有 AI 请求中注入此提示，作为系统角色指令
+SYSTEM_PROMPT = (
+    "The task is to complete a review of AI + social media analysis in the computer field, "
+    "act as a academic assistant."
+)
 
 class AIGenerator:
-    """AI内容生成器"""
+    """AI内容生成器 (支持 DeepSeek, Gemini, OpenAI-Compatible)"""
     
     def __init__(self):
-        self.config = get_config_instance()
-        self.settings = get_config_instance().settings
-        self.update_utils = get_update_file_utils()
-
-        self.ai_generate_mark=self.settings['ai']['ai_generate_mark']
-        self.translation_separator=self.settings['database']['translation_separator']
-        self.value_deprecation_mark=self.settings['database']['value_deprecation_mark']
-
-        # 兼容配置项为 bool 或 str 的情况；确保得到布尔值
+        self.config_loader = get_config_instance()
+        self.settings = self.config_loader.settings
+        
+        self.ai_generate_mark = self.settings['ai'].get('ai_generate_mark', '[AI generated]')
+        self.translation_separator = self.settings['database'].get('translation_separator', '[翻译]')
+        self.value_deprecation_mark = self.settings['database'].get('value_deprecation_mark', '[Deprecated]')
+        
         enable_val = self.settings['ai'].get('enable_ai_generation', 'true')
-        try:
-            self.enabled = str(enable_val).lower() == 'true'
-        except Exception:
-            self.enabled = bool(enable_val)
-            
-        self.api_key = self._get_api_key()
-        self.api_url = "https://api.deepseek.com/v1/chat/completions"
-        self.max_retries = 3
-        self.retry_delay = 2
+        self.enabled = str(enable_val).lower() == 'true'
 
+        # 加载配置的 Profiles (已在 ConfigLoader 中解析)
+        self.profiles = self._load_profiles_from_settings()
+        self.active_profile_name = self.settings['ai'].get('active_profile', 'default_deepseek')
+        self.active_profile = self.get_profile(self.active_profile_name)
+
+    def _load_profiles_from_settings(self) -> Dict[str, Dict]:
+        """从 settings 中转换 Profiles 列表为字典"""
+        profiles_list = self.settings['ai'].get('profiles', [])
+        profiles_dict = {}
+        # 同时保存 list 以便确定索引
+        self.profiles_list = profiles_list 
+        for p in profiles_list:
+            if 'name' in p:
+                profiles_dict[p['name']] = p
+        return profiles_dict
+
+    def get_profile_index(self, name: str) -> int:
+        """获取 Profile 在列表中的索引"""
+        for i, p in enumerate(self.profiles_list):
+            if p.get('name') == name:
+                return i
+        return 0
+
+    def get_profile(self, name: str) -> Optional[Dict]:
+        return self.profiles.get(name)
         
-    
-    def _get_api_key(self) -> Optional[str]:
-        """获取API密钥"""
-        # 首先尝试从环境变量获取
-        api_key = os.environ.get('DEEPSEEK_API')
-        if api_key:
-            return str(api_key).strip()
-        
-        # 尝试从本地文件获取
-        api_key_path = self.settings['ai'].get('deepseek_api_key_path', '')
-        if api_key_path and os.path.exists(api_key_path):
-            try:
-                # 保证api_key_path为项目根目录下的相对路径时，自动锚定到project_root
-                from pathlib import Path
-                config = get_config_instance()
-                if not Path(api_key_path).is_absolute():
-                    api_key_path = str((config.project_root / api_key_path).resolve())
-                with open(api_key_path, 'r', encoding='utf-8') as f:
-                    api_key = f.read().strip()
-                    return api_key
-            except Exception as e:
-                print(f"读取API密钥文件失败: {e}")
-        
-        return None
-    
+    def get_all_profiles(self) -> List[Dict]:
+        return list(self.profiles.values())
+
     def is_available(self) -> bool:
-        """检查AI生成是否可用"""
-        # api_key 需要为非空字符串才能视为可用
-        return bool(self.enabled) and bool(self.api_key)
-    
-    def generate_title_translation(self, paper: Paper) -> str:
-        """生成标题翻译"""
-        if not self.is_available():
-            return ""
-        category_name = self._get_category_name(paper.category)
-        prompt = f"""请将以下学术论文标题翻译成中文：
-
-英文标题: {paper.title}
-论文分类（供参考）: {category_name}
-请提供准确、专业的中文翻译，保持学术风格。"""
+        """检查当前激活的 Profile 是否可用（能解析出 Key）"""
+        # 注意：这里不再检查 self.enabled，因为 GUI 强制调用时忽略全局开关
+        if not self.active_profile:
+            return False
+        # 检查是否能解析 Key
+        idx = self.get_profile_index(self.active_profile_name)
+        # 优先使用配置中直接填写的 key (api_key_source 现复用为直接 key 存储)
+        direct_key = self.active_profile.get('api_key_source')
+        if direct_key and len(direct_key) > 20 and ' ' not in direct_key:
+             return True
         
-        if paper.abstract:
-            prompt += f"\n论文摘要（供参考）:\n{paper.abstract}"
-        if paper.summary_motivation and (not str(paper.summary_motivation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文动机（供参考）:\n{paper.summary_motivation}"
-        if paper.summary_innovation and (not str(paper.summary_innovation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文创新点（供参考）:\n{paper.summary_innovation}"
-        if paper.summary_method and (not str(paper.summary_method).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文方法（供参考）:\n{paper.summary_method}"
-        if paper.summary_conclusion and (not str(paper.summary_conclusion).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文结论（供参考）:\n{paper.summary_conclusion}"
-        if paper.summary_limitation and (not str(paper.summary_limitation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文局限性（供参考）:\n{paper.summary_limitation}"
-        response = self._call_api(prompt, max_tokens=100)
-        if response:
-            return f"{self.ai_generate_mark} {response.strip()}"
-        return ""
-    
-    def generate_analogy_summary(self, paper: Paper) -> str:
-        """生成类比总结"""
-        if not self.is_available():
+        # 否则尝试从全局池解析
+        return bool(self.config_loader.resolve_api_key(idx, direct_key))
+
+    def get_provider_defaults(self, provider: str) -> Dict[str, Union[str, List[str]]]:
+        """UI 辅助：获取 Provider 的默认值和模型列表"""
+        for config in PROVIDER_CONFIGS:
+            if config["provider"] == provider:
+                return {
+                    "api_url": config["api_url"],
+                    "models": config["models"]
+                }
+        return {"api_url": "", "models": []}
+
+    def save_profiles(self, profiles_list: List[Dict], enable_ai: bool, active_profile_name: str, key_path: str = None):
+        """保存配置 (代理到 ConfigLoader)"""
+        self.config_loader.save_ai_settings(enable_ai, active_profile_name, profiles_list, key_path)
+        # 刷新自身状态
+        self.__init__()
+
+    def read_paper_file(self, file_path: str) -> str:
+        """读取论文PDF内容"""
+        if not file_path or not os.path.exists(file_path):
             return ""
         
-        category_name = self._get_category_name(paper.category)
-        
-        prompt = f"""请为以下论文生成一个简洁的类比总结（一句话）：
+        try:
+            import pypdf
+        except ImportError:
+            return "[Error: pypdf not installed. Cannot read PDF.]"
+            
+        try:
+            text = ""
+            with open(file_path, 'rb') as f:
+                reader = pypdf.PdfReader(f)
+                # 只读前几页和最后几页以节省token，涵盖摘要、引言和结论
+                num_pages = len(reader.pages)
+                pages_to_read = list(range(min(5, num_pages))) # 前5页
+                if num_pages > 5:
+                    pages_to_read.extend(list(range(max(5, num_pages-5), num_pages))) # 后5页
+                
+                for i in sorted(list(set(pages_to_read))):
+                    text += reader.pages[i].extract_text() + "\n"
+            return text[:15000] # 截断防止过长
+        except Exception as e:
+            return f"[Error reading PDF: {str(e)}]"
 
-论文标题: {paper.title}
-论文分类: {category_name}
-
-要求：
-1. 用一句话概括方法的核心
-2. 适当使用比喻或类比
-3. 保持学术性但易懂
-4. 长度控制在35字以内，能短尽量短
-5. 提示词中前面标有{self.ai_generate_mark}的字段表示由AI生成，未经人类审核，请谨慎参考
-6. 不能出现'|'字符
-7.生成中英双语，先英文再中文，使用{self.translation_separator}字符串分割
-
-"
-示例：
-推测决策：边等边猜，猜对血赚，猜错不亏
-群体智慧：决策小组模式
-一个封闭的新闻传播仿真ABM系统，扮演四种角色，模拟假新闻形成过程
-
-请直接给出总结，不要添加额外说明。"""
-        if paper.abstract:
-            prompt += f"\n论文摘要:\n{paper.abstract}"
-        if paper.summary_motivation and (not str(paper.summary_motivation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文动机:\n{paper.summary_motivation}"
-        if paper.summary_innovation and (not str(paper.summary_innovation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文创新点:\n{paper.summary_innovation}"
-        if paper.summary_method and (not str(paper.summary_method).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文方法:\n{paper.summary_method}"
-        if paper.summary_conclusion and (not str(paper.summary_conclusion).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文结论:\n{paper.summary_conclusion}"
-        if paper.summary_limitation and (not str(paper.summary_limitation).startswith(self.ai_generate_mark)):
-            prompt += f"\n论文局限性:\n{paper.summary_limitation}"
-        
-        response = self._call_api(prompt, max_tokens=100)
-        if response:
-            return f"{self.ai_generate_mark} {response.strip()}"
-        return ""
-    
-    def generate_summary_fields(self, paper: Paper, field: str) -> str:
-        """生成一句话总结的各个字段"""
+    def generate_category(self, paper: Paper, paper_text: str = "") -> Tuple[str, str]:
+        """生成分类建议。返回 (category_unique_name, reasoning/raw_response)"""
         if not self.is_available():
-            return ""
-        
-        category_name = self._get_category_name(paper.category)
-        # 准备论文信息
-        preprompt = f"""
-我在为综述写作收集论文，你需要朝着可供综述直接引用的方向，生成精悍的具体内容
-要求：
-1. 你只是总结分工的一部分，直接给出所要求内容，不要添加任何多余信息，它们由其他人生成
-2. 提示词中前面标有{self.ai_generate_mark}的字段表示由AI生成，未经人类审核，请谨慎参考
-3. 不能出现'|'字符
-4. 生成中英双语，先英文再中文，使用{self.translation_separator}字符串分割
+            return "", "AI Not Available"
 
-
-示例：
-以往研究没有考虑到假新闻存在一个形成过程（如果要求你给出动机）
-将参数优化过程迁移到自然语言空间，利用自然语言的强大能力（如果要求你给出创新点）
-蒸馏教师模型的知识到学生模型中；使用强化学习强化情感分类能力（如果要求你给出方法）
-获得了52%的识别准确率增幅（如果要求你给出结论）
-整个框架所有环节都依赖LLM的固有能力（如果要求你给出局限）
-
-论文标题: {paper.title}
-论文分类: {category_name}
-"""
-        if paper.abstract:
-            preprompt += f"\n论文摘要:\n{paper.abstract}"
-        if paper.summary_motivation and (not str(paper.summary_motivation).startswith(self.ai_generate_mark)):
-            preprompt += f"\n论文动机:\n{paper.summary_motivation}"
-        if paper.summary_innovation and (not str(paper.summary_innovation).startswith(self.ai_generate_mark)):
-            preprompt += f"\n论文创新点:\n{paper.summary_innovation}"
-        if paper.summary_method and (not str(paper.summary_method).startswith(self.ai_generate_mark)):
-            preprompt += f"\n论文方法:\n{paper.summary_method}"
-        if paper.summary_conclusion and (not str(paper.summary_conclusion).startswith(self.ai_generate_mark)):
-            preprompt += f"\n论文结论:\n{paper.summary_conclusion}"
-        if paper.summary_limitation and (not str(paper.summary_limitation).startswith(self.ai_generate_mark)):
-            preprompt += f"\n论文局限性:\n{paper.summary_limitation}"
-
-        # 生成各个字段
-        fields = {}
-        
-        # 1. 目标/动机
-        motivation_prompt = f"""{preprompt}
-
-你的分工：请总结并直接给出这篇论文的研究目标或动机（45字以内，能短尽量短）："""
-        if  field == 'summary_motivation':
-            motivation = self._call_api(motivation_prompt, max_tokens=80)
-            if motivation:
-                return f"{self.ai_generate_mark} {motivation.strip()}"
-        
-        # 2. 创新点
-        innovation_prompt = f"""{preprompt}
-
-你的分工：请总结并直接给出这篇论文的主要创新点，即该论文有什么值得我引用到综述里的（45字以内，能短尽量短）："""
-        if field == 'summary_innovation':
-            innovation = self._call_api(innovation_prompt, max_tokens=80)
-            if innovation:
-                return f"{self.ai_generate_mark} {innovation.strip()}"
-        
-        # 3. 方法精炼
-        method_prompt = f"""{preprompt}
-
-你的分工：请精炼总结并直接给出这篇论文的核心方法（70字以内，能短尽量短）："""
-        if field == 'summary_method':
-            method = self._call_api(method_prompt, max_tokens=80)
-            if method:
-                return f"{self.ai_generate_mark} {method.strip()}"
-        
-        # 4. 简要结论
-        conclusion_prompt = f"""{preprompt}
-
-你的分工：请总结并直接给出这篇论文的主要结论或贡献（45字以内，能短尽量短）："""
-        if field == 'summary_conclusion':
-            conclusion = self._call_api(conclusion_prompt, max_tokens=80)
-            if conclusion:
-                return f"{self.ai_generate_mark} {conclusion.strip()}"
-        
-        # 5. 重要局限/展望
-        limitation_prompt = f"""{preprompt}
-
-你的分工：请总结并直接指出这篇论文的重要局限性或未来工作展望（45字以内，能短尽量短）："""
-        if field == 'summary_limitation':
-            limitation = self._call_api(limitation_prompt, max_tokens=80)
-            if limitation:
-                return f"{self.ai_generate_mark} {limitation.strip()}"
-        
-        return ""
-    
-    def _get_category_name(self, category_unique_name: str) -> str:
-        """根据唯一标识名获取分类显示名"""
-        categories = self.config.get_active_categories()
+        # 构建分类树 Prompt
+        categories = self.config_loader.get_active_categories()
+        cat_prompt = "Available Categories:\n"
         for cat in categories:
-            if cat['unique_name'] == category_unique_name:
-                return cat['name']
-        return category_unique_name
-    
+            desc = cat.get('description', '')
+            cat_prompt += f"- Name: {cat['name']} (ID: {cat['unique_name']}). {desc}\n"
+
+        prompt = f"""Task: Classify the following academic paper into ONE or MORE of the provided categories.
+If the paper fits multiple categories, separate IDs with ';'.
+If it fits none, reply 'Uncategorized' and explain why.
+If the taxonomy needs modification (new category needed), output 'NEW: <suggestion>' and explain.
+If an item can be classified down to the secondary category, there is no need to fill in its corresponding primary category additionally.
+最后翻译所有输出为中文
+
+{cat_prompt}
+
+Paper Title: {paper.title}
+Abstract: {paper.abstract}
+Context: {paper_text[:2000]}
+
+Response Format:
+ID1;ID2
+Reasoning: ...
+"""
+        response = self._call_api(prompt, max_tokens=300)
+        if not response:
+            return "", "API Error"
+            
+        # 简单解析
+        lines = response.strip().split('\n')
+        suggested_cat = lines[0].strip()
+        reasoning = "\n".join(lines[1:])
+        
+        # 验证分类是否存在
+        valid_ids = [c['unique_name'] for c in categories]
+        parts = suggested_cat.split(';')
+        clean_parts = []
+        for p in parts:
+            p = p.replace('ID:', '').replace('id:', '').replace('ID', '').replace('id', '').strip()
+            if p in valid_ids:
+                clean_parts.append(p)
+        
+        final_cat = ";".join(clean_parts)
+        if not final_cat and "Uncategorized" not in suggested_cat and "NEW:" not in suggested_cat:
+             # 如果解析失败，把整个回复当做 reasoning
+             return "", response
+        
+        return final_cat, response
+
+    def generate_field(self, paper: Paper, field: str, paper_text: str = "") -> str:
+        """通用单字段生成"""
+        if not self.is_available(): return ""
+        
+        category_name = self.config_loader.get_category_field(paper.category.split(';')[0], 'name') if paper.category else "General"
+        
+        base_prompt = f"""Paper: {paper.title}
+Category: {category_name}
+Abstract: {paper.abstract}
+Content Snippet: {paper_text[:3000]}
+
+Req: Generate content for field '{field}'.
+Constraint: 
+1. Bilingual (English then Chinese), separated by '{self.translation_separator}'.
+2. Maintain academic rigor while ensuring readability
+3. Concise (under 100 words).
+4. Fields marked with {self.ai_generate_mark} in the prompt are AI-generated and unreviewed by humans, please refer to them cautiously
+"""
+        # 针对特定字段优化 Prompt
+        if field == 'title_translation':
+            prompt = f"Translate title '{paper.title}' to Chinese. Output ONLY the Chinese translation."
+        elif field == 'analogy_summary':
+            prompt = f"""{base_prompt}\nProvide a one-sentence analogy summary (TL;DR). 
+            E.g., Speculative decision-making: Guess while waiting, great gain if correct, no loss if wrong {self.translation_separator} 推测决策：边等边猜，猜对血赚，猜错不亏
+            ;Wisdom of the crowd: Decision-making team model {self.translation_separator} 群体智慧：决策小组模式
+            ;A closed ABM simulation system for news dissemination, simulates fake news formation with four role-playing elements {self.translation_separator} 一个封闭的新闻传播仿真 ABM 系统，扮演四种角色，模拟假新闻形成过程"""
+        else:
+            # 通过 ConfigLoader 在运行时获取该字段的描述（避免直接导入配置模块）
+            try:
+                field_desc = self.config_loader.get_tag_field(field, 'description') or ""
+            except Exception:
+                field_desc = ""
+            prompt = (
+                f"{base_prompt}\nSummarize the {field.replace('summary_', '')}.\n"
+                f"Field Description: {field_desc}"
+            )
+
+        resp = self._call_api(prompt, max_tokens=200)
+        if resp:
+            # 特殊处理 title_translation 不需要标记
+            if field == 'title_translation':
+                 return f"{self.ai_generate_mark} {resp.strip()}"
+            return f"{self.ai_generate_mark} {resp.strip()}"
+        return ""
+
     def _call_api(self, prompt: str, max_tokens: int = 200) -> Optional[str]:
-        """调用DeepSeek API"""
-        if not self.api_key:
+        if not self.active_profile: return None
+        
+        # 优先使用配置中直接填写的 key (如果它是像Key的字符串)
+        source = self.active_profile.get('api_key_source', '')
+        idx = self.get_profile_index(self.active_profile_name)
+        
+        # 1. 尝试通过 ConfigLoader 解析 (支持索引KeyPool, 环境变量, 路径)
+        api_key = self.config_loader.resolve_api_key(idx, source)
+        
+        # 2. 如果 ConfigLoader 没解析出来，且 source 看起来像直接的 Key (非空，无空格，不含路径符)
+        if not api_key and source and len(source) > 10 and os.sep not in source:
+            api_key = source
+
+        if not api_key:
+            print(f"Error: No API Key found for profile '{self.active_profile_name}'")
             return None
+
+        provider = self.active_profile.get('provider', 'deepseek')
+        url = self.active_profile.get('api_url')
+        model = self.active_profile.get('model')
         
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        
+        if provider == 'deepseek' or provider == 'openai_compatible':
+            return self._call_openai_style(api_key, url, model, prompt, max_tokens)
+        elif provider == 'gemini':
+            return self._call_gemini(api_key, model, prompt, max_tokens)
+        return None
+
+    def _call_openai_style(self, api_key, url, model, prompt, max_tokens):
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        # 在 messages 中注入系统提示（system role），再附带用户提示
         payload = {
-            "model": "deepseek-chat",
+            "model": model,
             "messages": [
-                {"role": "system", "content": "你是一个专业的学术助手，擅长总结和翻译学术论文。"},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": max_tokens,
             "temperature": 0.3
         }
-        
-        for attempt in range(self.max_retries):
-            try:
-                response = requests.post(self.api_url, headers=headers, 
-                                       json=payload, timeout=30)
-                response.raise_for_status()
-                
-                data = response.json()
-                return data['choices'][0]['message']['content']
-                
-            except requests.exceptions.RequestException as e:
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_delay)
-                    continue
-                print(f"API调用失败: {e}")
-                return None
-            except (KeyError, IndexError, json.JSONDecodeError) as e:
-                print(f"API响应解析失败: {e}")
-                return None
-        
-        return None
-    
-    def enhance_paper_with_ai(self, paper: Paper) -> Tuple[Paper, bool]:
-        """使用AI增强论文信息"""
-        if not self.is_available():
-            return paper,False 
-        
-        enhanced_paper = Paper.from_dict(asdict(paper))
+        try:
+            # 兼容 DeepSeek 和其他 OpenAI 格式
+            resp = requests.post(url, headers=headers, json=payload, timeout=30)
+            resp.raise_for_status()
+            return resp.json()['choices'][0]['message']['content']
+        except Exception as e:
+            print(f"API Error ({model}): {e}")
+            return None
 
-        is_enhanced=False
-        # 仅在无翻译或有标记已弃用时才覆盖，避免覆盖用户手动填写和ai已经生成的满意总结
-        # 1. 生成标题翻译
-        if not enhanced_paper.title_translation or self.value_deprecation_mark in str(enhanced_paper.title_translation):
-            translation = self.generate_title_translation(enhanced_paper)
-            if translation:
-                enhanced_paper.title_translation = translation
-                is_enhanced=True
-        
-        # 2. 生成类比总结
-        if not enhanced_paper.analogy_summary or self.value_deprecation_mark in str(enhanced_paper.analogy_summary):
-            summary = self.generate_analogy_summary(
-                enhanced_paper
-            )
-            if summary:
-                enhanced_paper.analogy_summary = summary
-                is_enhanced=True
-        
-        # 3. 生成一句话总结字段
-        for field in ['summary_motivation', 'summary_innovation', 'summary_method',
-                      'summary_conclusion', 'summary_limitation']:
-            current_value = getattr(enhanced_paper, field, "")
-            # 仅在字段为空或已由 AI 生成时才覆盖
-            if not current_value or self.value_deprecation_mark in str(current_value):
-                value = self.generate_summary_fields(enhanced_paper, field)
+    def _call_gemini(self, api_key, model, prompt, max_tokens):
+        # Gemini REST API 构建
+        # URL 示例: https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=KEY
+        base_url = "https://generativelanguage.googleapis.com/v1beta/models"
+        final_url = f"{base_url}/{model}:generateContent?key={api_key}"
+        # 将系统提示与用户 prompt 合并，保证 Gemini 也能接收到系统级说明
+        prompt = f"{SYSTEM_PROMPT}\n\n{prompt}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        try:
+            resp = requests.post(final_url, json=payload, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            # 安全获取
+            if 'candidates' in data and data['candidates']:
+                return data['candidates'][0]['content']['parts'][0]['text']
+            return None
+        except Exception as e:
+            print(f"Gemini API Error: {e}")
+            return None
 
-                setattr(enhanced_paper, field, value)
-                is_enhanced=True
+    def enhance_paper_with_ai(self, paper: Paper, paper_text: str = "", fields_to_gen: List[str] = None) -> Tuple[Paper, bool]:
+        is_enhanced = False
+        new_paper = Paper.from_dict(asdict(paper))
         
-        return enhanced_paper,is_enhanced
-    
+        all_ai_fields = ['title_translation', 'analogy_summary', 'summary_motivation', 
+                  'summary_innovation', 'summary_method', 'summary_conclusion', 'summary_limitation']
+        
+        target_fields = fields_to_gen if fields_to_gen else all_ai_fields
+        
+        for f in target_fields:
+            # 如果指定了字段，强制生成；否则仅生成空的或Deprecated的
+            curr = getattr(new_paper, f)
+            if fields_to_gen or (not curr or self.value_deprecation_mark in str(curr)):
+                val = self.generate_field(new_paper, f, paper_text)
+                if val:
+                    setattr(new_paper, f, val)
+                    is_enhanced = True
+        return new_paper, is_enhanced
+
     def batch_enhance_papers(self, papers: List[Paper]) -> Tuple[List[Paper],bool]:
-        """批量增强论文信息"""
+        """批量增强论文信息 (兼容旧接口)"""
         if not self.is_available():
-            return papers,False
-        is_enhanced=False
+            return papers, False
+        is_enhanced = False
         enhanced_papers = []
         for i, paper in enumerate(papers):
             print(f"AI处理论文 {i+1}/{len(papers)}: {paper.title[:50]}...")
             enhanced_paper, _is_enhanced = self.enhance_paper_with_ai(paper)
             if _is_enhanced:
-                is_enhanced=True
+                is_enhanced = True
             enhanced_papers.append(enhanced_paper)
-            # 避免API频率限制
             time.sleep(1)
-        
-        return enhanced_papers,is_enhanced
+        return enhanced_papers, is_enhanced
