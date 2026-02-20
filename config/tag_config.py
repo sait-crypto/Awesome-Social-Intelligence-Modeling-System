@@ -2,8 +2,8 @@
 标签配置文件
 
 重要说明：
-1. variable字段是标签的唯一标识符，一旦设置不可更改
-2. order字段决定标签在Excel中的列位置，必须唯一且不可更改
+1. variable字段是标签的唯一标识符，一旦设置不可更改，它同时也是Paper对象的对应字段名，因此必须符合Python变量命名规范（只能包含字母、数字和下划线，且不能以数字开头）
+2. order字段决定标签在CSV/README中的默认显示顺序
 3. immutable=true的标签是不可更改的，即使enabled=false也会被强制启用，他们往往有独特的处理方式
 4. 修改此文件后需要重启系统才能生效
 5. show_in_readme=false的标签不会出现在README的论文表格中
@@ -11,8 +11,8 @@
 """
 
 TAGS_CONFIG = {
-    "config_version": "3.0",
-    "last_updated": "2026-01-13",
+    "config_version": "4.0",
+    "last_updated": "2026-02-15",
     
     # 标签列表，按order排序
     "tags": [
@@ -47,6 +47,21 @@ TAGS_CONFIG = {
             "system_var": False,            #控制字段，为真时只在数据库中显示               
         },
         {
+            "variable": "title_translation",
+            "order": 13,
+            "table_name": "title translation",
+            "display_name": "标题翻译",
+            "description": "可以忽略，中文标题翻译",
+            "type": "string",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": False,
+            "required": False,         
+            "system_var": False,            #控制字段，为真时只在数据库中显示               
+
+        },
+        {
             "variable": "authors",          # 不可更改
             "order": 2,                     # 不可更改，必须是2
             "table_name": "authors",
@@ -57,7 +72,7 @@ TAGS_CONFIG = {
             "show_in_readme": True,
             "enabled": True,
             "immutable": True,
-            "required": False,               # 必须填写
+            "required": True,               # 必须填写
             "system_var": False,            #控制字段，为真时只在数据库中显示               
 
         },
@@ -214,21 +229,7 @@ TAGS_CONFIG = {
 
         },
     # ==================== 可禁用标签 (immutable=false) ====================
-        {
-            "variable": "title_translation",
-            "order": 13,
-            "table_name": "title translation",
-            "display_name": "标题翻译",
-            "description": "可以忽略，中文标题翻译",
-            "type": "string",
-            "validation": None,
-            "show_in_readme": False,
-            "enabled": True,
-            "immutable": False,
-            "required": False,         
-            "system_var": False,            #控制字段，为真时只在数据库中显示               
 
-        },
         {
             "variable": "analogy_summary",
             "order": 14,
@@ -250,8 +251,8 @@ TAGS_CONFIG = {
             "order": 15,
             "table_name": "pipeline figure",
             "display_name": "Pipeline图",
-            "description": "请将引用图片放到figures文件夹下，在此填写图片全名或相对路径（带后缀）建议以论文/方法简写命名；多张图片可用`;`或`；`分隔，最多3张。例：BECE-1.png;BECE-2.png",  #直接在readme的论文列表中根据路径显示图片
-            "type": "string",
+            "description": "拖动/打开/粘贴/填写文件,或将引用图片放到figures文件夹下，在此填写图片全名（带后缀）建议以论文/方法简写命名；用,分割",  #直接在readme的论文列表中根据路径显示图片
+            "type": "file[]",
             "validation": None,
             "show_in_readme": True,
             "enabled": True,
@@ -259,6 +260,21 @@ TAGS_CONFIG = {
             "required": False,       
             "system_var": False,            #控制字段，为真时只在数据库中显示               
 
+        },
+        
+        {
+            "variable": "paper_file",
+            "order": 23,
+            "table_name": "paper file",
+            "display_name": "论文文件",
+            "description": "拖动/打开/填写文件,或将本地论文PDF放到papers文件夹下，在此填写文件全名（带后缀）",  #直接在readme的论文列表中根据路径显示图片
+            "type": "file",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": False,
+            "required": False,
+            "system_var": False,
         },
         {
             "variable": "abstract",
@@ -305,6 +321,37 @@ TAGS_CONFIG = {
             "system_var": False,            #控制字段，为真时只在数据库中显示               
 
         },
+        {
+            "variable": "status",
+            "order": 20,
+            "table_name": "status",
+            "display_name": "阅读状态",
+            "description": "论文的阅读状态", #unread，reading、done、adopted、skimmed
+            "type": "enum",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": False,
+            "required": False,              
+            "system_var": False,            #控制字段，为真时只在数据库中显示               
+
+        },
+        #占位符论文发生冲突事件时无脑将其替换（暂未实现），需要在更新流程中可见，
+        {
+            "variable": "is_placeholder",
+            "order": 22,
+            "table_name": "is placeholder",
+            "display_name": "is placeholder",
+            "description": "该论文是否为占位符论文（用于1.测试；2.暂时占位，后续待完善信息）",
+            "type": "bool",
+            "validation": None,
+            "show_in_readme": False,
+            "enabled": True,
+            "immutable": True,
+            "required": False,     #默认为False，对于空值会被自动填充为False
+            "system_var": False,                    
+        },
+        
         # ==================== 数据库内部控制标签，不供提交时手动填写，供系统使用!! ====================
         {
             "variable": "show_in_readme",
@@ -319,21 +366,6 @@ TAGS_CONFIG = {
             "immutable": True,
             "required": False,             
             "system_var": True,            #控制字段，为真时只在数据库中显示               
-
-        },
-        {
-            "variable": "status",
-            "order": 20,
-            "table_name": "status",
-            "display_name": "阅读状态",
-            "description": "论文的阅读状态", #unread，reading、done、adopted、skimmed
-            "type": "enum",
-            "validation": None,
-            "show_in_readme": False,
-            "enabled": True,
-            "immutable": False,
-            "required": False,              
-            "system_var": False,            #控制字段，为真时只在数据库中显示               
 
         },
 
@@ -353,10 +385,10 @@ TAGS_CONFIG = {
         },
         {
             "variable": "conflict_marker",
-            "order": 22,
+            "order": 25,
             "table_name": "conflict marker",
             "display_name": "conflict marker",
-            "description": "冲突标记",
+            "description": "冲突标志",
             "type": "bool",
             "validation": None,
             "show_in_readme": False,
@@ -367,11 +399,11 @@ TAGS_CONFIG = {
         },
         {
             "variable": "invalid_fields",
-            "order": 22,
+            "order": 26,
             "table_name": "invalid fields",
             "display_name": "invalid fields",
-            "description": "该论文哪些字段不规范，需要人工审核",
-            "type": "string",
+            "description": "该论文哪些字段不规范，需要人工审核；值为tag variable列表，CSV中使用|分隔，JSON中使用数组",
+            "type": "string[]",
             "validation": None,
             "show_in_readme": False,
             "enabled": True,
@@ -379,51 +411,20 @@ TAGS_CONFIG = {
             "required": False,     
             "system_var": True,                     
         },
-        #占位符论文发生冲突事件时无脑将其替换（暂未实现），需要在更新流程中可见，
         {
-            "variable": "is_placeholder",
-            "order": 22,
-            "table_name": "is placeholder",
-            "display_name": "is placeholder",
-            "description": "该论文是否为占位符论文（用于1.测试；2.暂时占位，后续待完善信息）",
-            "type": "bool",
-            "validation": None,
-            "show_in_readme": False,
-            "enabled": False,
-            "immutable": True,
-            "required": False,     #默认为False，对于空值会被自动填充为False
-            "system_var": False,                    
-        },
-        # {
-        #     "variable": "is_placeholder",
-        #     "order": 22,
-        #     "table_name": "is placeholder",
-        #     "display_name": "is placeholder",
-        #     "description": "该论文是否为占位符论文（用于1.测试；2.暂时占位，后续待完善信息）",
-        #     "type": "bool",
-        #     "validation": None,
-        #     "show_in_readme": False,
-        #     "enabled": False,#暂未实现功能
-        #     "immutable": True,
-        #     "required": True,     #默认为False，对于空值会被自动填充为False
-        #     "system_var": True,            #控制字段，为真时只在数据库中显示           
-        # },
-        {
-            "variable": "paper_file",
-            "order": 23,
-            "table_name": "paper file",
-            "display_name": "论文文件",
-            "description": "本地论文PDF路径(papers/下)",
+            "variable": "uid",  # 唯一资源ID，用于关联 assets/{uid} 文件夹
+            "order": 24,
+            "table_name": "UID",
+            "display_name": "UID",
+            "description": "系统生成的唯一ID，用于关联资源文件",
             "type": "string",
-            "validation": None,
             "show_in_readme": False,
             "enabled": True,
-            "immutable": False,
+            "immutable": True,
             "required": False,
-            "system_var": False,
+            "system_var": True,
         },
 
-        #需要将逻辑调整为类似category_config的结构，通过唯一名称识别，variable和table_name合并，order变为可以自由调整的项（更新时自动）
     ]
 }
 
@@ -472,17 +473,17 @@ def validate_tags_config():
             errors.append(f"order {i} 缺失")
     
     # 检查variable唯一性
-    variables = {}
+    ids = {}
     for tag in TAGS_CONFIG["tags"]:
         var = tag.get("variable")
         if var is None:
             errors.append(f"标签缺少variable字段: {tag}")
             continue
             
-        if var in variables:
+        if var in ids:
             errors.append(f"variable {var} 重复")
         else:
-            variables[var] = True
+            ids[var] = True
     
     # 检查immutable标签的enabled设置
     for tag in TAGS_CONFIG["tags"]:

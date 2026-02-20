@@ -122,9 +122,9 @@ class AIGenerator:
                 reader = pypdf.PdfReader(f)
                 # 只读前几页和最后几页以节省token，涵盖摘要、引言和结论
                 num_pages = len(reader.pages)
-                pages_to_read = list(range(min(5, num_pages))) # 前5页
-                if num_pages > 5:
-                    pages_to_read.extend(list(range(max(5, num_pages-5), num_pages))) # 后5页
+                pages_to_read = list(range(min(15, num_pages))) # 前15页
+                if num_pages > 10:
+                    pages_to_read.extend(list(range(max(10, num_pages-10), num_pages))) # 后10页
                 
                 for i in sorted(list(set(pages_to_read))):
                     text += reader.pages[i].extract_text() + "\n"
@@ -158,7 +158,7 @@ Abstract: {paper.abstract}
 Context: {paper_text[:2000]}
 
 Response Format:
-ID1;ID2
+ID1|ID2
 Reasoning: ...
 """
         response = self._call_api(prompt, max_tokens=300)
@@ -172,14 +172,14 @@ Reasoning: ...
         
         # 验证分类是否存在
         valid_ids = [c['unique_name'] for c in categories]
-        parts = suggested_cat.split(';')
+        parts = suggested_cat.split('|')
         clean_parts = []
         for p in parts:
             p = p.replace('ID:', '').replace('id:', '').replace('ID', '').replace('id', '').strip()
             if p in valid_ids:
                 clean_parts.append(p)
         
-        final_cat = ";".join(clean_parts)
+        final_cat = "|".join(clean_parts)
         if not final_cat and "Uncategorized" not in suggested_cat and "NEW:" not in suggested_cat:
              # 如果解析失败，把整个回复当做 reasoning
              return "", response
@@ -190,7 +190,7 @@ Reasoning: ...
         """通用单字段生成"""
         if not self.is_available(): return ""
         
-        category_name = self.config_loader.get_category_field(paper.category.split(';')[0], 'name') if paper.category else "General"
+        category_name = self.config_loader.get_category_field(paper.category.split('|')[0], 'name') if paper.category else "General"
         
         base_prompt = f"""Paper: {paper.title}
 Category: {category_name}

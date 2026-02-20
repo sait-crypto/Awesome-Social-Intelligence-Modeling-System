@@ -6,6 +6,8 @@ import shutil
 import os
 import re
 import json
+import hashlib
+import uuid
 from typing import List, Dict, Any, Optional,Tuple
 from datetime import datetime
 from pathlib import Path
@@ -273,49 +275,48 @@ def validate_date(date_str: Any) -> Tuple[bool, str]:
         return (False, original_val)
 
 
-def validate_invalid_fields(invalid_fields: str) -> Tuple[bool, str]:
+def validate_invalid_fields(invalid_fields: str, allowed_variables=None) -> Tuple[bool, str]:
     """
     验证 invalid_fields 字段
-    invalid_fields 是逗号或中文逗号分隔的字段 order 列表，每个都应该是非负整数（>= 0）
+    invalid_fields 是以 | 分隔的 tag variable 列表（JSON中可对应为字符串数组）
     
     流程：
     1. 如果为空，返回有效
-    2. 按 , 或 ， 分割
-    3. 验证每个部分是否都是非负整数
+    2. 按 | 分割
+    3. 验证每个部分是否是合法变量名
+    4. 若提供 allowed_variables，则每项必须在允许集合中
     4. 返回验证结果和错误信息
     
     参数:
-        invalid_fields: 逗号分隔的字段order列表
+        invalid_fields: | 分隔的字段 variable 列表
+        allowed_variables: 可选，允许的字段 variable 集合/列表
     
     返回: (是否有效, 错误信息)
     """
     if not invalid_fields or str(invalid_fields).strip() == "":
         return (True, "")
     
-    invalid_fields_str = str(invalid_fields).strip()
-    
-    # 使用正则表达式按 , 或 ， 分割
-    parts = re.split(r'[,，]', invalid_fields_str)
-    
-    # 过滤空字符串
-    parts = [p.strip() for p in parts if p.strip()]
+    if isinstance(invalid_fields, list):
+        parts = [str(p).strip() for p in invalid_fields if str(p).strip()]
+    else:
+        invalid_fields_str = str(invalid_fields).strip()
+        parts = [p.strip() for p in invalid_fields_str.split('|') if p.strip()]
     
     if not parts:
         return (True, "")
-    
-    # 验证每个部分是否都是非负整数
+
+    allowed_set = None
+    if allowed_variables is not None:
+        allowed_set = {str(v).strip() for v in allowed_variables if str(v).strip()}
+
+    var_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+    # 验证每个部分是否都是合法变量名
     for part in parts:
-        # 检查是否全是数字
-        if not part.isdigit():
-            return (False, f"invalid_fields 中含有非整数值: '{part}'（应该是非负整数）")
-        
-        # 检查是否是非负整数（即 >= 0）
-        try:
-            value = int(part)
-            if value < 0:
-                return (False, f"invalid_fields 中含有负数: {value}（应该是非负整数）")
-        except ValueError:
-            return (False, f"invalid_fields 中含有无法转换为整数的值: '{part}'")
+        if not var_pattern.match(part):
+            return (False, f"invalid_fields 中含有非法字段名: '{part}'（应为合法 variable）")
+        if allowed_set is not None and part not in allowed_set:
+            return (False, f"invalid_fields 中字段不存在于当前 tag 配置: '{part}'")
     
     return (True, "")
 
@@ -367,6 +368,20 @@ def truncate_text(text: str, max_length: int, ellipsis: str = "...") -> str:
 def get_current_timestamp() -> str:
     """获取当前时间戳"""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def generate_paper_uid(title: str, doi: str, length: int = 8) -> str:
+    """
+    根据论文的 title 和 doi 生成一个稳定的短 UID（默认 8 字符十六进制）
+    如果 title 和 doi 都为空，则回退为短 UUID
+    """
+    t = (title or "").strip()
+    d = (doi or "").strip()
+    key = f"{t}|{d}"
+    if not t and not d:
+        return str(uuid.uuid4())[:length]
+    h = hashlib.sha1(key.encode('utf-8')).hexdigest()
+    return h[:length]
 
 
 def compare_papers(paper1: Dict, paper2: Dict, key_fields: List[str] = None) -> List[str]:
@@ -474,78 +489,6 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-def validate_figure(path: str, figure_dir: str) -> bool:
-    """
-    验证 pipeline 图像路径/文件名是否合法：
-    - 扩展名必须是 .jpg/.jpeg/.png
-    - 必须为相对路径，且位于 figure_dir 下（如果给的是带目录的路径）
-    - 当只给文件名时视为有效（后续会补全为 figure_dir/filename）
-    
-    注意：这里只验证格式和位置，不验证文件是否存在
-    """
-    if not path or not str(path).strip():
-        return False
-    
-    path_s = str(path).strip()
-    
-    # 检查文件扩展名
-    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'}
-    ext = os.path.splitext(path_s)[1].lower()
-    if ext not in valid_extensions:
-        return False
-    
-    # 规范化路径，确保使用正斜杠
-    path_s = path_s.replace('\\', '/')
-    
-    # 如果只是文件名（不包含路径分隔符），直接返回True
-    if '/' not in path_s:
-        return True
-    
-    # 如果包含路径，检查是否在figure_dir下
-    # 规范化figure_dir
-    fig_dir_norm = figure_dir.replace('\\', '/').rstrip('/')
-    
-    # 检查路径是否以figure_dir开头
-    if not path_s.startswith(fig_dir_norm + '/'):
-        return False
-    
-    return True
-
-
-def normalize_figure_path(path: str, figure_dir: str) -> str:
-    """
-    把用户输入的图像名/路径规范为相对于仓库根的路径（使用正斜杠）。
-    - 若仅是文件名：返回 figure_dir/filename
-    - 若已有路径且以 figure_dir 开头：返回规范化的路径
-    - 若已有路径但不以 figure_dir 开头：提取文件名并放到 figure_dir 下
-    
-    注意：这里不验证文件是否存在，只做路径规范化
-    """
-    if not path or not str(path).strip():
-        return ""
-    
-    path_s = str(path).strip()
-    
-    # 统一使用正斜杠
-    path_s = path_s.replace('\\', '/')
-    fig_dir_norm = figure_dir.replace('\\', '/').rstrip('/')
-    
-    # 如果只是文件名（不包含路径分隔符），添加figure_dir前缀
-    if '/' not in path_s and '\\' not in path_s:
-        return f"{fig_dir_norm}/{path_s}"
-    
-    # 如果已经以figure_dir开头，直接返回规范化的路径
-    if path_s.startswith(fig_dir_norm + '/'):
-        # 确保只有一个figure_dir前缀
-        parts = path_s.split('/')
-        if parts[0] == fig_dir_norm:
-            return path_s
-        else:
-            # 如果figure_dir包含多级目录，需要特殊处理
-            return f"{fig_dir_norm}/{os.path.basename(path_s)}"
-    
-    # 其他情况：提取文件名并放到figure_dir下
-    return f"{fig_dir_norm}/{os.path.basename(path_s)}"
 
 
 

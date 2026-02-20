@@ -267,10 +267,24 @@ class ConfigLoader:
     
     def get_active_categories(self) -> List[Dict[str, Any]]:
         """获取所有启用的分类"""
+        # 返回按 order 排序的启用分类。当 order 值重复时，保持配置中出现的原始顺序。
+        raw = self.categories_config.get('categories', []) or []
         active_categories = []
-        for category in self.categories_config.get('categories', []):
+        for idx, category in enumerate(raw):
             if category.get('enabled', True):
-                active_categories.append(category)
+                # 附加原始索引，便于稳定排序时作为次级键
+                cat = dict(category)
+                cat['_original_index'] = idx
+                active_categories.append(cat)
+
+        # 使用 tuple(key_order, original_index) 进行排序，保证当 order 相同时保持原始出现顺序
+        active_categories.sort(key=lambda c: (c.get('order', 0), c.get('_original_index', 0)))
+
+        # 在返回前移除内部使用的临时字段
+        for c in active_categories:
+            if '_original_index' in c:
+                del c['_original_index']
+
         return active_categories
     
     def get_tag_by_variable(self, variable: str) -> Optional[Dict[str, Any]]:

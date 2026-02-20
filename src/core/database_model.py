@@ -1,19 +1,14 @@
-
-
 """
 数据库模型
 定义论文数据模型
-该脚本不应使用任何非基础第三方包，以供submit_gui调用
 """
 from dataclasses import dataclass, field, asdict, fields
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
-import hashlib
 import sys
 import os
 import re
 
-from src.core.config_loader import get_config_instance
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
@@ -21,15 +16,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 # 导入工具函数
 from src.utils import (
     validate_url, validate_doi, clean_doi, format_authors,
-    validate_authors, normalize_pipeline_image, validate_pipeline_image,validate_date,
-    get_current_timestamp, validate_invalid_fields
+    validate_authors, validate_date, validate_invalid_fields
 )
 
+from src.core.config_loader import get_config_instance
 
 @dataclass
 class Paper:
     """论文数据模型"""
     
+    # 唯一资源标识符 (New)
+    uid: str = ""
+
     # 基础信息
     doi: str = ""
     title: str = ""
@@ -64,7 +62,7 @@ class Paper:
     status: str = ""  # "" "unread" "reading" "done" "adopted"
     submission_time: str = ""
     conflict_marker: bool = False
-    # 验证相关字段：记录不规范字段的 order 列表（逗号分隔）
+    # 验证相关字段：记录不规范字段的 variable 列表（| 分隔）
     invalid_fields: str = ""
     is_placeholder: bool = False  # 占位符标记，用于表示存在但填写不完整的论文条目
     
@@ -80,11 +78,6 @@ class Paper:
         self.doi = clean_doi(self.doi, conflict_marker) if self.doi else ""
         self.authors = format_authors(self.authors) if self.authors else ""
         
-        # 规范化pipeline_image
-        if self.pipeline_image:
-            figure_dir = config.settings['paths'].get('figure_dir', 'figures')
-            self.pipeline_image = normalize_pipeline_image(self.pipeline_image, figure_dir)
-
         # 规范化 Date (Publish Date)
         if self.date:
             _, normalized_date = validate_date(self.date)
@@ -144,6 +137,7 @@ class Paper:
         conflict_marker = config_instance.settings['database'].get('conflict_marker')
         required_tags = config_instance.get_required_tags() if check_required else []
         active_tags = config_instance.get_active_tags()
+        project_root = config_instance.project_root
         
         # 0. 辅助函数：判断是否需要验证当前字段
         def should_check(var_name):
@@ -160,47 +154,51 @@ class Paper:
         
         if should_check('category'):
             try:
-                raw_cat = str(temp_category) if temp_category else ""
-                # 使用 update_file_utils 的方法进行统一规范化（若可用）
-                normalized_cat = raw_cat
-                try:
-                    from src.core.update_file_utils import UpdateFileUtils
-                    ufu = UpdateFileUtils()
-                    normalized_cat = ufu.normalize_category_value(raw_cat, config_instance)
-                except Exception:
-                    # 回退实现
-                    parts = [p.strip() for p in re.split(r'[;；]', raw_cat) if p.strip()]
-                    seen = set()
-                    out = []
-                    try:
-                        max_allowed = int(config_instance.settings['database'].get('max_categories_per_paper', 4))
-                    except Exception:
-                        max_allowed = 4
-                    for part in parts:
-                        cat = config_instance.get_category_by_name_or_unique_name(part)
-                        uname = cat.get('unique_name') if cat else part
-                        if uname not in seen:
-                            seen.add(uname)
-                            out.append(uname)
-                        if len(out) >= max_allowed:
-                            break
-                    normalized_cat = ";".join(out)
-                
-                # 如果不是纯验证模式，回写
+                from src.core.update_file_utils import get_update_file_utils
+                ufu = get_update_file_utils()
+                normalized_cat = ufu.normalize_category_value(str(temp_category), config_instance)
                 if not no_normalize:
                     self.category = normalized_cat
                 else:
-                    # 验证模式下使用规范化后的值进行后续检查（如重复检查）
                     temp_category = normalized_cat
-            except Exception:
-                pass
-        
+            except Exception: pass
+
+        # === 资源字段统一验证 + 规范化 (Assets) ===
+        target_asset_fields = [
+            f for f in ['pipeline_image', 'paper_file']
+            if should_check(f)
+        ]
+        if target_asset_fields:
+            from src.core.update_file_utils import get_update_file_utils
+            ufu = get_update_file_utils()
+
+            asset_valid, asset_errors = ufu.validate_and_normalize_asset_fields(
+                self,
+                target_asset_fields,
+                normalize=(not no_normalize),
+                strict=True,
+            )
+            if not asset_valid:
+                errors.extend(asset_errors)
+                for msg in asset_errors:
+                    for asset_field in target_asset_fields:
+                        if msg.startswith(f"{asset_field} "):
+                            invalid_vars.add(asset_field)
+
         # 1. 特殊字段验证
         
         # 验证 invalid_fields 字段格式
         if should_check('invalid_fields'):
             if self.invalid_fields:
-                invalid_fields_valid, invalid_fields_error = validate_invalid_fields(self.invalid_fields)
+                allowed_vars = {
+                    str(tag.get('variable')).strip()
+                    for tag in active_tags
+                    if tag.get('variable')
+                }
+                invalid_fields_valid, invalid_fields_error = validate_invalid_fields(
+                    self.invalid_fields,
+                    allowed_variables=allowed_vars,
+                )
                 if not invalid_fields_valid:
                     errors.append(f"invalid_fields 字段格式无效: {invalid_fields_error}")
                     invalid_vars.add('invalid_fields')
@@ -227,45 +225,6 @@ class Paper:
                 elif not no_normalize:
                     self.authors = formatted_authors
         
-        # Pipeline图片验证
-        if should_check('pipeline_image'):
-            if self.pipeline_image:
-                figure_dir = config_instance.settings['paths'].get('figure_dir', 'figures')
-                pipeline_valid, normalized_path = validate_pipeline_image(self.pipeline_image, figure_dir)
-                if not pipeline_valid and check_non_empty:
-                    errors.append(f"Pipeline图片格式无效: {self.pipeline_image}")
-                    invalid_vars.add('pipeline_image')
-                elif pipeline_valid:
-                    if not no_normalize:
-                        self.pipeline_image = normalized_path
-        # 验证 paper_file
-        if should_check('paper_file'):
-            if self.paper_file:
-                paper_dir = config_instance.settings['paths'].get('paper_dir', 'assets/papers/')
-                # 复用 image 的路径规范化逻辑 (因为逻辑是一样的：相对路径 check)
-                is_valid, normalized_path = validate_pipeline_image(self.paper_file, paper_dir) 
-                # 注意：validate_pipeline_image 会检查图片后缀，这里我们需要忽略后缀检查或者使用通用路径检查
-                # 这里暂时简单检查是否在目录下
-                from src.utils import normalize_figure_path
-                normalized = normalize_figure_path(self.paper_file, paper_dir)
-                # 简单验证：必须是相对路径且在目录下
-                if ".." in normalized or normalized.startswith("/"): # Basic check
-                     pass # 实际上 normalize_figure_path 已经处理了大部分
-                
-                if not no_normalize:
-                    self.paper_file = normalized
-        
-        # URL验证
-        if should_check('paper_url'):
-            if self.paper_url and not validate_url(self.paper_url) and check_non_empty:
-                errors.append(f"论文链接格式无效: {self.paper_url}")
-                invalid_vars.add('paper_url')
-        
-        if should_check('project_url'):
-            if self.project_url and not validate_url(self.project_url) and check_non_empty:
-                errors.append(f"项目链接格式无效: {self.project_url}")
-                invalid_vars.add('project_url')
-        
         # 日期验证
         if should_check('date'):
             if self.date:
@@ -275,17 +234,31 @@ class Paper:
                     invalid_vars.add('date')
                 elif not no_normalize:
                     self.date = formatted_date
+
+        # URL 验证
+        for url_field in ['paper_url', 'project_url']:
+            if should_check(url_field):
+                val = getattr(self, url_field, "")
+                if val and not validate_url(val) and check_non_empty:
+                    errors.append(f"{url_field} 格式无效")
+                    invalid_vars.add(url_field)
                 
+
+        # === 必填与非空检查 ===
+        current_cat_val = temp_category if no_normalize else self.category
+
         # 2. 必填字段检查
         if check_required:
             for tag in required_tags:
-                var_name = tag['variable']
+                var_name = tag.get('variable')
+                if not var_name:
+                    continue
                 if not should_check(var_name):
                     continue
                     
                 display_name = tag.get('display_name', var_name)
                 # 使用 self 中的值 (注意 category 可能在 temp_category 中)
-                value = temp_category if var_name == 'category' and no_normalize else getattr(self, var_name, "")
+                value = current_cat_val if var_name == 'category' else getattr(self, var_name, "")
                 
                 # 在验证前忽略 conflict_marker
                 try:
@@ -301,7 +274,9 @@ class Paper:
         # 3. 非空字段检查（类型验证和validation字段验证）
         if check_non_empty:
             for tag in active_tags:
-                var_name = tag['variable']
+                var_name = tag.get('variable')
+                if not var_name:
+                    continue
                 if not should_check(var_name):
                     continue
                     
@@ -309,7 +284,7 @@ class Paper:
                 tag_type = tag.get('type', 'string')
                 validation_pattern = tag.get('validation')
                 
-                value = temp_category if var_name == 'category' and no_normalize else getattr(self, var_name, "")
+                value = current_cat_val if var_name == 'category' else getattr(self, var_name, "")
                 
                 # 跳过空值（除非是必填字段，已经在上面检查过了）
                 try:
@@ -327,10 +302,10 @@ class Paper:
                         errors.append(f"字段类型不匹配: {display_name} 应为布尔值")
                         invalid_vars.add(var_name)
                 elif (str(tag_type).startswith('enum')) and var_name == 'category':
-                    # 支持多分类，先按 ';' 分割
+                    # 支持多分类，按 '|' 分割
                     val_str = str(value)
                     try:
-                        parts = [p.strip() for p in re.split(r'[;；]', val_str) if p.strip()]
+                        parts = [p.strip() for p in val_str.split('|') if p.strip()]
                     except Exception:
                         parts = [val_str.strip()]
 
@@ -381,45 +356,41 @@ class Paper:
         # 处理 invalid_fields 字段更新
         # 仅当 no_normalize=False (即允许更新对象状态) 时，才更新 self.invalid_fields
         if not no_normalize:
-            # 准备映射：变量名 -> Order
-            var_to_order = {}
+            # 准备映射：按配置顺序的变量列表
+            ordered_vars = []
             for tag in active_tags:
                 var = tag.get('variable')
-                order = tag.get('order')
-                if var is not None and order is not None:
-                    var_to_order[var] = str(order)
+                if var:
+                    ordered_vars.append(str(var).strip())
+            valid_var_set = set(ordered_vars)
 
-            # 解析当前的 invalid_fields
-            current_invalid_orders = set()
+            # 解析当前的 invalid_fields（仅保留已知 variable）
+            current_invalid_vars = set()
             if self.invalid_fields:
-                parts = str(self.invalid_fields).split(',')
+                parts = [p.strip() for p in str(self.invalid_fields).split('|') if p.strip()]
                 for p in parts:
-                    if p.strip():
-                        current_invalid_orders.add(p.strip())
+                    if p in valid_var_set:
+                        current_invalid_vars.add(p)
 
             if variable is None:
-                # 全量验证模式：重置 invalid_fields 为当前 invalid_vars 对应的 order
-                orders = []
-                for v in sorted(invalid_vars):
-                    if v in var_to_order:
-                        orders.append(var_to_order[v])
-                self.invalid_fields = ",".join(orders)
+                # 全量验证模式：重置 invalid_fields 为当前 invalid_vars 对应的 variable
+                vars_out = [v for v in ordered_vars if v in invalid_vars]
+                self.invalid_fields = '|'.join(vars_out)
             else:
                 # 单字段验证模式：更新当前字段的状态
-                target_order = var_to_order.get(variable)
-                if target_order:
+                target_var = str(variable).strip() if variable else ''
+                if target_var and target_var in valid_var_set:
                     if variable in invalid_vars:
-                        # 验证失败，添加 order
-                        current_invalid_orders.add(target_order)
+                        # 验证失败，添加 variable
+                        current_invalid_vars.add(target_var)
                     else:
-                        # 验证通过，移除 order
-                        if target_order in current_invalid_orders:
-                            current_invalid_orders.remove(target_order)
-                    
-                    # 重新生成字符串，保持排序以便一致性
-                    # 将字符串转int排序再转回str
-                    sorted_orders = sorted(current_invalid_orders, key=lambda x: int(x) if x.isdigit() else 0)
-                    self.invalid_fields = ",".join(sorted_orders)
+                        # 验证通过，移除 variable
+                        if target_var in current_invalid_vars:
+                            current_invalid_vars.remove(target_var)
+
+                    # 重新生成字符串，保持与配置顺序一致
+                    sorted_vars = [v for v in ordered_vars if v in current_invalid_vars]
+                    self.invalid_fields = '|'.join(sorted_vars)
 
         return (len(errors) == 0, errors, list(invalid_vars))
         
@@ -440,6 +411,7 @@ class Paper:
             no_normalize=False # 默认保持原行为，更新对象
         )
         return errors
+    
 
 
 # Paper对象间级方法
@@ -486,10 +458,15 @@ def _papers_fields_equal(new: Union[Paper, Dict[str, Any]], exist: Union[Paper, 
     
     比较 DOI 时会忽略 conflict_marker。
     """
-    conflict_marker = get_config_instance().settings['database'].get('conflict_marker','')
     if ignore_fields is None:
         system_tags=get_config_instance().get_system_tags()
-        ignore_fields = [t["variable"] for t in system_tags]
+        ignore_fields = [
+            t["variable"]
+            for t in system_tags
+            if isinstance(t.get("variable"), str) and t.get("variable")
+        ]
+    else:
+        ignore_fields = list(ignore_fields)
 
     if isinstance(new, Paper):
         a_dict = new.to_dict()
@@ -590,7 +567,9 @@ def is_duplicate_paper(existing_papers: List[Paper], new_paper: Paper,complete_c
         return False,''
     first_conflict_field = ''
     for ex in same_identity_entries:
-        equal,first_conflict_field = _papers_fields_equal(ex, new_paper,complete_compare)
+        # _papers_fields_equal 的签名为 (new, exist, ...)
+        # 这里应将新提交的论文放在第一个参数，已有条目放在第二个参数
+        equal,first_conflict_field = _papers_fields_equal(new_paper, ex, complete_compare)
         if equal:
             return True,''
     return False,first_conflict_field
