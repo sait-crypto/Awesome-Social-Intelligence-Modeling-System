@@ -7,7 +7,6 @@ import os
 import sys
 import re
 import copy
-import configparser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, scrolledtext, simpledialog
 from typing import Dict, List, Any, Optional, Tuple
@@ -59,12 +58,16 @@ class PaperSubmissionGUI:
         self.style.map('Required.TCombobox', fieldbackground=[('readonly', self.color_required_empty)])
         self.style.configure("Conflict.Treeview", background=self.color_conflict)
         self.style.configure('NeedsConfirm.TButton', foreground="#0D9ABA")
+        self.style.configure('SearchHit.TLabel', foreground="#B54708")
+
+        self._default_status_values = ['unread', 'reading', 'done', 'skimmed', 'other person','adopted', 'rejected']
+        self._search_hit_fields_by_real_idx: Dict[int, set] = {}
 
         try:
             pipeline_cfg_max = int(self.settings['database'].get('max_pipeline_images_per_paper', 4))
         except Exception:
             pipeline_cfg_max = 4
-        self._gui_pipeline_max = max(1, min(pipeline_cfg_max, 6))
+        self._gui_pipeline_max = max(1, min(pipeline_cfg_max, 6)) # 硬限制最大不超过6，避免界面过于复杂
 
         self._suppress_select_event = False
         self._handling_paper_selection = False
@@ -88,8 +91,20 @@ class PaperSubmissionGUI:
         }
 
         self._field_vars: Dict[str, Any] = {}
+        self.field_labels: Dict[str, ttk.Label] = {}
+        self._search_fields_popup: Optional[tk.Toplevel] = None
+        self._search_field_vars: Dict[str, tk.BooleanVar] = {}
+        self._selected_category_filter = ""
+        self._category_sidebar_visible = False
+        self._updating_category_filter_tree = False
+        self._init_keyword_field_filter_config()
+        self._init_list_column_config()
+        self._list_columns_popup: Optional[tk.Toplevel] = None
+        self._list_sort_column: Optional[str] = None
+        self._list_sort_desc: bool = False
 
         self.setup_ui()
+        self._bind_shortcuts()
         
         # 检查管理员状态并更新UI
         self._update_admin_ui_state()
@@ -100,6 +115,311 @@ class PaperSubmissionGUI:
         
         self.tooltip = None
         self.show_placeholder()
+
+    def _init_keyword_field_filter_config(self):
+        self._keyword_field_options = [
+            'title',
+            'title_translation',
+            'abstract',
+            'doi',
+            'authors',
+            'date',
+            'summary_motivation',
+            'summary_innovation',
+            'summary_method',
+            'summary_conclusion',
+            'summary_limitation',
+            'conference',
+            'analogy_summary',
+            'contributor',
+            'notes',
+        ]
+        self._keyword_field_name_map = {}
+        for variable in self._keyword_field_options:
+            tag = self.config.get_tag_by_variable(variable) or {}
+            self._keyword_field_name_map[variable] = tag.get('display_name', variable)
+        self._keyword_default_fields = {'title', 'title_translation', 'abstract'}
+
+    def _get_status_values(self) -> List[str]:
+        status_tag = self.config.get_tag_by_variable('status') or {}
+        values = status_tag.get('options') or []
+        if isinstance(values, list) and values:
+            return [str(v).strip() for v in values if str(v).strip()]
+        return list(self._default_status_values)
+
+    def _get_selected_keyword_fields(self) -> List[str]:
+        return [k for k, v in self._search_field_vars.items() if v.get()]
+
+    def _get_status_filter_value(self) -> str:
+        combo = getattr(self, 'status_filter_combo', None)
+        if combo is None:
+            return 'All Status'
+        return combo.get() or 'All Status'
+
+    def _get_category_filter_value(self) -> str:
+        return (getattr(self, '_selected_category_filter', '') or '').strip()
+
+    def _is_any_filter_active(self) -> bool:
+        return bool(
+            self._get_search_keyword()
+            or self._get_category_filter_value()
+            or self._get_status_filter_value() != 'All Status'
+        )
+
+    def _update_keyword_field_button_text(self):
+        if not hasattr(self, 'keyword_fields_btn'):
+            return
+        selected_names = [
+            self._keyword_field_name_map.get(v, v)
+            for v in self._get_selected_keyword_fields()
+        ]
+        if len(selected_names) <= 2:
+            text = '筛选字段: ' + '/'.join(selected_names)
+        else:
+            text = f'筛选字段({len(selected_names)})'
+        self.keyword_fields_btn.config(text=text)
+
+    def _toggle_keyword_fields_popup(self):
+        if self._search_fields_popup and self._search_fields_popup.winfo_exists():
+            self._search_fields_popup.destroy()
+            self._search_fields_popup = None
+            return
+
+        popup = tk.Toplevel(self.root)
+        popup.title('关键词筛选字段')
+        popup.transient(self.root)
+        popup.resizable(False, False)
+        self._search_fields_popup = popup
+
+        btn = self.keyword_fields_btn
+        x = btn.winfo_rootx()
+        y = btn.winfo_rooty() + btn.winfo_height() + 2
+        popup.geometry(f'+{x}+{y}')
+
+        frame = ttk.Frame(popup, padding=8)
+        frame.grid(row=0, column=0, sticky='nsew')
+        frame.columnconfigure(0, weight=1)
+
+        ttk.Label(frame, text='勾选参与关键词匹配的字段:').grid(row=0, column=0, sticky='w', pady=(0, 6))
+
+        row = 1
+        for variable in self._keyword_field_options:
+            name = self._keyword_field_name_map.get(variable, variable)
+            var_obj = self._search_field_vars.get(variable)
+            if var_obj is None:
+                continue
+            cb = ttk.Checkbutton(
+                frame,
+                text=name,
+                variable=var_obj,
+                command=self._on_keyword_field_selection_change,
+            )
+            cb.grid(row=row, column=0, sticky='w')
+            row += 1
+
+        footer = ttk.Frame(frame)
+        footer.grid(row=row, column=0, sticky='ew', pady=(8, 0))
+        ttk.Button(footer, text='全选', command=self._select_all_keyword_fields).pack(side=tk.LEFT)
+        ttk.Button(footer, text='默认', command=self._reset_default_keyword_fields).pack(side=tk.LEFT, padx=(6, 0))
+        ttk.Button(footer, text='关闭', command=self._toggle_keyword_fields_popup).pack(side=tk.RIGHT)
+
+        popup.protocol('WM_DELETE_WINDOW', self._toggle_keyword_fields_popup)
+
+    def _select_all_keyword_fields(self):
+        all_selected = bool(self._search_field_vars) and all(var.get() for var in self._search_field_vars.values())
+        target_state = not all_selected
+        for var in self._search_field_vars.values():
+            var.set(target_state)
+        self._on_keyword_field_selection_change()
+
+    def _reset_default_keyword_fields(self):
+        for variable, var in self._search_field_vars.items():
+            var.set(variable in self._keyword_default_fields)
+        self._on_keyword_field_selection_change()
+
+    def _on_keyword_field_selection_change(self):
+        self._update_keyword_field_button_text()
+        self._on_search_change()
+
+    def _init_list_column_config(self):
+        self._list_column_defs: Dict[str, Dict[str, Any]] = {
+            'ID': {'title': '#', 'width': 56, 'anchor': 'center', 'stretch': False, 'required': True},
+            'Title': {'title': 'Title', 'width': 240, 'anchor': 'w', 'stretch': True, 'required': True},
+            'Status': {'title': 'State', 'width': 90, 'anchor': 'center', 'stretch': False, 'required': True},
+            'Authors': {'title': 'Authors', 'width': 180, 'anchor': 'w', 'stretch': False, 'required': False},
+            'Date': {'title': 'Publish Date', 'width': 110, 'anchor': 'center', 'stretch': False, 'required': False},
+            'Contributor': {'title': 'Contributor', 'width': 120, 'anchor': 'w', 'stretch': False, 'required': False},
+            'Conference': {'title': 'Conference', 'width': 130, 'anchor': 'w', 'stretch': False, 'required': False},
+            'ReadStatus': {'title': 'Reading Status', 'width': 120, 'anchor': 'center', 'stretch': False, 'required': False},
+            'Placeholder': {'title': 'Is Placeholder', 'width': 110, 'anchor': 'center', 'stretch': False, 'required': False},
+        }
+        self._list_optional_defaults = []
+        self._list_column_vars: Dict[str, tk.BooleanVar] = {}
+        for key, cfg in self._list_column_defs.items():
+            is_required = bool(cfg.get('required', False))
+            self._list_column_vars[key] = tk.BooleanVar(value=(is_required or key in self._list_optional_defaults))
+
+    def _get_visible_list_columns(self) -> List[str]:
+        visible: List[str] = []
+        for key in self._list_column_defs:
+            var_obj = self._list_column_vars.get(key)
+            if var_obj is not None and bool(var_obj.get()):
+                visible.append(key)
+        return visible
+
+    def _update_list_columns_button_text(self):
+        if not hasattr(self, 'list_columns_btn'):
+            return
+        visible = self._get_visible_list_columns()
+        optional_selected = [k for k in visible if not self._list_column_defs.get(k, {}).get('required')]
+        self.list_columns_btn.config(text=f'列({len(optional_selected)})')
+
+    def _toggle_list_columns_popup(self):
+        if self._list_columns_popup and self._list_columns_popup.winfo_exists():
+            self._list_columns_popup.destroy()
+            self._list_columns_popup = None
+            return
+
+        popup = tk.Toplevel(self.root)
+        popup.title('列表列配置')
+        popup.transient(self.root)
+        popup.resizable(False, False)
+        self._list_columns_popup = popup
+
+        btn = self.list_columns_btn
+        x = btn.winfo_rootx()
+        y = btn.winfo_rooty() + btn.winfo_height() + 2
+        popup.geometry(f'+{x}+{y}')
+
+        frame = ttk.Frame(popup, padding=8)
+        frame.grid(row=0, column=0, sticky='nsew')
+        frame.columnconfigure(0, weight=1)
+
+        ttk.Label(frame, text='勾选列表显示字段（#、Title 必选）:').grid(row=0, column=0, sticky='w', pady=(0, 6))
+
+        row = 1
+        for key, cfg in self._list_column_defs.items():
+            if cfg.get('required'):
+                continue
+            text = cfg.get('title', key)
+            cb = ttk.Checkbutton(
+                frame,
+                text=text,
+                variable=self._list_column_vars[key],
+                command=self._on_list_column_selection_change,
+            )
+            cb.grid(row=row, column=0, sticky='w')
+            row += 1
+
+        footer = ttk.Frame(frame)
+        footer.grid(row=row, column=0, sticky='ew', pady=(8, 0))
+        ttk.Button(footer, text='默认', command=self._reset_default_list_columns).pack(side=tk.LEFT)
+        ttk.Button(footer, text='关闭', command=self._toggle_list_columns_popup).pack(side=tk.RIGHT)
+
+        popup.protocol('WM_DELETE_WINDOW', self._toggle_list_columns_popup)
+
+    def _reset_default_list_columns(self):
+        for key, cfg in self._list_column_defs.items():
+            is_required = bool(cfg.get('required', False))
+            self._list_column_vars[key].set(is_required or key in self._list_optional_defaults)
+        self._on_list_column_selection_change()
+
+    def _on_list_column_selection_change(self):
+        self._update_list_columns_button_text()
+        self._apply_paper_tree_columns()
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
+
+    def _apply_paper_tree_columns(self):
+        if not hasattr(self, 'paper_tree'):
+            return
+
+        visible_columns = tuple(self._get_visible_list_columns())
+        self.paper_tree.configure(columns=visible_columns)
+
+        sort_col = self._list_sort_column
+        if sort_col not in visible_columns:
+            self._list_sort_column = None
+            self._list_sort_desc = False
+
+        for col in visible_columns:
+            cfg = self._list_column_defs.get(col, {})
+            title = cfg.get('title', col)
+            if col == self._list_sort_column:
+                title = f"{title} {'▼' if self._list_sort_desc else '▲'}"
+            self.paper_tree.heading(col, text=title, command=lambda c=col: self._on_paper_tree_heading_click(c))
+            self.paper_tree.column(
+                col,
+                width=int(cfg.get('width', 120)),
+                minwidth=40,
+                anchor=cfg.get('anchor', 'w'),
+                stretch=bool(cfg.get('stretch', False)),
+            )
+
+    def _on_paper_tree_heading_click(self, column: str):
+        if column == self._list_sort_column:
+            self._list_sort_desc = not self._list_sort_desc
+        else:
+            self._list_sort_column = column
+            self._list_sort_desc = False
+
+        self._apply_paper_tree_columns()
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
+
+    def _get_list_column_display_value(self, paper, real_idx: int, column: str) -> str:
+        if column == 'ID':
+            return str(real_idx + 1)
+        if column == 'Title':
+            title = paper.title or ''
+            return title[:150] + '...' if len(title) > 150 else title
+        if column == 'Authors':
+            return str(getattr(paper, 'authors', '') or '')
+        if column == 'Date':
+            return str(getattr(paper, 'date', '') or '')
+        if column == 'Contributor':
+            return str(getattr(paper, 'contributor', '') or '')
+        if column == 'Conference':
+            return str(getattr(paper, 'conference', '') or '')
+        if column == 'ReadStatus':
+            return str(getattr(paper, 'status', '') or '')
+        if column == 'Placeholder':
+            return 'Yes' if bool(getattr(paper, 'is_placeholder', False)) else 'No'
+        return ''
+
+    def _get_list_sort_key(self, paper, real_idx: int, column: str):
+        if column == 'ID':
+            return real_idx
+        if column == 'Date':
+            date_text = str(getattr(paper, 'date', '') or '').strip()
+            parts = date_text.split('-')
+            if len(parts) == 3 and all(p.isdigit() for p in parts):
+                try:
+                    return int(parts[0]), int(parts[1]), int(parts[2])
+                except Exception:
+                    pass
+            return (9999, 99, 99)
+        if column == 'Placeholder':
+            return int(bool(getattr(paper, 'is_placeholder', False)))
+        text = self._get_list_column_display_value(paper, real_idx, column)
+        return str(text or '').lower()
+
+    def _sort_filtered_indices_for_display(self, indices: List[int]) -> List[int]:
+        sort_col = self._list_sort_column
+        if not sort_col:
+            return list(indices)
+        if sort_col not in self._get_visible_list_columns():
+            return list(indices)
+
+        sorted_indices = list(indices)
+        sorted_indices.sort(
+            key=lambda ridx: self._get_list_sort_key(self.logic.papers[ridx], ridx, sort_col),
+            reverse=self._list_sort_desc,
+        )
+        return sorted_indices
+
+    def _is_drag_reorder_allowed(self) -> bool:
+        sort_col = self._list_sort_column
+        # 仅在无排序或按 # 排序时允许拖拽改序
+        return (not sort_col) or (sort_col == 'ID')
     
     def load_initial_data(self):
         try:
@@ -148,21 +468,16 @@ class PaperSubmissionGUI:
         info_label = ttk.Label(header_frame, text=f"  [Active: {files_str}]", foreground="gray")
         info_label.pack(side=tk.LEFT, padx=10)
 
+        # 快捷键提示按钮（放在管理员按钮左侧）
+        self.shortcut_btn = ttk.Button(header_frame, text="⌨ 快捷键", command=self._show_shortcut_help, width=12)
+        self.shortcut_btn.pack(side=tk.RIGHT, padx=(0, 6))
+
         # 管理员切换按钮
         self.admin_btn = ttk.Button(header_frame, text="🔒 管理员模式", command=self._toggle_admin_mode, width=15)
         self.admin_btn.pack(side=tk.RIGHT)
 
         # === 主分割窗口 ===
-        self.paned_window = tk.PanedWindow(
-            main_frame,
-            orient=tk.HORIZONTAL,
-            sashwidth=5,
-            sashrelief=tk.RAISED,
-            showhandle=False,
-            opaqueresize=True,
-            bd=0
-            
-        )
+        self.paned_window = self._create_standard_horizontal_paned(main_frame)
         self.paned_window.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=(0,0), pady=(0,0))
 
         left_frame = ttk.Frame(self.paned_window)
@@ -195,6 +510,17 @@ class PaperSubmissionGUI:
         
         self.setup_buttons_frame(main_frame)
         self.setup_status_bar(main_frame)
+
+    def _create_standard_horizontal_paned(self, parent):
+        return tk.PanedWindow(
+            parent,
+            orient=tk.HORIZONTAL,
+            sashwidth=5,
+            sashrelief=tk.RAISED,
+            showhandle=False,
+            opaqueresize=True,
+            bd=0,
+        )
     
 # ================= 1. 论文列表区域布局修改 =================
 
@@ -209,22 +535,49 @@ class PaperSubmissionGUI:
         header_frame = ttk.Frame(parent)
         header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         
-        # 1. 标题
-        list_title = ttk.Label(header_frame, text="📚 论文列表", font=("Arial", 11, "bold"))
-        list_title.pack(side=tk.LEFT, padx=(0, 5))
-        
-        # 2. 分类筛选 (Right)
-        self.cat_filter_combo = ttk.Combobox(header_frame, state="readonly", width=15)
-        cats = ["All Categories"] + [c['name'] for c in self.config.get_active_categories()]
-        self.cat_filter_combo['values'] = cats
-        self.cat_filter_combo.set("All Categories")
-        self.cat_filter_combo.bind("<<ComboboxSelected>>", self._on_search_change)
-        self.cat_filter_combo.pack(side=tk.RIGHT)
-        
-        # 3. 搜索框 (Middle Fill) - 带占位符逻辑
+        # 1. 阅读状态筛选
+        self.status_filter_combo = ttk.Combobox(header_frame, state="readonly", width=12)
+        self.status_filter_combo['values'] = ['All Status'] + self._get_status_values()
+        self.status_filter_combo.set('All Status')
+        self.status_filter_combo.bind("<<ComboboxSelected>>", self._on_search_change)
+        self.status_filter_combo.pack(side=tk.RIGHT)
+
+        # 2. 搜索框 (Middle Fill) - 带占位符逻辑
         self.search_var = tk.StringVar()
         self.search_entry = ttk.Entry(header_frame, textvariable=self.search_var)
         self.search_entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+
+        # 3. 关键词字段筛选下拉（放在关键词搜索框左边）
+        self.keyword_fields_btn = ttk.Button(
+            header_frame,
+            text='字段',
+            width=9,
+            command=self._toggle_keyword_fields_popup,
+        )
+        self.keyword_fields_btn.pack(side=tk.RIGHT, padx=(0, 5))
+
+        self.list_columns_btn = ttk.Button(
+            header_frame,
+            text='列(0)',
+            width=7,
+            command=self._toggle_list_columns_popup,
+        )
+        self.list_columns_btn.pack(side=tk.RIGHT, padx=(0, 5))
+
+        # 4. 分类层级侧栏开关（位于筛选字段按钮左侧）
+        self.category_sidebar_toggle_btn = ttk.Button(
+            header_frame,
+            text='>>',
+            width=3,
+            command=self._toggle_category_filter_sidebar,
+        )
+        self.category_sidebar_toggle_btn.pack(side=tk.RIGHT, padx=(0, 5))
+        self.create_tooltip(self.category_sidebar_toggle_btn, "显示/隐藏分类层级筛选栏")
+
+        for variable in self._keyword_field_options:
+            self._search_field_vars[variable] = tk.BooleanVar(value=(variable in self._keyword_default_fields))
+        self._update_keyword_field_button_text()
+        self._update_list_columns_button_text()
         
         # 占位符逻辑
         self._search_placeholder = "输入关键词进行筛选..."
@@ -255,23 +608,51 @@ class PaperSubmissionGUI:
         self.search_var.trace("w", on_trace)
 
 
-        # --- Row 1: 列表区域 ---
-        list_frame = ttk.Frame(parent)
-        list_frame.grid(row=1, column=0, sticky="nsew")
+        # --- Row 1: 列表区域（左侧可展开分类层级栏，支持拖动分隔） ---
+        self.list_content_paned = self._create_standard_horizontal_paned(parent)
+        self.list_content_paned.grid(row=1, column=0, sticky="nsew")
+
+        self.category_filter_panel = ttk.Frame(self.list_content_paned)
+
+        category_tree_frame = ttk.Frame(self.category_filter_panel)
+        category_tree_frame.pack(fill=tk.BOTH, expand=True)
+        category_tree_frame.columnconfigure(0, weight=1)
+        category_tree_frame.rowconfigure(0, weight=1)
+
+        self.category_filter_tree = ttk.Treeview(
+            category_tree_frame,
+            columns=('Count',),
+            show='tree headings',
+            selectmode='browse',
+            height=15,
+        )
+        self.category_filter_tree.heading('#0', text='Category')
+        self.category_filter_tree.heading('Count', text='Count')
+        self.category_filter_tree.column('#0', width=220, stretch=False)
+        self.category_filter_tree.column('Count', width=35, anchor='e', stretch=False)
+
+        category_scrollbar = ttk.Scrollbar(category_tree_frame, orient=tk.VERTICAL, command=self.category_filter_tree.yview)
+        self.category_filter_tree.configure(yscrollcommand=category_scrollbar.set)
+        self.category_filter_tree.grid(row=0, column=0, sticky='nsew')
+        category_scrollbar.grid(row=0, column=1, sticky='ns')
+        self.category_filter_tree.bind('<<TreeviewSelect>>', self._on_category_filter_tree_select)
+        self.category_filter_tree.bind('<Enter>', lambda e: self._bind_global_scroll(self.category_filter_tree.yview_scroll))
+        self.category_filter_tree.bind('<Configure>', lambda e: self._fit_category_tree_columns())
+
+        ttk.Button(
+            self.category_filter_panel,
+            text='📋 复制结构到剪贴板',
+            command=self._copy_category_tree_structure_to_clipboard,
+        ).pack(fill=tk.X, pady=(4, 0))
+
+        list_frame = ttk.Frame(self.list_content_paned)
+        self.paper_list_panel = list_frame
         
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         
-        columns = ("ID", "Title", "Status") 
-        self.paper_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=15)
-        
-        self.paper_tree.heading("ID", text="#")
-        self.paper_tree.heading("Title", text="Title")
-        self.paper_tree.heading("Status", text="Status")
-        
-        self.paper_tree.column("ID", width=40, anchor="center", stretch=False)
-        self.paper_tree.column("Title", width=200, stretch=True)
-        self.paper_tree.column("Status", width=70, anchor="center", stretch=False)
+        self.paper_tree = ttk.Treeview(list_frame, columns=(), show="headings", height=15)
+        self._apply_paper_tree_columns()
         
         self.paper_tree.tag_configure('conflict', background=self.color_conflict)
         self.paper_tree.tag_configure('invalid', background=self.color_invalid)
@@ -289,6 +670,20 @@ class PaperSubmissionGUI:
         self.paper_tree.bind("<Button-1>", self._on_tree_left_button)
         self.paper_tree.bind("<B1-Motion>", self._on_drag_motion)
         self.paper_tree.bind("<ButtonRelease-1>", self._on_drag_release)
+
+        self.list_content_paned.add(self.category_filter_panel, minsize=160, stretch="never")
+        self.list_content_paned.add(list_frame, minsize=220, stretch="always")
+        self.list_content_paned.forget(self.category_filter_panel)
+
+        def _set_initial_list_sash_position():
+            if not self._category_sidebar_visible:
+                return
+            total_width = self.list_content_paned.winfo_width()
+            if total_width > 1:
+                self.list_content_paned.sash_place(0, int(total_width * 0.40), 0)
+        self.root.after_idle(_set_initial_list_sash_position)
+
+        self._rebuild_category_filter_tree(select_current=True)
         
         # --- Row 2: 按钮区域 (调整顺序) ---
         list_buttons_frame = ttk.Frame(parent)
@@ -335,6 +730,19 @@ class PaperSubmissionGUI:
         # padx=(5, 5) 这里的左边距需要手动调整以对齐下方的输入框起始位置
         # 下方输入框起始位置 = Label Width + Label Padding
         fill_zotero_btn.grid(row=0, column=1, sticky="ew", padx=(63, 0)) 
+
+        self.search_hit_preview = tk.Text(
+            self.form_container,
+            height=3,
+            wrap=tk.WORD,
+            relief=tk.GROOVE,
+            borderwidth=1,
+            background="#FFFBE6",
+        )
+        self.search_hit_preview.tag_configure('SearchHitPreviewKeyword', background="#FFE58F")
+        self.search_hit_preview.config(state='disabled')
+        self.search_hit_preview.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        self.search_hit_preview.grid_remove()
         
         # --- 可滚动区域 ---
         self.form_canvas = tk.Canvas(self.form_container)
@@ -348,11 +756,11 @@ class PaperSubmissionGUI:
         self.form_canvas.bind('<Enter>', lambda e: self._bind_global_scroll(self.form_canvas.yview_scroll))
         self.form_frame.bind('<Enter>', lambda e: self._bind_global_scroll(self.form_canvas.yview_scroll))
 
-        self.form_canvas.grid(row=1, column=0, sticky="nsew")
-        scrollbar.grid(row=1, column=1, sticky="ns")
+        self.form_canvas.grid(row=2, column=0, sticky="nsew")
+        scrollbar.grid(row=2, column=1, sticky="ns")
         
         self.form_container.columnconfigure(0, weight=1)
-        self.form_container.rowconfigure(1, weight=1)
+        self.form_container.rowconfigure(2, weight=1)
         
         self.form_frame.bind("<Configure>", lambda e: self.form_canvas.configure(scrollregion=self.form_canvas.bbox("all")))
         self.form_canvas.bind("<Configure>", self._on_canvas_configure)
@@ -375,6 +783,7 @@ class PaperSubmissionGUI:
         
         self.form_fields = {}
         self.field_widgets = {}
+        self.field_labels = {}
         self._field_vars = {}
         
         for tag in active_tags:
@@ -403,6 +812,7 @@ class PaperSubmissionGUI:
             label_sticky = tk.NW if field_type == 'text' else tk.W
             
             label.grid(row=row, column=0, sticky=label_sticky, pady=(2, 2))
+            self.field_labels[variable] = label
             if description: self.create_tooltip(label, description)
             
             # === 1. Category Field (Complex) ===
@@ -424,7 +834,7 @@ class PaperSubmissionGUI:
                     cfg_max = int(self.settings['database'].get('max_categories_per_paper', 4))
                 except Exception:
                     cfg_max = 4
-                self._gui_category_max = min(cfg_max, 6)
+                self._gui_category_max = min(cfg_max, 10) # 硬限制最大不超过10，避免界面过于复杂
 
                 self._gui_add_category_row('')
                 self.form_fields[variable] = container
@@ -442,7 +852,7 @@ class PaperSubmissionGUI:
                 values = tag.get('options', [])
                 # Hardcoded fallback for status if not in config
                 if variable == 'status' and not values: 
-                    values = ['unread', 'reading', 'done', 'skimmed', 'adopted', 'conflict']
+                    values = self._get_status_values()
                 
                 combo = ttk.Combobox(self.form_frame, values=values, state='readonly')
                 combo.grid(row=row, column=1, sticky="we", pady=(2, 2), padx=(5, 0))
@@ -469,7 +879,7 @@ class PaperSubmissionGUI:
                 text_frame = ttk.Frame(self.form_frame)
                 text_frame.grid(row=row, column=1, sticky="we", pady=(2, 2), padx=(5, 0))
                 
-                height = 4 if variable in ['abstract', 'notes'] else 2
+                height = 7 if variable in ['abstract', 'notes'] else 5
                 text_widget = scrolledtext.ScrolledText(text_frame, height=height, width=50, undo=True, maxundo=-1)
                 text_widget.grid(row=0, column=0, sticky="nsew")
                 
@@ -525,7 +935,7 @@ class PaperSubmissionGUI:
         if keyword is None and category is None:
             self.refresh_list_view()
         else:
-            self.refresh_list_view(keyword or "", category or "All Categories")
+            self.refresh_list_view(keyword or "", category or "")
         self.show_placeholder()
 
     def _is_dnd_available(self) -> bool:
@@ -1292,10 +1702,21 @@ class PaperSubmissionGUI:
         file_frame.grid(row=0, column=1, padx=5, sticky="ns")
         
         ttk.Button(file_frame, text="💾 加载数据库", command=self._open_database_action, width=12).pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Button(file_frame, text="📤 保存文件", command=self.save_all_papers, width=12).pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.save_btn_var = tk.StringVar(value="📤 保存文件 ▾")
+        self.save_btn = ttk.Button(file_frame, textvariable=self.save_btn_var, width=14)
+        self.save_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        self.save_menu = tk.Menu(self.root, tearoff=0)
+        self.save_menu.add_command(label="💾 保存文件 (Ctrl+S)", command=self.save_current_file)
+        self.save_menu.add_command(label="📝 另存为 (Ctrl+Shift+S)", command=self.save_all_papers)
+        self.save_btn.bind("<ButtonPress-1>", self._on_save_menu_button_press)
+
         self.save_policy_btn = ttk.Button(file_frame, text="", command=self._change_save_validation_strategy, width=18)
         self.save_policy_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        self.save_mode_btn = ttk.Button(file_frame, text="", command=self._change_save_mode, width=18)
+        self.save_mode_btn.pack(side=tk.LEFT, padx=5, pady=5)
         self._refresh_save_policy_button_text()
+        self._refresh_save_mode_button_text()
         ttk.Button(file_frame, text="📂 加载文件", command=self.load_template, width=12).pack(side=tk.LEFT, padx=5, pady=5)
         ttk.Button(file_frame, text="📄 打开当前文件", command=self.open_current_file, width=14).pack(side=tk.LEFT, padx=5, pady=5)
 
@@ -1307,8 +1728,8 @@ class PaperSubmissionGUI:
         ai_frame.grid(row=0, column=2, padx=5, sticky="ns")
         
         self.ai_btn_var = tk.StringVar(value="🤖 AI 助手 ▾")
-        ai_btn = ttk.Button(ai_frame, textvariable=self.ai_btn_var, width=15)
-        ai_btn.pack(padx=5, pady=5)
+        self.ai_btn = ttk.Button(ai_frame, textvariable=self.ai_btn_var, width=15)
+        self.ai_btn.pack(padx=5, pady=5)
         
         self.ai_menu = tk.Menu(self.root, tearoff=0)
         self.ai_menu.add_command(label="🧰 AI 工具箱", command=self.ai_toolbox_window)
@@ -1317,9 +1738,29 @@ class PaperSubmissionGUI:
         self.ai_menu.add_command(label="✨ 生成所有空字段", command=lambda: self.run_ai_task(self.ai_generate_field, None))
         self.ai_menu.add_command(label="🏷️分类建议", command=self.ai_suggest_category)
         
-        def show_ai_menu(event):
-            self.ai_menu.post(event.x_root, event.y_root)
-        ai_btn.bind("<Button-1>", show_ai_menu)
+        self.ai_btn.bind("<ButtonPress-1>", self._on_ai_menu_button_press)
+
+    def _post_menu_above_button(self, menu: tk.Menu, anchor_btn: tk.Widget):
+        """将菜单展开在按钮上方，避免按钮点按态卡住。"""
+        self.root.update_idletasks()
+        menu.update_idletasks()
+
+        x = anchor_btn.winfo_rootx()
+        y = anchor_btn.winfo_rooty() - menu.winfo_reqheight()
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
+    def _on_save_menu_button_press(self, event):
+        self._post_menu_above_button(self.save_menu, self.save_btn)
+        self.root.focus_force()
+        return "break"
+
+    def _on_ai_menu_button_press(self, event):
+        self._post_menu_above_button(self.ai_menu, self.ai_btn)
+        self.root.focus_force()
+        return "break"
 
     # ================= 管理员逻辑 =================
 
@@ -1355,23 +1796,28 @@ class PaperSubmissionGUI:
     def _update_admin_ui_state(self):
         """更新UI以反映管理员状态"""
         self._refresh_save_policy_button_text()
+        self._refresh_save_mode_button_text()
 
         if self.logic.is_admin:
             self.admin_btn.config(text="🔓 管理员: ON")
             self.root.title("Awesome 论文规范化处理提交程序 [管理员模式]")
             if hasattr(self, 'save_policy_btn') and self.save_policy_btn.winfo_manager() != 'pack':
                 self.save_policy_btn.pack(side=tk.LEFT, padx=5, pady=5)
+            if hasattr(self, 'save_mode_btn') and self.save_mode_btn.winfo_manager() != 'pack':
+                self.save_mode_btn.pack(side=tk.LEFT, padx=5, pady=5)
         else:
             self.admin_btn.config(text="🔒 管理员: OFF")
             self.root.title("Awesome 论文规范化处理提交程序")
             if hasattr(self, 'save_policy_btn') and self.save_policy_btn.winfo_manager() == 'pack':
                 self.save_policy_btn.pack_forget()
+            if hasattr(self, 'save_mode_btn') and self.save_mode_btn.winfo_manager() == 'pack':
+                self.save_mode_btn.pack_forget()
 
     def _get_save_validation_strategy(self) -> str:
-        strategy = str((self.settings.get('ui', {}) or {}).get('save_validation_strategy', 'strict')).strip().lower()
-        if strategy not in ('strict', 'lenient'):
-            strategy = 'strict'
-        return strategy
+        return self.logic.get_save_validation_strategy()
+
+    def _get_save_mode(self) -> str:
+        return self.logic.get_save_mode()
 
     def _refresh_save_policy_button_text(self):
         if not hasattr(self, 'save_policy_btn'):
@@ -1379,26 +1825,13 @@ class PaperSubmissionGUI:
         strategy = self._get_save_validation_strategy()
         self.save_policy_btn.config(text=f"🧭 保存策略: {strategy}")
 
-    def _persist_ui_setting(self, key: str, value: str):
-        cfg = configparser.ConfigParser(inline_comment_prefixes=('#', ';', '//'))
-        cfg_path = os.path.join(str(self.config.config_path), 'config.ini')
-        if os.path.exists(cfg_path):
-            cfg.read(cfg_path, encoding='utf-8')
-        if 'ui' not in cfg:
-            cfg['ui'] = {}
-        cfg['ui'][key] = str(value)
-        with open(cfg_path, 'w', encoding='utf-8') as f:
-            cfg.write(f)
-
-        self.config.settings = self.config._load_settings()
-        self.logic.settings = self.config.settings
-        self.settings = self.logic.settings
+    def _refresh_save_mode_button_text(self):
+        if not hasattr(self, 'save_mode_btn'):
+            return
+        mode = self._get_save_mode()
+        self.save_mode_btn.config(text=f"💾 保存模式: {mode}")
 
     def _change_save_validation_strategy(self):
-        if not self.logic.is_admin:
-            messagebox.showwarning("权限", "仅管理员可修改保存策略")
-            return
-
         cur = self._get_save_validation_strategy()
         switch_now = messagebox.askyesno(
             "保存策略",
@@ -1413,11 +1846,38 @@ class PaperSubmissionGUI:
 
         new_strategy = 'lenient' if cur == 'strict' else 'strict'
         try:
-            self._persist_ui_setting('save_validation_strategy', new_strategy)
+            self.logic.set_save_validation_strategy(new_strategy, require_admin=True)
+            self.settings = self.logic.settings
             self._refresh_save_policy_button_text()
             self.update_status(f"保存策略已更新为: {new_strategy}")
+        except PermissionError as ex:
+            messagebox.showwarning("权限", str(ex))
         except Exception as ex:
             messagebox.showerror("错误", f"保存策略写入失败: {ex}")
+
+    def _change_save_mode(self):
+        cur = self._get_save_mode()
+        switch_now = messagebox.askyesno(
+            "保存模式",
+            f"当前保存模式: {cur}\n\n"
+            f"incremental: 增量合并，保留目标文件已有内容，仅覆盖重复项。\n"
+            f"rewrite: 完全重写，使用当前工作区覆盖目标文件。\n\n"
+            f"是否切换到另一种模式？\n\n【是】切换\n【否】不切换"
+        )
+        if not switch_now:
+            self.update_status(f"保存模式保持不变: {cur}")
+            return
+
+        new_mode = 'rewrite' if cur == 'incremental' else 'incremental'
+        try:
+            self.logic.set_save_mode(new_mode, require_admin=True)
+            self.settings = self.logic.settings
+            self._refresh_save_mode_button_text()
+            self.update_status(f"保存模式已更新为: {new_mode}")
+        except PermissionError as ex:
+            messagebox.showwarning("权限", str(ex))
+        except Exception as ex:
+            messagebox.showerror("错误", f"保存模式写入失败: {ex}")
 
     def _refresh_ui_fields(self):
         """完全重建表单字段 (根据管理员模式显示/隐藏字段)"""
@@ -1445,8 +1905,260 @@ class PaperSubmissionGUI:
 
     def _on_search_change(self, *args):
         kw = self._get_search_keyword()
-        cat = self.cat_filter_combo.get()
-        self.refresh_list_view(kw, cat)
+        cat = self._get_category_filter_value()
+        status = self._get_status_filter_value()
+        self.refresh_list_view(kw, cat, status)
+
+    def _get_paper_field_text(self, paper, variable: str) -> str:
+        value = getattr(paper, variable, "")
+        if value is None:
+            return ""
+        return str(value)
+
+    def _filter_papers_with_match_fields(self, keyword: str = "", category: str = "", status: str = "") -> Tuple[List[int], Dict[int, set]]:
+        return self.logic.filter_papers_with_match_fields(
+            keyword=keyword,
+            selected_category=category,
+            status=status,
+            search_fields=self._get_selected_keyword_fields(),
+        )
+
+    def _toggle_category_filter_sidebar(self):
+        if self._category_sidebar_visible:
+            try:
+                self.list_content_paned.forget(self.category_filter_panel)
+            finally:
+                self._category_sidebar_visible = False
+                self.category_sidebar_toggle_btn.config(text='>>')
+            return
+
+        total_width = self.list_content_paned.winfo_width()
+        target_width = int(total_width * 0.40) if total_width > 1 else 240
+        target_width = max(120, target_width)
+
+        panes = self.list_content_paned.panes()
+        if str(self.category_filter_panel) not in panes:
+            self.list_content_paned.add(
+                self.category_filter_panel,
+                before=self.paper_list_panel,
+                minsize=120,
+                stretch="never",
+                width=target_width,
+            )
+        self._category_sidebar_visible = True
+        self.category_sidebar_toggle_btn.config(text='<<')
+        self._rebuild_category_filter_tree(select_current=True)
+        self.root.after_idle(self._fit_category_tree_columns)
+
+        self.list_content_paned.update_idletasks()
+        total_width = self.list_content_paned.winfo_width()
+        if total_width > 1:
+            self.list_content_paned.sash_place(0, int(total_width * 0.40), 0)
+
+    def _fit_category_tree_columns(self):
+        tree = getattr(self, 'category_filter_tree', None)
+        if tree is None:
+            return
+        try:
+            total = tree.winfo_width()
+        except Exception:
+            return
+        if total <= 1:
+            return
+
+        count_w = 35
+        name_w = max(120, total - count_w - 8)
+        tree.column('#0', width=name_w, stretch=False)
+        tree.column('Count', width=count_w, stretch=False)
+
+    def _clear_category_filter(self):
+        if not self._get_category_filter_value():
+            return
+        self._selected_category_filter = ''
+        self._rebuild_category_filter_tree(select_current=True)
+        self._on_search_change()
+
+    def _on_category_filter_tree_select(self, event=None):
+        if self._updating_category_filter_tree:
+            return
+
+        tree = getattr(self, 'category_filter_tree', None)
+        if tree is None:
+            return
+
+        selection = tree.selection()
+        if not selection:
+            return
+
+        selected_item = selection[0]
+        new_filter = '' if selected_item == '__ALL__' else selected_item
+        if new_filter == self._get_category_filter_value():
+            return
+
+        self._selected_category_filter = new_filter
+        self._on_search_change()
+
+    def _rebuild_category_filter_tree(self, select_current: bool = True):
+        tree = getattr(self, 'category_filter_tree', None)
+        if tree is None:
+            return
+
+        selected = self._get_category_filter_value()
+        counts = self.logic.get_category_counts_with_descendants(self.logic.papers)
+        roots, children_map, _ = self.logic.build_category_hierarchy()
+
+        self._updating_category_filter_tree = True
+        try:
+            for item in tree.get_children():
+                tree.delete(item)
+
+            tree.insert('', 'end', iid='__ALL__', text='All Categories', values=(len(self.logic.papers),))
+
+            def insert_node(parent_id, cat):
+                unique_name = cat.get('unique_name', '')
+                if not unique_name:
+                    return
+                tree.insert(
+                    parent_id,
+                    'end',
+                    iid=unique_name,
+                    text=cat.get('name', unique_name),
+                    values=(counts.get(unique_name, 0),),
+                    open=True,
+                )
+                for child in children_map.get(unique_name, []):
+                    insert_node(unique_name, child)
+
+            for root in roots:
+                insert_node('', root)
+
+            if select_current:
+                target = selected if selected and tree.exists(selected) else '__ALL__'
+                tree.selection_set(target)
+                tree.focus(target)
+                tree.see(target)
+                if target == '__ALL__':
+                    self._selected_category_filter = ''
+        finally:
+            self._updating_category_filter_tree = False
+
+    def _apply_search_hit_highlight(self, real_idx: int):
+        for label in self.field_labels.values():
+            try:
+                label.configure(style='TLabel')
+            except Exception:
+                pass
+
+        for widget in self.form_fields.values():
+            if isinstance(widget, scrolledtext.ScrolledText):
+                self._clear_text_widget_search_highlight(widget)
+
+        if real_idx < 0:
+            self._update_search_hit_preview(real_idx)
+            return
+        if not self._get_search_keyword():
+            self._update_search_hit_preview(real_idx)
+            return
+
+        matched_fields = self._search_hit_fields_by_real_idx.get(real_idx, set())
+        for variable in matched_fields:
+            label = self.field_labels.get(variable)
+            if label is None:
+                continue
+            try:
+                label.configure(style='SearchHit.TLabel')
+            except Exception:
+                pass
+
+            widget = self.form_fields.get(variable)
+            if isinstance(widget, scrolledtext.ScrolledText):
+                self._highlight_keyword_in_text_widget(widget, self._get_search_keyword())
+
+        self._update_search_hit_preview(real_idx)
+
+    def _clear_text_widget_search_highlight(self, widget: scrolledtext.ScrolledText):
+        try:
+            widget.tag_remove('SearchHitTextKeyword', '1.0', tk.END)
+        except Exception:
+            pass
+
+    def _highlight_keyword_in_text_widget(self, widget: scrolledtext.ScrolledText, keyword: str):
+        self._clear_text_widget_search_highlight(widget)
+        kw = (keyword or '').strip()
+        if not kw:
+            return
+
+        widget.tag_configure('SearchHitTextKeyword', background="#FFE58F")
+        start = '1.0'
+        while True:
+            pos = widget.search(kw, start, stopindex=tk.END, nocase=True)
+            if not pos:
+                break
+            end_pos = f"{pos}+{len(kw)}c"
+            widget.tag_add('SearchHitTextKeyword', pos, end_pos)
+            start = end_pos
+
+    def _update_search_hit_preview(self, real_idx: int):
+        panel = getattr(self, 'search_hit_preview', None)
+        if panel is None:
+            return
+
+        keyword = self._get_search_keyword().strip()
+        matched_fields = self._search_hit_fields_by_real_idx.get(real_idx, set()) if real_idx >= 0 else set()
+        if real_idx < 0 or not keyword or not matched_fields:
+            panel.config(state='normal')
+            panel.delete('1.0', tk.END)
+            panel.config(state='disabled')
+            panel.grid_remove()
+            return
+
+        paper = self.logic.papers[real_idx] if 0 <= real_idx < len(self.logic.papers) else None
+        if paper is None:
+            panel.config(state='normal')
+            panel.delete('1.0', tk.END)
+            panel.config(state='disabled')
+            panel.grid_remove()
+            return
+
+        panel.config(state='normal')
+        panel.delete('1.0', tk.END)
+
+        ordered_vars = [v for v in self._keyword_field_options if v in matched_fields]
+        for variable in ordered_vars:
+            raw_text = self._get_paper_field_text(paper, variable).replace('\n', ' ')
+            if not raw_text:
+                continue
+
+            lower_text = raw_text.lower()
+            lower_kw = keyword.lower()
+            hit_pos = lower_text.find(lower_kw)
+            if hit_pos < 0:
+                continue
+
+            left = max(0, hit_pos - 24)
+            right = min(len(raw_text), hit_pos + len(keyword) + 24)
+            prefix = raw_text[left:hit_pos]
+            hit = raw_text[hit_pos:hit_pos + len(keyword)]
+            suffix = raw_text[hit_pos + len(keyword):right]
+
+            display_name = self._keyword_field_name_map.get(variable, variable)
+            panel.insert(tk.END, f"{display_name}: ")
+            panel.insert(tk.END, "..." if left > 0 else "")
+            panel.insert(tk.END, prefix)
+            kw_start = panel.index(tk.INSERT)
+            panel.insert(tk.END, hit)
+            kw_end = panel.index(tk.INSERT)
+            panel.tag_add('SearchHitPreviewKeyword', kw_start, kw_end)
+            panel.insert(tk.END, suffix)
+            panel.insert(tk.END, "..." if right < len(raw_text) else "")
+            panel.insert(tk.END, "\n")
+
+        content = panel.get('1.0', tk.END).strip()
+        panel.config(state='disabled')
+        if content:
+            panel.grid()
+        else:
+            panel.grid_remove()
 
     def _resolve_tree_target_indices(self, item_id: str) -> Tuple[int, int]:
         if not item_id:
@@ -1585,10 +2297,6 @@ class PaperSubmissionGUI:
             if not self._confirm_before_switch_or_restore(self.current_paper_index, show_popup=True):
                 return "break"
 
-        # 非筛选模式下允许拖拽排序；筛选模式仅作普通选择
-        if self._get_search_keyword() or self.cat_filter_combo.get() != "All Categories":
-            return None
-
         # 仅在按下当前已选中项时进入“待拖拽”状态，移动超过阈值后才真正开始拖拽
         if current_real_idx >= 0 and target_real_idx == current_real_idx:
             self._drag_press_item = clicked_item
@@ -1644,6 +2352,7 @@ class PaperSubmissionGUI:
                     self._update_file_confirm_button_state(variable)
                     if real_idx >= 0:
                         self._validate_single_field_visuals(variable, real_idx)
+            self._apply_search_hit_highlight(real_idx)
         finally: self._disable_callbacks = False
 
     def _on_field_change(self, variable, widget_or_var):
@@ -1738,7 +2447,12 @@ class PaperSubmissionGUI:
         current_paper.category = cat_str
         
         self._validate_single_field_visuals('category', real_idx)
-        self._refresh_list_item(self.current_paper_index, current_paper)
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
+        if real_idx in self.filtered_indices:
+            self._activate_paper_by_real_index(real_idx)
+        else:
+            self.current_paper_index = -1
+            self.show_placeholder()
 
     def _get_list_status_and_tags(self, paper):
         is_valid, _, _ = paper.validate_paper_fields(self.config, True, True, no_normalize=True)
@@ -1754,11 +2468,14 @@ class PaperSubmissionGUI:
         """更新列表中的单项显示"""
         children = self.paper_tree.get_children()
         if display_index < len(children):
-            title = paper.title[:150] + "..." if len(paper.title) > 150 else paper.title
-
+            real_idx = self.filtered_indices[display_index]
             status_str, tags = self._get_list_status_and_tags(paper)
-            
-            self.paper_tree.item(children[display_index], values=(display_index+1, title, status_str), tags=tags)
+            values = tuple(
+                status_str if col == 'Status' else self._get_list_column_display_value(paper, real_idx, col)
+                for col in self._get_visible_list_columns()
+            )
+
+            self.paper_tree.item(children[display_index], values=values, tags=tags)
 
     # ================= 验证视觉效果 =================
 
@@ -1854,8 +2571,11 @@ class PaperSubmissionGUI:
     # ================= 业务操作按钮 =================
 
     def add_paper(self):
-        self.logic.create_new_paper()
-        self.refresh_list_view(self._get_search_keyword(), self.cat_filter_combo.get())
+        new_paper = self.logic.create_new_paper()
+        selected_category = self._get_category_filter_value()
+        if selected_category:
+            new_paper.category = selected_category
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
         
         # 选中最后一个
         new_display_idx = len(self.filtered_indices) - 1
@@ -1890,7 +2610,7 @@ class PaperSubmissionGUI:
             if real_idx < 0:
                 return
             if self.logic.delete_paper(real_idx):
-                self._reset_list_after_data_change(self._get_search_keyword(), self.cat_filter_combo.get())
+                self._reset_list_after_data_change(self._get_search_keyword(), self._get_category_filter_value())
                 self.update_status("论文已删除")
 
     def clear_papers(self):
@@ -1901,7 +2621,18 @@ class PaperSubmissionGUI:
                 self._reset_list_after_data_change()
                 self.update_status("所有论文已清空")
 
-    def save_all_papers(self) -> bool:
+    def _choose_save_target_path(self) -> str:
+        current_loaded = self._get_current_loaded_file()
+        initial_base = os.path.basename(current_loaded) if current_loaded else "submit_template.json"
+        return filedialog.asksaveasfilename(
+            title="选择保存位置",
+            defaultextension='.json',
+            filetypes=[("JSON", "*.json"), ("CSV", "*.csv")],
+            initialfile=initial_base,
+            initialdir=BASE_DIR
+        )
+
+    def _save_to_target_path(self, target_path: str) -> bool:
         if not self.logic.papers:
             messagebox.showwarning("警告", "没有论文可以保存")
             return False
@@ -1920,19 +2651,7 @@ class PaperSubmissionGUI:
                 messagebox.showwarning("验证失败", msg + "\n\n当前为 strict 模式，已阻止保存。")
                 return False
 
-        # 2. 选择路径
-        initial_file = os.path.basename(self.logic.current_file_path) if self.logic.current_file_path else "submit_template.json"
-        target_path = filedialog.asksaveasfilename(
-            title="选择保存位置", 
-            defaultextension='.json', 
-            filetypes=[("JSON", "*.json"), ("CSV", "*.csv")],
-            initialfile=initial_file,
-            initialdir=BASE_DIR
-        )
-        if not target_path:
-            return False
-
-        # 3. 判断是否为数据库
+        # 2. 判断是否为数据库
         is_db = self.logic._is_database_file(target_path)
         
         if is_db:
@@ -1940,38 +2659,19 @@ class PaperSubmissionGUI:
                 messagebox.showerror("权限错误", "写入数据库需要管理员权限。")
                 return False
             if messagebox.askyesno("警告", "正在写入核心数据库！\n\n数据库模式仅支持【全量重写】。\n这将用当前列表完全覆盖数据库内容。\n\n是否继续？"):
-                self.logic.save_to_file_rewrite(target_path)
+                self.logic.save_to_file_by_mode(target_path, save_mode='rewrite')
                 self._set_current_loaded_file(target_path)
-                messagebox.showinfo("成功", "数据库已更新")
+                self.update_status(f"保存成功: {os.path.basename(target_path)} (rewrite)")
                 return True
             return False
 
-        # 4. 普通文件：使用简单的 Yes/No/Cancel 对话框
-        # Yes = 增量, No = 重写, Cancel = 取消
-        choice = messagebox.askyesnocancel("选择保存模式", 
-            "请选择保存模式：\n\n"
-            "【是 (Yes)】：增量模式 (增量合并)\n"
-            "   - 追加更新，保证原有内容不会丢失。\n"
-            "   - 若遇重复项，将逐一询问覆盖或跳过。\n\n"
-            "【否 (No)】：重写模式 (完全覆盖)\n"
-            "   - 完全替换目标文件内容。\n"
-            "   - 当前工作区将完全覆盖目标文件。")
-        
-        if choice is None:
-            return False # Cancel
-
+        save_mode = self._get_save_mode()
         try:
-            if choice is False: # No -> Rewrite
-                self.logic.save_to_file_rewrite(target_path)
-                self._set_current_loaded_file(target_path)
-                messagebox.showinfo("成功", "文件已重写保存")
-            else: # Yes -> Incremental
-                # 增量模式：检查冲突
+            if save_mode == 'incremental':
                 conflicts = self.logic.get_conflicts_for_save(target_path)
                 decisions = {}
                 
                 if conflicts:
-                    # 循环询问
                     for i, p in enumerate(conflicts):
                         msg = f"发现重复论文 ({i+1}/{len(conflicts)}):\n\n标题: {p.title}\nDOI: {p.doi}\n\n目标文件中已存在该论文。"
                         res = messagebox.askyesnocancel("处理重复", msg + "\n\n是(Yes) = 覆盖旧条目\n否(No) = 跳过 (保留旧条目)")
@@ -1982,15 +2682,41 @@ class PaperSubmissionGUI:
                         
                         key = p.get_key()
                         decisions[key] = 'overwrite' if res else 'skip'
-                
-                self.logic.save_to_file_incremental(target_path, decisions)
-                self._set_current_loaded_file(target_path)
-                messagebox.showinfo("成功", "增量保存完成")
+
+                self.logic.save_to_file_by_mode(target_path, save_mode='incremental', conflict_decisions=decisions)
+            else:
+                self.logic.save_to_file_by_mode(target_path, save_mode='rewrite')
+
+            self._set_current_loaded_file(target_path)
+            self.update_status(f"保存成功: {os.path.basename(target_path)} ({save_mode})")
             return True
                 
         except Exception as e:
             messagebox.showerror("保存失败", str(e))
             return False
+
+    def save_current_file(self, event=None) -> bool:
+        current_loaded = self._get_current_loaded_file().strip()
+        target_path = current_loaded if current_loaded else (self.logic.current_file_path or '')
+        if not target_path:
+            target_path = self._choose_save_target_path()
+            if not target_path:
+                return False
+        ok = self._save_to_target_path(target_path)
+        if event is not None:
+            return "break"
+        return ok
+
+    def save_all_papers(self, event=None) -> bool:
+        target_path = self._choose_save_target_path()
+        if not target_path:
+            if event is not None:
+                return "break"
+            return False
+        ok = self._save_to_target_path(target_path)
+        if event is not None:
+            return "break"
+        return ok
 
     def submit_pr(self):
         if not messagebox.askyesno("须知", f"将自动通过 PR 提交论文...\n\n1. 创建新分支\n2. 提交更新文件和 Assets 资源\n3. 推送并创建 PR"): return
@@ -2030,7 +2756,12 @@ class PaperSubmissionGUI:
         """在已有工作区内容时，确认是否允许加载新文件覆盖。"""
         if not self.logic.papers:
             return True
-        return bool(messagebox.askyesno("确认", "加载新文件将覆盖当前工作区。\n\n是否继续？(建议先保存)"))
+        save_choice = self._ask_double_save_choice("切换处理文件将覆盖当前工作区")
+        if save_choice is None:
+            return False
+        if save_choice and (not self.save_current_file()):
+            return False
+        return True
 
     def _ensure_admin_for_db_load(self, title: str, prompt: str) -> bool:
         """确保具备数据库加载权限；若无权限则引导切换管理员模式。"""
@@ -3067,6 +3798,17 @@ class PaperSubmissionGUI:
         
         refresh_list()
 
+    def _copy_category_tree_structure_to_clipboard(self, parent=None):
+        try:
+            result_text = self.logic.generate_category_tree_structure_text()
+            owner = parent or self.root
+            owner.clipboard_clear()
+            owner.clipboard_append(result_text)
+            owner.update()
+            messagebox.showinfo("成功", "分类树结构已复制到剪贴板！", parent=owner)
+        except Exception as e:
+            messagebox.showerror("错误", f"复制失败: {str(e)}", parent=parent or self.root)
+
     def show_category_tree(self, target_combo=None):
         """显示分类树结构，双击填充"""
         win = tk.Toplevel(self.root)
@@ -3085,18 +3827,15 @@ class PaperSubmissionGUI:
         tree.heading("Desc", text="Description")
         tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        cats = self.config.get_active_categories()
-        parents = {c['unique_name']: c for c in cats if not c.get('primary_category')}
-        children = {}
-        for c in cats:
-            p = c.get('primary_category')
-            if p:
-                children.setdefault(p, []).append(c)
-        
-        for pid, p in parents.items():
-            node = tree.insert("", "end", text=p['name'], values=(p['unique_name'], p.get('description','')))
-            for c in children.get(pid, []):
-                tree.insert(node, "end", text=c['name'], values=(c['unique_name'], c.get('description','')))
+        roots, children, _ = self.logic.build_category_hierarchy()
+
+        def insert_rec(parent_id, cat):
+            node = tree.insert(parent_id, "end", text=cat['name'], values=(cat['unique_name'], cat.get('description','')))
+            for child in children.get(cat['unique_name'], []):
+                insert_rec(node, child)
+
+        for root in roots:
+            insert_rec("", root)
 
         def on_double_click(event):
             if not target_combo: return
@@ -3109,47 +3848,12 @@ class PaperSubmissionGUI:
                     win.destroy()
             except IndexError: pass
 
-        def copy_tree_structure():
-            """复制分类树结构到剪贴板"""
-            try:
-                text_lines = []
-                
-                # 遍历所有父分类
-                for pid, p in sorted(parents.items()):
-                    # 添加父分类
-                    text_lines.append(f"{p['name']}")
-                    text_lines.append(f"Unique Name: {p['unique_name']}")
-                    if p.get('description'):
-                        text_lines.append(f"Description: {p.get('description')}")
-                    text_lines.append("")
-                    
-                    # 添加子分类
-                    child_list = children.get(pid, [])
-                    if child_list:
-                        for c in child_list:
-                            text_lines.append(f"└── {c['name']}")
-                            text_lines.append(f"     Unique Name: {c['unique_name']}")
-                            if c.get('description'):
-                                text_lines.append(f"     Description: {c.get('description')}")
-                            text_lines.append("")
-                
-                
-                # 将文本复制到剪贴板
-                result_text = "\n".join(text_lines)
-                win.clipboard_clear()
-                win.clipboard_append(result_text)
-                win.update()  # 确保剪贴板更新
-                
-                messagebox.showinfo("成功", "分类树结构已复制到剪贴板！", parent=win)
-            except Exception as e:
-                messagebox.showerror("错误", f"复制失败: {str(e)}", parent=win)
-
         # 创建按钮框架
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # 添加复制按钮
-        copy_button = ttk.Button(button_frame, text="📋 复制结构到剪贴板", command=copy_tree_structure)
+        copy_button = ttk.Button(button_frame, text="📋 复制结构到剪贴板", command=lambda: self._copy_category_tree_structure_to_clipboard(parent=win))
         copy_button.pack(side=tk.LEFT, padx=5)
 
         if target_combo:
@@ -3165,22 +3869,60 @@ class PaperSubmissionGUI:
         self.run_ai_task(self._ai_suggest_category_task)
 
     def _ai_suggest_category_task(self):
-        idx = self.current_paper_index
-        if idx < 0: return
-        paper = self.logic.papers[idx]
+        real_idx = self._get_current_real_index()
+        if real_idx < 0:
+            return
+        paper = self.logic.papers[real_idx]
         paper_text = ""
         if paper.paper_file:
              paper_text = AIGenerator().read_paper_file(os.path.join(BASE_DIR, paper.paper_file))
         gen = AIGenerator()
         cat, reasoning = gen.generate_category(paper, paper_text)
+
+        valid_categories = self.config.get_active_categories()
+        id_set = {str(c.get('unique_name', '')).strip() for c in valid_categories if str(c.get('unique_name', '')).strip()}
+        name_to_id = {
+            str(c.get('name', '')).strip().lower(): str(c.get('unique_name', '')).strip()
+            for c in valid_categories
+            if str(c.get('name', '')).strip() and str(c.get('unique_name', '')).strip()
+        }
+
+        def normalize_suggested_category(raw_value: str) -> str:
+            if not raw_value:
+                return ""
+            text = str(raw_value).strip()
+            text = text.replace('；', ';').replace('，', ',').replace('、', ',').replace('\n', ',')
+            text = text.replace('ID:', '').replace('id:', '').replace('ID', '').replace('id', '')
+            for sep in [';', ',', '|']:
+                text = text.replace(sep, '|')
+            parts = [p.strip().strip('"\'') for p in text.split('|') if p.strip()]
+            normalized = []
+            for part in parts:
+                if part in id_set:
+                    normalized.append(part)
+                    continue
+                mapped = name_to_id.get(part.lower())
+                if mapped:
+                    normalized.append(mapped)
+            # 去重并保持顺序
+            return "|".join(dict.fromkeys(normalized))
+
+        normalized_cat = normalize_suggested_category(cat)
         
         def update_ui():
             self.update_status("AI 分类建议已就绪")
-            msg = f"AI Suggested: {cat}\n\nReasoning:\n{reasoning}"
+            msg = f"AI Suggested: {cat}\nNormalized: {normalized_cat or '(未匹配到有效分类)'}\n\nReasoning:\n{reasoning}"
             if messagebox.askyesno("AI Category", msg + "\n\nAccept suggestion?"):
-                if cat:
-                    paper.category = cat
-                    self.load_paper_to_form(paper)
+                if normalized_cat:
+                    target_paper = self.logic.papers[real_idx]
+                    target_paper.category = normalized_cat
+                    if self._get_current_real_index() == real_idx:
+                        self.load_paper_to_form(target_paper)
+                        self._refresh_list_item(self.current_paper_index, target_paper)
+                    else:
+                        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
+                else:
+                    messagebox.showwarning("AI Category", "AI 建议未匹配到有效分类ID，未应用。")
         self.root.after(0, update_ui)
 
     def _gui_clear_category_rows(self):
@@ -3360,27 +4102,36 @@ class PaperSubmissionGUI:
     
     def update_paper_list(self):
         """兼容旧调用的包装器"""
-        self.refresh_list_view(self._get_search_keyword(), self.cat_filter_combo.get())
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
 
-    def refresh_list_view(self, keyword="", category=""):
+    def refresh_list_view(self, keyword="", category="", status=""):
         """根据搜索条件刷新列表 (修复列数据对应)"""
+        if category == "":
+            category = self._get_category_filter_value()
+        if status == "":
+            status = self._get_status_filter_value()
+
         # 1. 获取筛选后的索引
-        self.filtered_indices = self.logic.filter_papers(keyword, category)
+        filtered_indices, self._search_hit_fields_by_real_idx = self._filter_papers_with_match_fields(keyword, category, status)
+        self.filtered_indices = self._sort_filtered_indices_for_display(filtered_indices)
         
         # 2. 清空列表
         for item in self.paper_tree.get_children():
             self.paper_tree.delete(item)
             
         # 3. 填充列表
-        for display_i, real_idx in enumerate(self.filtered_indices):
+        visible_columns = self._get_visible_list_columns()
+        for real_idx in self.filtered_indices:
             paper = self.logic.papers[real_idx]
-            
-            title = paper.title[:150] + "..." if len(paper.title) > 150 else paper.title
-
             status_str, tags = self._get_list_status_and_tags(paper)
-            
-            # 修复：values 必须与 columns=("ID", "Title", "Status") 对应
-            self.paper_tree.insert("", "end", iid=str(real_idx), values=(display_i + 1, title, status_str), tags=tags)
+
+            values = tuple(
+                status_str if col == 'Status' else self._get_list_column_display_value(paper, real_idx, col)
+                for col in visible_columns
+            )
+            self.paper_tree.insert("", "end", iid=str(real_idx), values=values, tags=tags)
+
+        self._rebuild_category_filter_tree(select_current=True)
         
         # 恢复选中状态
         if self.current_paper_index >= 0 and self.current_paper_index < len(self.filtered_indices):
@@ -3388,6 +4139,8 @@ class PaperSubmissionGUI:
             if not self._select_tree_item_by_real_index(real_idx, focus_item=False, see_item=False):
                 self.current_paper_index = -1
                 self.show_placeholder()
+            else:
+                self._apply_search_hit_highlight(real_idx)
         else:
             self.current_paper_index = -1
             self.show_placeholder()
@@ -3424,7 +4177,7 @@ class PaperSubmissionGUI:
 
     def _action_duplicate(self, index):
         new_idx = self.logic.duplicate_paper(index)
-        self.refresh_list_view(self._get_search_keyword(), self.cat_filter_combo.get())
+        self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
         self._highlight_paper(new_idx)
         self.update_status("条目已拷贝")
 
@@ -3585,7 +4338,7 @@ class PaperSubmissionGUI:
             if messagebox.askyesno("确认", "确定应用合并并删除冲突条目吗？"):
                 self.logic.merge_papers_custom(base_idx, conflict_idx, final_data)
                 win.destroy()
-                self.refresh_list_view(self._get_search_keyword(), self.cat_filter_combo.get())
+                self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
                 
                 new_base_idx = base_idx if base_idx < conflict_idx else base_idx - 1
                 self._highlight_paper(new_base_idx)
@@ -3597,7 +4350,8 @@ class PaperSubmissionGUI:
     # ================= 拖拽排序功能 (修改：增加跟随窗口) =================
 
     def _on_drag_start(self, event):
-        if self._get_search_keyword() or self.cat_filter_combo.get() != "All Categories": return
+        if self._is_any_filter_active():
+            return
         item = self.paper_tree.identify_row(event.y)
         if item:
             self.drag_item = item
@@ -3653,13 +4407,79 @@ class PaperSubmissionGUI:
         # 可选：绘制一条插入线 (TreeView 比较难实现插入线，这里保持简单，不乱动 Selection)
         # 移除原有的 selection_set 代码，避免鼠标划过时疯狂切换选中项
 
+    def _handle_category_drop_for_dragged_paper(self) -> bool:
+        """若当前拖拽释放在分类树节点上，则为论文追加分类并返回 True。"""
+        if not self.drag_item:
+            return False
+
+        tree = getattr(self, 'category_filter_tree', None)
+        if tree is None:
+            return False
+
+        if not bool(getattr(self, '_category_sidebar_visible', False)):
+            return False
+
+        try:
+            pointer_x = self.root.winfo_pointerx()
+            pointer_y = self.root.winfo_pointery()
+        except Exception:
+            return False
+
+        tree_left = tree.winfo_rootx()
+        tree_top = tree.winfo_rooty()
+        tree_right = tree_left + tree.winfo_width()
+        tree_bottom = tree_top + tree.winfo_height()
+        if not (tree_left <= pointer_x <= tree_right and tree_top <= pointer_y <= tree_bottom):
+            return False
+
+        local_y = pointer_y - tree_top
+        target_item = tree.identify_row(local_y)
+        if not target_item or target_item == '__ALL__':
+            return False
+
+        try:
+            real_index = int(self.drag_item)
+        except Exception:
+            return False
+
+        changed, reason, count = self.logic.add_category_to_paper(real_index, target_item)
+
+        if reason == 'limit':
+            max_count = self.logic.get_max_categories_per_paper()
+            messagebox.showwarning('限制', f'该论文分类数已达上限（{max_count}），无法继续添加。')
+            return True
+
+        if reason in ('invalid-index', 'invalid-category'):
+            return True
+
+        if changed:
+            category_meta = self.logic.config.get_category_by_unique_name(target_item) or {}
+            category_name = category_meta.get('name', target_item)
+            self.refresh_list_view(self._get_search_keyword(), self._get_category_filter_value(), self._get_status_filter_value())
+            self._activate_paper_by_real_index(real_index)
+            self.update_status(f"已添加分类：{category_name}（当前 {count} 个）")
+        else:
+            category_meta = self.logic.config.get_category_by_unique_name(target_item) or {}
+            category_name = category_meta.get('name', target_item)
+            if reason == 'exists':
+                self.update_status(f"该论文已包含分类：{category_name}")
+
+        return True
+
     def _on_drag_release(self, event):
         self._destroy_drag_ghost()
         if not self.drag_item:
             self._drag_press_item = None
             self._drag_press_xy = None
             return
-        
+
+        # 优先处理“拖到 hierarchy 分类树节点上”这一操作
+        if self._handle_category_drop_for_dragged_paper():
+            self.drag_item = None
+            self._drag_press_item = None
+            self._drag_press_xy = None
+            return
+
         # 检测释放位置是否在 Treeview 内
         tv_width = self.paper_tree.winfo_width()
         tv_height = self.paper_tree.winfo_height()
@@ -3672,18 +4492,32 @@ class PaperSubmissionGUI:
             return
 
         target_item = self.paper_tree.identify_row(event.y)
-        
-        if target_item and target_item != self.drag_item:
+
+        target_mode = 'row'
+        if not target_item:
+            children = self.paper_tree.get_children()
+            if children:
+                last_item = children[-1]
+                last_bbox = self.paper_tree.bbox(last_item)
+                if last_bbox and event.y > (last_bbox[1] + last_bbox[3]):
+                    target_mode = 'append-end'
+
+        can_reorder = self._is_drag_reorder_allowed()
+
+        if can_reorder and ((target_item and target_item != self.drag_item) or target_mode == 'append-end'):
             try:
                 real_from = int(self.drag_item)
-                real_to_target = int(target_item)
-                
-                from_index = self.filtered_indices.index(real_from)
-                to_index = self.filtered_indices.index(real_to_target)
-                
+                if target_mode == 'append-end':
+                    real_to_target = len(self.logic.papers) - 1
+                else:
+                    real_to_target = int(target_item)
+
+                from_index = real_from
+                to_index = real_to_target
+
                 self.logic.move_paper(from_index, to_index)
                 self.refresh_list_view()
-                self._highlight_paper(to_index) 
+                self._highlight_paper(to_index)
                 
             except ValueError:
                 pass 
@@ -3704,12 +4538,53 @@ class PaperSubmissionGUI:
     def on_closing(self):
         self._confirm_all_pending_file_fields_for_current_paper(show_popup=True, block_on_error=False)
         if self.logic.papers:
-            choice = messagebox.askyesnocancel("确认", "注意！是否保存当前所有论文？如果否，当前所有内容会丢失")
-            if choice is None: return
-            if choice and (not self.save_all_papers()):
+            choice = self._ask_double_save_choice("关闭程序将丢失当前未保存内容")
+            if choice is None:
+                return
+            if choice and (not self.save_current_file()):
                 return
         self.logic.clear_all_temp_assets()
         self.root.destroy()
+
+    def _ask_double_save_choice(self, context_text: str) -> Optional[bool]:
+        first_msg = (
+            f"{context_text}。\n\n"
+            "是否先保存当前所有论文？\n"
+            "【是】先保存并继续\n"
+            "【否】不保存（将进入二次确认）\n"
+            "【取消】取消当前操作"
+        )
+        first = messagebox.askyesnocancel("保存提醒", first_msg)
+        if first is None:
+            return None
+        if first:
+            return True
+
+        second_msg = (
+            f"{context_text}。\n\n"
+            "你刚才选择了不保存。\n"
+            "二次确认：是否改为先保存再继续？\n"
+            "【是】先保存并继续\n"
+            "【否】确认不保存并继续\n"
+            "【取消】取消当前操作"
+        )
+        second = messagebox.askyesnocancel("保存提醒（二次确认）", second_msg)
+        if second is None:
+            return None
+        return bool(second)
+
+    def _show_shortcut_help(self):
+        messagebox.showinfo(
+            "当前快捷键",
+            "Ctrl+S: 保存文件（优先保存到当前加载文件）\n"
+            "Ctrl+Shift+S: 另存为"
+        )
+
+    def _bind_shortcuts(self):
+        self.root.bind("<Control-s>", self.save_current_file)
+        self.root.bind("<Control-S>", self.save_current_file)
+        self.root.bind("<Control-Shift-s>", self.save_all_papers)
+        self.root.bind("<Control-Shift-S>", self.save_all_papers)
 
     def add_from_zotero_meta(self):
         s = self._show_zotero_input_dialog("从Zotero Meta新建论文")

@@ -10,7 +10,8 @@ import subprocess
 import time
 import shutil
 import uuid
-from typing import Dict, List, Any, Optional, Tuple
+import configparser
+from typing import Dict, List, Any, Optional, Tuple, Set
 import re
 import copy # 新增
 
@@ -28,6 +29,9 @@ BASE_DIR = str(get_config_instance().project_root)
 
 class SubmitLogic:
     """提交系统的业务逻辑控制器"""
+
+    VALID_SAVE_VALIDATION_STRATEGIES = {'strict', 'lenient'}
+    VALID_SAVE_MODES = {'incremental', 'rewrite'}
 
     def __init__(self):
         # 加载配置
@@ -75,6 +79,57 @@ class SubmitLogic:
              self.admin_password_path = os.path.join(BASE_DIR, 'admin_key.txt')
 
         self.update_json_path = self.settings['paths'].get('update_json', 'submit_template.json')
+
+    # ================= UI 配置逻辑 =================
+
+    def _normalize_save_validation_strategy(self, strategy: Any) -> str:
+        value = str(strategy or '').strip().lower()
+        if value not in self.VALID_SAVE_VALIDATION_STRATEGIES:
+            return 'strict'
+        return value
+
+    def _normalize_save_mode(self, mode: Any) -> str:
+        value = str(mode or '').strip().lower()
+        if value not in self.VALID_SAVE_MODES:
+            return 'incremental'
+        return value
+
+    def get_save_validation_strategy(self) -> str:
+        ui_cfg = self.settings.get('ui', {}) or {}
+        return self._normalize_save_validation_strategy(ui_cfg.get('save_validation_strategy', 'strict'))
+
+    def get_save_mode(self) -> str:
+        ui_cfg = self.settings.get('ui', {}) or {}
+        return self._normalize_save_mode(ui_cfg.get('save_mode', 'incremental'))
+
+    def _persist_ui_setting(self, key: str, value: str):
+        cfg = configparser.ConfigParser(inline_comment_prefixes=('#', ';', '//'))
+        cfg_path = os.path.join(str(self.config.config_path), 'config.ini')
+        if os.path.exists(cfg_path):
+            cfg.read(cfg_path, encoding='utf-8')
+        if 'ui' not in cfg:
+            cfg['ui'] = {}
+        cfg['ui'][key] = str(value)
+        with open(cfg_path, 'w', encoding='utf-8') as f:
+            cfg.write(f)
+
+        # 刷新配置快照，确保后续读取立即生效
+        self.config.settings = self.config._load_settings()
+        self.settings = self.config.settings
+
+    def set_save_validation_strategy(self, strategy: str, require_admin: bool = True) -> str:
+        if require_admin and not self.is_admin:
+            raise PermissionError("仅管理员可修改保存策略")
+        normalized = self._normalize_save_validation_strategy(strategy)
+        self._persist_ui_setting('save_validation_strategy', normalized)
+        return normalized
+
+    def set_save_mode(self, mode: str, require_admin: bool = True) -> str:
+        if require_admin and not self.is_admin:
+            raise PermissionError("仅管理员可修改保存模式")
+        normalized = self._normalize_save_mode(mode)
+        self._persist_ui_setting('save_mode', normalized)
+        return normalized
     # ================= 文件加载与管理 =================
 
     def load_papers_from_file(self, filepath: str) -> int:
@@ -147,6 +202,208 @@ class SubmitLogic:
         return paper
 
     # ================= 筛选与搜索 =================
+
+    def _paper_category_set(self, paper: Paper) -> Set[str]:
+        raw_cat = getattr(paper, 'category', '') or ''
+        return {c.strip() for c in str(raw_cat).split('|') if c.strip()}
+
+    def _paper_category_list(self, paper: Paper) -> List[str]:
+        """返回保持原有顺序且去重后的分类列表。"""
+        raw_cat = getattr(paper, 'category', '') or ''
+        result: List[str] = []
+        seen: Set[str] = set()
+        for item in str(raw_cat).split('|'):
+            category = item.strip()
+            if not category or category in seen:
+                continue
+            seen.add(category)
+            result.append(category)
+        return result
+
+    def get_max_categories_per_paper(self) -> int:
+        """获取单篇论文允许的最大分类数。"""
+        try:
+            cfg_max = int((self.settings.get('database', {}) or {}).get('max_categories_per_paper', 4))
+        except Exception:
+            cfg_max = 4
+        return max(1, min(cfg_max, 10))
+
+    def add_category_to_paper(
+        self,
+        paper_index: int,
+        category_unique_name: str,
+        max_categories: Optional[int] = None,
+    ) -> Tuple[bool, str, int]:
+        """
+        给论文追加分类（若不存在）。
+
+        返回: (changed, reason, current_count)
+        reason: added | exists | limit | invalid-index | invalid-category
+        """
+        if not (0 <= paper_index < len(self.papers)):
+            return False, 'invalid-index', 0
+
+        target_category = (category_unique_name or '').strip()
+        if not target_category:
+            return False, 'invalid-category', 0
+
+        _, _, by_unique = self.build_category_hierarchy()
+        if target_category not in by_unique:
+            return False, 'invalid-category', 0
+
+        paper = self.papers[paper_index]
+        categories = self._paper_category_list(paper)
+
+        if target_category in categories:
+            return False, 'exists', len(categories)
+
+        category_limit = self.get_max_categories_per_paper() if max_categories is None else max(1, int(max_categories))
+        if len(categories) >= category_limit:
+            return False, 'limit', len(categories)
+
+        categories.append(target_category)
+        paper.category = '|'.join(categories)
+        paper.category = self.update_utils.normalize_category_value(paper.category, self.config)
+        return True, 'added', len(categories)
+
+    def build_category_hierarchy(self) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], Dict[str, Dict[str, Any]]]:
+        """构建分类树结构并返回 (roots, children_map, by_unique_name)。"""
+        categories = self.config.get_active_categories() or []
+        by_unique: Dict[str, Dict[str, Any]] = {}
+        children_map: Dict[str, List[Dict[str, Any]]] = {}
+        roots: List[Dict[str, Any]] = []
+
+        for cat in categories:
+            unique_name = str(cat.get('unique_name', '')).strip()
+            if not unique_name:
+                continue
+            by_unique[unique_name] = cat
+
+        for cat in by_unique.values():
+            parent = str(cat.get('predecessor_category', '') or '').strip()
+            if parent and parent in by_unique:
+                children_map.setdefault(parent, []).append(cat)
+            else:
+                roots.append(cat)
+
+        roots.sort(key=lambda x: x.get('order', 0))
+        for key in children_map:
+            children_map[key].sort(key=lambda x: x.get('order', 0))
+
+        return roots, children_map, by_unique
+
+    def get_category_scope_with_descendants(self, selected_category: str) -> Set[str]:
+        """返回选中分类及其所有子孙分类的 unique_name 集合。"""
+        selected = (selected_category or '').strip()
+        if not selected:
+            return set()
+
+        _, children_map, by_unique = self.build_category_hierarchy()
+        if selected not in by_unique:
+            return set()
+
+        scope: Set[str] = set()
+        stack = [selected]
+        while stack:
+            current = stack.pop()
+            if current in scope:
+                continue
+            scope.add(current)
+            for child in children_map.get(current, []):
+                child_unique = str(child.get('unique_name', '')).strip()
+                if child_unique:
+                    stack.append(child_unique)
+        return scope
+
+    def get_category_counts_with_descendants(self, papers: Optional[List[Paper]] = None) -> Dict[str, int]:
+        """统计每个分类（含其所有子孙分类）的论文数量。"""
+        _, _, by_unique = self.build_category_hierarchy()
+        if not by_unique:
+            return {}
+
+        source_papers = papers if papers is not None else self.papers
+        counts: Dict[str, int] = {k: 0 for k in by_unique.keys()}
+        scope_cache: Dict[str, Set[str]] = {}
+
+        for unique_name in by_unique.keys():
+            scope_cache[unique_name] = self.get_category_scope_with_descendants(unique_name)
+
+        for paper in source_papers:
+            p_cats = self._paper_category_set(paper)
+            if not p_cats:
+                continue
+            for unique_name, scope in scope_cache.items():
+                if not p_cats.isdisjoint(scope):
+                    counts[unique_name] += 1
+
+        return counts
+
+    def generate_category_tree_structure_text(self) -> str:
+        """生成分类树结构文本（用于复制到剪贴板）。"""
+        roots, children_map, _ = self.build_category_hierarchy()
+        lines: List[str] = []
+
+        def dump_node(cat: Dict[str, Any], prefix: str = ''):
+            name = cat.get('name', '')
+            unique_name = cat.get('unique_name', '')
+            desc = cat.get('description', '')
+
+            lines.append(f"{prefix}{name}")
+            lines.append(f"{prefix}Unique Name: {unique_name}")
+            if desc:
+                lines.append(f"{prefix}Description: {desc}")
+            lines.append('')
+
+            for child in children_map.get(unique_name, []):
+                dump_node(child, prefix + '    ')
+
+        for root in roots:
+            dump_node(root)
+
+        return '\n'.join(lines).rstrip()
+
+    def filter_papers_with_match_fields(
+        self,
+        keyword: str = '',
+        selected_category: str = '',
+        status: str = '',
+        search_fields: Optional[List[str]] = None,
+    ) -> Tuple[List[int], Dict[int, Set[str]]]:
+        """关键词 + 分类(含子类) + 阅读状态联合筛选，并返回命中字段。"""
+        kw = (keyword or '').lower().strip()
+        status_filter = (status or '').strip()
+        fields = list(search_fields or ['title', 'authors', 'doi', 'notes'])
+
+        category_scope = self.get_category_scope_with_descendants(selected_category)
+
+        indices: List[int] = []
+        hit_fields: Dict[int, Set[str]] = {}
+
+        for i, paper in enumerate(self.papers):
+            if category_scope:
+                p_cats = self._paper_category_set(paper)
+                if p_cats.isdisjoint(category_scope):
+                    continue
+
+            if status_filter and status_filter != 'All Status':
+                paper_status = (getattr(paper, 'status', '') or '').strip()
+                if paper_status != status_filter:
+                    continue
+
+            matched: Set[str] = set()
+            if kw:
+                for variable in fields:
+                    value = getattr(paper, variable, '')
+                    text = '' if value is None else str(value)
+                    if text and kw in text.lower():
+                        matched.add(variable)
+                if not matched:
+                    continue
+
+            indices.append(i)
+            hit_fields[i] = matched
+
+        return indices, hit_fields
 
     def filter_papers(self, keyword: str = "", category: str = "") -> List[int]:
         """
@@ -281,6 +538,24 @@ class SubmitLogic:
         final_list = existing_papers + papers_to_append
         self.update_utils.write_data(target_path, final_list)
         return final_list
+
+    def save_to_file_by_mode(
+        self,
+        target_path: str,
+        save_mode: Optional[str] = None,
+        conflict_decisions: Optional[Dict[Tuple[str, str], str]] = None,
+    ) -> List[Paper]:
+        """按保存模式执行保存：数据库文件强制 rewrite，其余按配置/参数选择。"""
+        if self._is_database_file(target_path):
+            self.save_to_file_rewrite(target_path)
+            return self.papers
+
+        mode = self._normalize_save_mode(save_mode if save_mode is not None else self.get_save_mode())
+        if mode == 'rewrite':
+            self.save_to_file_rewrite(target_path)
+            return self.papers
+
+        return self.save_to_file_incremental(target_path, conflict_decisions or {})
 
     def get_conflicts_for_save(self, target_path: str) -> List[Paper]:
         """预检查：返回当前列表中与目标文件冲突的论文"""
