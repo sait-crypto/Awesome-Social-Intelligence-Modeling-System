@@ -249,6 +249,14 @@ CATEGORIES_CONFIG = {
             "description": "[四级分类]（Discourse and Pragmatic Analysis） — 吹牛识别",
         },
         {
+            "unique_name": "Macro-level Discourse Analysis",
+            "order": 6,
+            "name": "Macro-level Discourse Analysis",
+            "predecessor_category": "Discourse and Pragmatic Analysis",
+            "enabled": True,
+            "description": "[四级分类]（Discourse and Pragmatic Analysis） — 宏观语篇分析",
+        },
+        {
             "unique_name": "User-level Perception",
             "order": 7,
             "name": "User-level Perception",
@@ -264,7 +272,7 @@ CATEGORIES_CONFIG = {
             "enabled": True,
             "description": "[三级分类]（User-level Perception） —  用户立场检测",
         },
-        {
+        {#也许改为恶意与异常用户检测更合适？，因为可能有专注于检测异常而非恶意用户的论文
             "unique_name": "Malicious User Detection",
             "order": 8,
             "name": "Malicious User Detection",

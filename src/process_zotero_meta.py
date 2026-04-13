@@ -65,6 +65,7 @@ class ZoteroProcessor:
         date = item.get("date", "")
         paper_url = item.get("url", "")
         abstract = item.get("abstractNote", "")
+        citation_key = str(item.get("citationKey", "") or "").strip()
         
         # 2. Authors (Creators)
         # 格式化为: FirstName LastName, FirstName LastName
@@ -123,12 +124,23 @@ class ZoteroProcessor:
         categories_list = self._extract_categories_from_tags(item.get("tags", []))
         # 适配新格式：[] 字段统一使用 | 分隔字符串（JSON 落盘时会转为列表）
         categories_str = "|".join(categories_list) if categories_list else ""
+
+        # 6.5 Zotero 唯一条目引用（libraryID:key）
+        zotero_item_ref = ""
+        zotero_key = str(item.get("itemKey", "") or item.get("key", "") or "").strip()
+        if zotero_key:
+            try:
+                library_id = int(item.get("libraryID", 1) or 1)
+            except Exception:
+                library_id = 1
+            zotero_item_ref = f"{library_id}:{zotero_key}"
         
         # 7. 构建Paper对象
         # 注意：这里创建的是基础Paper，不包含ID等数据库特定的信息
         paper = Paper(
             doi=doi,
             title=title,
+            citation_key=citation_key,
             authors=authors,
             date=date,
             paper_url=paper_url,
@@ -137,6 +149,7 @@ class ZoteroProcessor:
             analogy_summary=analogy_summary,
             abstract=abstract,
             notes=notes,
+            zotero_item_ref=zotero_item_ref,
             # 设置默认值
             show_in_readme=True,
             status="unread",
