@@ -632,6 +632,8 @@ class UpdateFileUtils:
         s = str(raw_val).strip()
         if not s: return ""
 
+        # 支持多分类分隔符替换
+        s = s.replace('；', '|').replace(';', '|')
         parts = [p.strip() for p in s.split('|') if p.strip()]
         if not parts: return ""
 
@@ -644,13 +646,14 @@ class UpdateFileUtils:
         change_list = config_instance.get_categories_change_list()
 
         for val in parts:
-            # 应用变更
+            # 应用变更 (忽略大小写)
+            val_lower = val.lower()
             for rule in change_list:
-                if rule.get('old_unique_name') == val:
+                if rule.get('old_unique_name', '').lower() == val_lower:
                     val = rule.get('new_unique_name')
                     break
             
-            # 查找定义 (优先匹配 unique_name)
+            # 查找定义 (优先匹配 unique_name，忽略大小写应在 config_instance 内处理)
             cat = config_instance.get_category_by_name_or_unique_name(val)
             uname = cat.get('unique_name', val) if cat else val
             

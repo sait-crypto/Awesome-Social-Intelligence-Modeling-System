@@ -308,16 +308,17 @@ class Paper:
                     except Exception:
                         parts = [val_str.strip()]
 
-                    valid_categories = {cat['unique_name'] for cat in config_instance.get_active_categories()}
+                    valid_categories_lower = {cat['unique_name'].lower() for cat in config_instance.get_active_categories()}
 
-                    # 检查重复（原始输入是否包含重复项）
-                    if len(parts) != len(list(dict.fromkeys(parts))):
+                    # 检查重复（忽略大小写）
+                    parts_lower = [p.lower() for p in parts]
+                    if len(parts_lower) != len(list(dict.fromkeys(parts_lower))):
                         errors.append(f"分类包含重复项: {value}")
                         invalid_vars.add(var_name)
 
                     # 检查每一项是否合法
                     for p in parts:
-                        if p not in valid_categories:
+                        if p.lower() not in valid_categories_lower:
                             errors.append(f"分类无效: {p}，分类须为categories_config.py中已启用的分类")
                             invalid_vars.add(var_name)
 

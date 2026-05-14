@@ -376,15 +376,18 @@ class ConfigLoader:
         return self.categories_config.get('categories_change_list', [])
     
     def get_category_by_name_or_unique_name(self, identifier: str) -> Optional[Dict[str, Any]]:
-        """根据 unique_name 或 name 获取分类配置"""
+        """根据 unique_name 或 name 获取分类配置 (忽略大小写)"""
+        if not identifier: return None
+        identifier_lower = identifier.lower()
+        
         # 首先按 unique_name 匹配
         for category in self.categories_config.get('categories', []):
-            if category.get('unique_name') == identifier:
+            if category.get('unique_name', '').lower() == identifier_lower:
                 return category
         
         # 如果按 unique_name 未找到，则按 name 匹配
         for category in self.categories_config.get('categories', []):
-            if category.get('name') == identifier:
+            if category.get('name', '').lower() == identifier_lower:
                 return category
         
         return None
