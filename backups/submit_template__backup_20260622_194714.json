@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-06-22 19:47:14",
+    "generated_at": "2026-04-19 22:38:19",
     "column_ids": [
       "doi",
       "title",
@@ -44,7 +44,7 @@
       "authors": "Iz Beltagy, Matthew E. Peters, Arman Cohan",
       "date": "2020-12-02",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The Longformer addresses the fundamental limitation of standard Transformer models in processing long sequences, as their self-attention mechanism scales quadratically with sequence length. The paper aims to overcome this by introducing a novel attention mechanism that scales linearly, enabling efficient handling of documents with thousands of tokens or more.\n\n[翻译]\nLongformer旨在解决标准Transformer模型处理长序列的根本性局限，因其自注意力机制的计算复杂度随序列长度呈二次方增长。本文的目标是通过引入一种计算复杂度呈线性增长的新型注意力机制来克服这一局限，从而实现对数千个标记或更长的文档进行高效处理。",
       "summary_innovation": "[AI generated] The Longformer introduces a novel attention mechanism that scales linearly with sequence length, enabling efficient processing of long documents. Its key innovation is a hybrid attention pattern combining local windowed attention with task-specific global attention, serving as a drop-in replacement for standard quadratic self-attention. This design allows for effective pre-training and fine-tuning on downstream tasks, leading to state-of-the-art performance on long-document benchmarks and enabling new generative sequence-to-sequence models like LED for summarization.\n\n[翻译]\nLongformer提出了一种新颖的注意力机制，其计算复杂度与序列长度呈线性关系，从而能够高效处理长文档。其核心创新在于一种混合注意力模式，它结合了局部窗口注意力与面向任务的全局注意力，可作为标准二次复杂度自注意力的直接替代。该设计支持对下游任务进行有效的预训练和微调，在长文档基准测试中取得了最先进的性能，并催生了如用于摘要任务的LED等新的生成式序列到序列模型。",
@@ -79,7 +79,7 @@
       "authors": "Eric Mitchell, Yoonho Lee, Alexander Khazatsky, Christopher D. Manning, Chelsea Finn",
       "date": "2023-07-23",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] DetectGPT aims to address the need for reliable detection of machine-generated text without requiring separate training data, classifiers, or watermarks. It leverages an intrinsic property of LLMs—that their generated text tends to lie in regions of negative log probability curvature—to create a zero-shot detection method.\n\n[翻译]\nDetectGPT旨在满足对机器生成文本进行可靠检测的需求，且无需单独的训练数据、分类器或水印。它利用大语言模型的一个内在特性——其生成的文本倾向于位于对数概率函数的负曲率区域——来创建一种零样本检测方法。",
       "summary_innovation": "[AI generated] DetectGPT introduces a zero-shot detection method for machine-generated text by leveraging the curvature of an LLM's log probability function, identifying that model-generated samples tend to reside in regions of negative curvature. This approach eliminates the need for training separate classifiers, collecting labeled datasets, or applying watermarks, relying instead on the target model's own probability scores and perturbations from a generic pre-trained model.\n\n[翻译]\nDetectGPT提出了一种零样本机器生成文本检测方法，其核心创新在于利用大语言模型对数概率函数的曲率特性，识别出模型生成的文本倾向于位于概率函数的负曲率区域。该方法无需训练单独的分类器、收集标注数据集或添加水印，仅依赖于目标模型自身的概率分数和一个通用预训练模型生成的文本扰动。",
@@ -114,7 +114,7 @@
       "authors": "Hillary Dawkins, Kathleen C. Fraser, Svetlana Kiritchenko",
       "date": "2025-07",
       "category": [
-        "Machine-Generated Content Detection",
+        "Machine-generated Content Detection",
         "Social Simulation for Social Media"
       ],
       "summary_motivation": "[AI generated] This paper investigates the challenge of detecting AI-generated social media posts, particularly those created by fine-tuned language models, which pose a significant threat to online discourse by enabling scalable influence campaigns. [翻译] 本文研究了检测AI生成社交媒体帖子的挑战，特别是那些由经过微调的语言模型生成的帖子，它们通过实现可扩展的影响力活动，对在线舆论构成了重大威胁。",
@@ -150,7 +150,7 @@
       "authors": "Ruiting Shao, Ryan Schwarz, Christopher Clifton, Edward Delp",
       "date": "2024-05",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "",
       "summary_innovation": "",
@@ -187,7 +187,7 @@
       "authors": "Bryan E. Tuck, Rakesh Verma",
       "date": "2025-01",
       "category": [
-        "Machine-Generated Content Detection",
+        "Machine-generated Content Detection",
         "Social Simulation for Social Media"
       ],
       "summary_motivation": "",
@@ -225,7 +225,7 @@
       "authors": "Herun Wan, Minnan Luo, Zhixiong Su, Guang Dai, Xiang Zhao",
       "date": "2025-07",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The paper investigates the risk of evidence pollution in malicious social text detection caused by LLMs, aiming to assess its impact and explore potential defense strategies. [翻译] 该论文研究了由大语言模型引发的恶意社交文本检测中的证据污染风险，旨在评估其影响并探索潜在的防御策略。",
       "summary_innovation": "[AI generated] This paper identifies a novel security threat termed \"evidence pollution\" against evidence-enhanced malicious text detectors, where LLMs can manipulate or generate deceptive evidence to degrade detector performance. It systematically explores attack scenarios and proposes corresponding defense strategies, highlighting a critical vulnerability in the era of generative AI.\n\n[翻译]\n本文提出了一种针对证据增强型恶意文本检测器的新型安全威胁，即“证据污染”，其中大型语言模型可以操纵或生成欺骗性证据以降低检测器性能。它系统地探索了攻击场景并提出了相应的防御策略，凸显了生成式人工智能时代的一个关键脆弱性。",
@@ -260,7 +260,7 @@
       "authors": "Iqra Zahid, Tharindu Madusanka, Riza Batista-Navarro, Youcheng Sun",
       "date": "2024-08",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] This paper investigates the existence of uniquely identifiable linguistic patterns (UILPs) across different conversational AI agents (CAAs). It aims to move beyond simple human-vs-machine detection by applying authorship attribution techniques to distinguish between specific AI models based on their textual outputs, establishing a baseline for this refined task.\n\n[翻译]\n本文旨在探究不同对话式AI代理（CAA）之间是否存在唯一可识别的语言模式（UILP）。其研究动机超越了简单的人机文本区分，转而应用作者归属技术，根据文本输出来区分特定的AI模型，从而为这一更精细的任务建立基线。",
       "summary_innovation": "[AI generated] This work innovatively applies authorship attribution techniques to distinguish between different conversational AI agents (CAAs) rather than just humans vs. machines. It constructs unique linguistic profiles for CAAs, achieving high attribution accuracy and identifying their most informative features, establishing a baseline for CAA authorship analysis.\n\n[翻译]\n本研究创新性地将作者归属技术应用于区分不同的对话式AI智能体，而非仅区分人类与机器生成内容。它为多个CAAs构建了独特的语言特征档案，实现了高精度的归属判定，并识别出其最具信息量的特征，为CAA的作者归属分析建立了基线。",
@@ -296,7 +296,7 @@
       "date": "2025-07",
       "category": [
         "Meme and Multimodal Understanding",
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The paper addresses the challenge of detecting harmful memes in a zero-shot setting, where traditional data-driven methods fail due to the lack of up-to-date annotated data for evolving meme content. It proposes a multi-agent framework to overcome this limitation by leveraging contextual information from similar memes and employing debate mechanisms for robust decision-making.\n\n[翻译]\n该论文旨在解决有害表情包在零样本场景下的检测挑战，传统数据驱动方法因缺乏针对不断演变的表情包内容的实时标注数据而失效。它提出一个多智能体框架，通过利用相似表情包的上下文信息并采用辩论机制进行鲁棒决策，以克服这一限制。",
       "summary_innovation": "[AI generated] The paper introduces MIND, a novel multi-agent framework for zero-shot harmful meme detection. Its core innovation lies in a three-stage pipeline that leverages unannotated data: retrieving similar memes for context, employing a bi-directional insight derivation mechanism for comprehensive understanding, and utilizing a multi-agent debate mechanism for robust, reasoned decision-making. This approach eliminates reliance on annotated data, offering strong generalization across model architectures and scales.\n\n[翻译]\n该论文提出了MIND，一个用于零样本有害模因检测的新型多智能体框架。其核心创新在于一个利用未标注数据的三阶段流程：检索相似模因以提供上下文，采用双向洞察推导机制以获得全面理解，并利用多智能体辩论机制进行稳健、有推理的决策。该方法摆脱了对标注数据的依赖，在不同模型架构和规模上均展现出强大的泛化能力。",
@@ -331,7 +331,7 @@
       "authors": "Yihuai Xu, Yongwei Wang, Yifei Bi, Huangsen Cao, Zhouhan Lin, Yu Zhao, Fei Wu",
       "date": "2024-10-04",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "",
       "summary_innovation": "",
@@ -368,7 +368,7 @@
       "authors": "Zihao Cheng, Li Zhou, Feng Jiang, Benyou Wang, Haizhou Li",
       "date": "2025-01-29",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "",
       "summary_innovation": "",
@@ -405,7 +405,7 @@
       "authors": "Zhen Sun, Zongmin Zhang, Xinyue Shen, Ziyi Zhang, Yule Liu, Michael Backes, Yang Zhang, Xinlei He",
       "date": "2025-07",
       "category": [
-        "Machine-Generated Content Detection",
+        "Machine-generated Content Detection",
         "Social Simulation for Social Media"
       ],
       "summary_motivation": "[AI generated] This paper aims to quantify the prevalence and monitor the evolution of AI-Generated Texts (AIGTs) on major social media platforms, addressing a critical gap in understanding their real-world impact on public opinion and misinformation.\n\n[翻译]\n本文旨在量化主要社交媒体平台上AI生成文本的普遍性并监测其演变，以解决在理解其对公众舆论和虚假信息的现实影响方面的一个关键空白。",
@@ -441,7 +441,7 @@
       "authors": "Dominik Macko, Jakub Kopál, Robert Moro, Ivan Srba",
       "date": "2025-07",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The paper addresses the gap in machine-generated text detection for short, informal social-media texts across multiple languages and platforms, where existing research and benchmarks are predominantly focused on English and longer formal texts. [翻译] 该论文旨在填补针对简短、非正式社交媒体文本的多语言机器生成内容检测的研究空白，现有研究和基准主要集中在英语及较长的正式文本上。",
       "summary_innovation": "[AI generated] The paper introduces MultiSocial, the first multilingual (22 languages) and multi-platform (5 social media platforms) benchmark dataset for machine-generated text detection specifically tailored to the social-media domain, addressing a gap in existing research which primarily focuses on English and longer, formal texts. [翻译]该论文提出了MultiSocial，这是首个针对社交媒体领域机器生成文本检测的多语言（22种语言）和多平台（5个社交媒体平台）基准数据集，弥补了现有研究主要集中于英语及较长、正式文本的空白。",
@@ -476,7 +476,7 @@
       "authors": "Xianjun Yang, Liangming Pan, Xuandong Zhao, Haifeng Chen, Linda Ruth Petzold, William Yang Wang, Wei Cheng",
       "date": "2024-11",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The proliferation of advanced large language models (LLMs) has led to a significant increase in synthetic content generation, posing challenges across media, cybersecurity, public discourse, and education. Consequently, the ability to detect LLM-generated content has become critically important. This survey aims to provide a comprehensive overview of existing detection strategies and benchmarks, analyzing their differences and identifying key challenges and future directions to advocate for more robust and adaptable detection models.\n\n[翻译]\n先进大语言模型（LLM）的激增导致了合成内容生成的显著增加，给媒体、网络安全、公共话语和教育等领域带来了挑战。因此，检测LLM生成内容的能力变得至关重要。本综述旨在全面概述现有的检测策略和基准，分析其差异，并识别关键挑战与未来方向，以倡导开发更鲁棒、更自适应的检测模型。",
       "summary_innovation": "[AI generated] This survey is the first comprehensive work to systematically review detection methods for LLM-generated content, establishing a foundational taxonomy and benchmarking framework for this emerging field. It advocates for a multi-faceted defense strategy to address the evolving capabilities of generative models.\n\n[翻译]\n本综述是首个系统梳理大语言模型生成内容检测方法的综合性工作，为该新兴领域建立了基础的分类学和基准框架。它倡导采用多层面的防御策略以应对生成模型不断演进的能力。",
@@ -511,7 +511,7 @@
       "authors": "Yafu Li, Qintong Li, Leyang Cui, Wei Bi, Zhilin Wang, Longyue Wang, Linyi Yang, Shuming Shi, Yue Zhang",
       "date": "2024-08",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "[AI generated] The paper addresses the challenge of detecting machine-generated text in real-world scenarios, where detectors must handle texts from diverse domains and unknown language models without prior knowledge of their sources. It aims to evaluate the feasibility of existing detection methods in such open and out-of-distribution settings.\n\n[翻译]\n该论文旨在解决现实场景中机器生成文本的检测难题，即检测器必须在未知文本来源（领域或生成模型）的情况下，处理来自多样化领域和不同语言模型的文本。其目标是评估现有检测方法在此类开放且分布外环境下的可行性。",
       "summary_innovation": "[AI generated] The paper introduces MAGE, a comprehensive testbed for evaluating machine-generated text detection in real-world scenarios. Its key innovation lies in moving beyond domain- or model-specific evaluations by constructing a diverse benchmark from various human writings and texts generated by different LLMs. This approach reveals the significant challenge detectors face with out-of-distribution texts, while also demonstrating the feasibility of practical application through a top-performing detector's ability to identify 84.12% of such texts from a novel LLM.\n\n[翻译]\n该论文提出了MAGE，一个用于在真实场景中评估机器生成文本检测的综合测试平台。其主要创新点在于超越了针对特定领域或模型的评估，通过整合来自多样化人类写作和不同大语言模型生成文本构建了一个全面的基准。这种方法揭示了检测器在处理分布外文本时面临的重大挑战，同时通过表现最佳的检测器能够识别出来自新大语言模型的84.12%的此类文本，证明了实际应用的可行性。",
@@ -546,7 +546,7 @@
       "authors": "Jinyan Su, Terry Yue Zhuo, Di Wang, Preslav Nakov",
       "date": "2023-12-01",
       "category": [
-        "Machine-Generated Content Detection"
+        "Machine-generated Content Detection"
       ],
       "summary_motivation": "",
       "summary_innovation": "",

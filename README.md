@@ -1,4 +1,4 @@
-# Awesome Social Media Analysis with LLM Method
+# Awesome Social Intelligence Modeling
 > The version supporting Excel processing is available at [excel version](https://github.com/saiteiii/Awesome-Social-media-LLM-based-Analysis)(**no longer maintained**); In this version, the GUI has no administrator mode, and management is achieved by manually modifying an Excel-formatted database containing review prompt information.
 
 > **Contributions**<br>
