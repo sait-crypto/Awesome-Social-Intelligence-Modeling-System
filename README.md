@@ -10,7 +10,9 @@
 ![Stars](https://img.shields.io/github/stars/sait-crypto/Awesome-Social-Intelligence-Modeling-System?color=yellow)
 ![Forks](https://img.shields.io/github/forks/sait-crypto/Awesome-Social-Intelligence-Modeling-System?color=lightblue)
 ![Last Commit](https://img.shields.io/github/last-commit/sait-crypto/Awesome-Social-Intelligence-Modeling-System?color=green)
-![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue)
+<!-- PAPER_BADGES_START -->
+![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) [![arXiv](https://img.shields.io/badge/arXiv-TBD-009688.svg)](https://arxiv.org/)
+<!-- PAPER_BADGES_END -->
 
 </div>
 

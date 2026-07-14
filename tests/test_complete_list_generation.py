@@ -29,6 +29,7 @@ class CompleteListGenerationTests(unittest.TestCase):
                     "affiliations": "Sample University",
                     "venue": "ACL",
                     "year": "2026",
+                    "arxiv_id": "2601.01234",
                     "paper_url": "https://example.com/sample",
                     "bibtex_type": "article",
                     "bibtex_key": "sample2026",
@@ -111,6 +112,7 @@ class CompleteListGenerationTests(unittest.TestCase):
     def test_normal_readme_update_also_updates_complete_list(self):
         readme_path = self.root / "README.md"
         readme_path.write_text(
+            "<!-- PAPER_BADGES_START -->\nold badges\n<!-- PAPER_BADGES_END -->\n"
             "<!-- PAPER_INTRO_START -->\nold intro\n<!-- PAPER_INTRO_END -->\n"
             "<!-- PAPER_CITATION_TOP_START -->\nold top citation\n<!-- PAPER_CITATION_TOP_END -->\n"
             "[Complete paper list →](./COMPLETE_LIST.md)\n\n"
@@ -136,7 +138,10 @@ class CompleteListGenerationTests(unittest.TestCase):
         self.assertIn("quick links", updated)
         self.assertIn("new table", updated)
         self.assertIn("[Sample Paper](https://example.com/sample)", updated)
+        self.assertIn("arXiv-2601.01234-009688.svg", updated)
+        self.assertIn("![PRs Welcome]", updated)
         self.assertEqual(updated.count("@article{sample2026,"), 2)
+        self.assertNotIn("old badges", updated)
         self.assertNotIn("old intro", updated)
         self.assertNotIn("old top citation", updated)
         self.assertNotIn("old bottom citation", updated)

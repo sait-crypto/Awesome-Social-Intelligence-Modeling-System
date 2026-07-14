@@ -587,7 +587,8 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         paper: Paper,
         paper_text: str = "",
         fields_to_gen: Optional[List[str]] = None,
-        field_user_ideas: Optional[Dict[str, str]] = None
+        field_user_ideas: Optional[Dict[str, str]] = None,
+        force_requested_fields: bool = True,
     ) -> Tuple[Paper, bool]:
         is_enhanced = False
         new_paper = Paper.from_dict(asdict(paper))
@@ -601,7 +602,9 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         for f in target_fields:
             # 如果指定了字段，强制生成；否则仅生成空的或Deprecated的
             curr = getattr(new_paper, f)
-            if fields_to_gen or (not curr or self.value_deprecation_mark in str(curr)):
+            if ((fields_to_gen and force_requested_fields)
+                    or not curr
+                    or self.value_deprecation_mark in str(curr)):
                 user_idea = ''
                 if isinstance(field_user_ideas, dict):
                     user_idea = str(field_user_ideas.get(f, '') or '').strip()
@@ -611,7 +614,11 @@ If one element is missing from the paper, mention uncertainty briefly instead of
                     is_enhanced = True
         return new_paper, is_enhanced
 
-    def batch_enhance_papers(self, papers: List[Paper]) -> Tuple[List[Paper],bool]:
+    def batch_enhance_papers(
+        self,
+        papers: List[Paper],
+        fields_to_gen: Optional[List[str]] = None,
+    ) -> Tuple[List[Paper], bool]:
         """批量增强论文信息 (兼容旧接口)"""
         if not self.is_available():
             return papers, False
@@ -619,7 +626,11 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         enhanced_papers = []
         for i, paper in enumerate(papers):
             print(f"AI处理论文 {i+1}/{len(papers)}: {paper.title[:50]}...")
-            enhanced_paper, _is_enhanced = self.enhance_paper_with_ai(paper)
+            enhanced_paper, _is_enhanced = self.enhance_paper_with_ai(
+                paper,
+                fields_to_gen=fields_to_gen,
+                force_requested_fields=False,
+            )
             if _is_enhanced:
                 is_enhanced = True
             enhanced_papers.append(enhanced_paper)

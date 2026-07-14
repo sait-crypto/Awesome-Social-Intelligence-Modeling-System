@@ -31,7 +31,11 @@ class CompleteListMirrorTests(unittest.TestCase):
                     "remove_added_paper_in_template": "false",
                     "conflict_marker": "",
                 },
-                "ai": {"enable_ai_generation": "true", "ai_generate_mark": "[AI generated]"},
+                "ai": {
+                    "enable_ai_generation": "true",
+                    "update_generation_scope": "analogy_only",
+                    "ai_generate_mark": "[AI generated]",
+                },
             }
             config = SimpleNamespace(project_root=root, settings=settings)
             source_paper = Paper(title="Mirrored Paper")
@@ -45,11 +49,11 @@ class CompleteListMirrorTests(unittest.TestCase):
             complete_manager.database_path = str(complete_path)
 
             def add_complete(papers, conflict_resolution):
-                events.append(("complete", papers[0].summary_motivation))
+                events.append(("complete", papers[0].analogy_summary))
                 return papers, [], []
 
             def add_core(papers, conflict_resolution):
-                events.append(("core", papers[0].summary_motivation))
+                events.append(("core", papers[0].analogy_summary))
                 return papers, [], []
 
             complete_manager.add_papers.side_effect = add_complete
@@ -59,9 +63,9 @@ class CompleteListMirrorTests(unittest.TestCase):
                 def is_available(self):
                     return True
 
-                def batch_enhance_papers(self, papers):
-                    events.append(("ai", papers[0].summary_motivation))
-                    papers[0].summary_motivation = "[AI generated] enhanced"
+                def batch_enhance_papers(self, papers, fields_to_gen=None):
+                    events.append(("ai", papers[0].analogy_summary, fields_to_gen))
+                    papers[0].analogy_summary = "[AI generated] analogy"
                     return papers, True
 
             fake_ai_module = types.ModuleType("src.ai_generator")
@@ -80,8 +84,8 @@ class CompleteListMirrorTests(unittest.TestCase):
                 events,
                 [
                     ("complete", ""),
-                    ("ai", ""),
-                    ("core", "[AI generated] enhanced"),
+                    ("ai", "", ["analogy_summary"]),
+                    ("core", "[AI generated] analogy"),
                 ],
             )
             self.assertEqual(result["complete_list_new_papers"], 1)

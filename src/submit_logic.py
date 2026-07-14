@@ -54,7 +54,10 @@ class SubmitLogic:
         self.settings = get_config_instance().settings
         self.update_utils = get_update_file_utils()
         self.db_manager = DatabaseManager()
-        self.zotero_processor = ZoteroProcessor()
+        import_zotero_notes = str(
+            (self.settings.get('zotero', {}) or {}).get('import_notes_from_meta', 'true')
+        ).strip().lower() == 'true'
+        self.zotero_processor = ZoteroProcessor(import_notes=import_zotero_notes)
         
         # 论文数据列表
         self.papers: List[Paper] = []

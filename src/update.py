@@ -27,6 +27,19 @@ class UpdateProcessor:
         configured_ai_enabled = (
             str(self.settings['ai'].get('enable_ai_generation', 'true')).lower() == 'true'
         )
+        self.ai_update_generation_scope = str(
+            self.settings['ai'].get('update_generation_scope', 'all')
+        ).strip().lower()
+        update_scope_fields = {
+            'all': None,
+            'analogy_only': ['analogy_summary'],
+        }
+        if self.ai_update_generation_scope not in update_scope_fields:
+            raise ValueError(
+                'Invalid [ai] update_generation_scope: '
+                f'{self.ai_update_generation_scope!r}; expected all or analogy_only'
+            )
+        self.ai_update_fields = update_scope_fields[self.ai_update_generation_scope]
         
         # 获取所有可能的更新文件路径
         self.update_files = []
@@ -210,7 +223,13 @@ class UpdateProcessor:
             if self.enable_ai and self.ai_generator and self.ai_generator.is_available():
                 print("使用AI生成缺失内容...")
                 try:
-                    valid_papers, is_enhanced = self.ai_generator.batch_enhance_papers(valid_papers)
+                    if self.ai_update_fields is None:
+                        valid_papers, is_enhanced = self.ai_generator.batch_enhance_papers(valid_papers)
+                    else:
+                        valid_papers, is_enhanced = self.ai_generator.batch_enhance_papers(
+                            valid_papers,
+                            fields_to_gen=self.ai_update_fields,
+                        )
                     if  is_enhanced:
                         # 回写到当前文件
                         try:

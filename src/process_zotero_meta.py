@@ -10,6 +10,9 @@ from src.core.database_model import Paper
 class ZoteroProcessor:
     """Zotero元数据处理器"""
 
+    def __init__(self, import_notes: bool = True):
+        self.import_notes = bool(import_notes)
+
     def process_meta_data(self, input_data: Union[str, List[Dict], Dict]) -> List[Paper]:
         """
         处理Zotero元数据，返回Paper对象列表
@@ -111,14 +114,16 @@ class ZoteroProcessor:
 
         # 5. Notes
         # Zotero notes 通常包含 html 标签，简单处理移除标签
-        notes_content = []
-        raw_notes = item.get("notes", [])
-        for n in raw_notes:
-            if isinstance(n, str):
-                notes_content.append(self._strip_html(n))
-            elif isinstance(n, dict) and "note" in n:
-                notes_content.append(self._strip_html(n["note"]))
-        notes = "\n".join(notes_content)
+        notes = ""
+        if self.import_notes:
+            notes_content = []
+            raw_notes = item.get("notes", [])
+            for n in raw_notes:
+                if isinstance(n, str):
+                    notes_content.append(self._strip_html(n))
+                elif isinstance(n, dict) and "note" in n:
+                    notes_content.append(self._strip_html(n["note"]))
+            notes = "\n".join(notes_content)
 
         # 6. 提取分类信息 (从tags字段)
         categories_list = self._extract_categories_from_tags(item.get("tags", []))

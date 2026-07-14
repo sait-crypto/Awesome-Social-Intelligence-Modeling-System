@@ -104,6 +104,7 @@ class ReadmeGenerator:
             'affiliations': 'TODO: Affiliations',
             'venue': 'TODO',
             'year': 'TODO',
+            'arxiv_id': '',
             'paper_url': '',
             'bibtex_type': 'misc',
             'bibtex_key': 'todo_social_intelligence',
@@ -132,6 +133,18 @@ class ReadmeGenerator:
             f'> {affiliations} \\\n'
             f'> **Venue:** {venue} &nbsp;|&nbsp; **Year:** {year}\n\n'
             '> 🌟 If this resource helps your research, please star the repository and cite our paper.'
+        )
+
+    def _generate_paper_badges_content(self, metadata: Dict[str, str]) -> str:
+        arxiv_id = self._single_line(metadata.get('arxiv_id'))
+        arxiv_id = re.sub(r'^(?:arXiv:|https?://arxiv\.org/(?:abs|pdf)/)', '', arxiv_id, flags=re.I)
+        arxiv_id = arxiv_id.removesuffix('.pdf').strip('/')
+        badge_value = quote(arxiv_id or 'TBD', safe='.')
+        paper_url = self._single_line(metadata.get('paper_url'))
+        arxiv_url = paper_url or (f'https://arxiv.org/abs/{arxiv_id}' if arxiv_id else 'https://arxiv.org/')
+        return (
+            '![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) '
+            f'[![arXiv](https://img.shields.io/badge/arXiv-{badge_value}-009688.svg)]({arxiv_url})'
         )
 
     def _generate_citation_content(self, metadata: Dict[str, str]) -> str:
@@ -178,6 +191,7 @@ class ReadmeGenerator:
             return False, content
 
         blocks = [
+            ('<!-- PAPER_BADGES_START -->', '<!-- PAPER_BADGES_END -->', self._generate_paper_badges_content(metadata)),
             ('<!-- PAPER_INTRO_START -->', '<!-- PAPER_INTRO_END -->', self._generate_paper_intro_content(metadata)),
             ('<!-- PAPER_CITATION_TOP_START -->', '<!-- PAPER_CITATION_TOP_END -->', self._generate_citation_content(metadata)),
             ('<!-- PAPER_CITATION_BOTTOM_START -->', '<!-- PAPER_CITATION_BOTTOM_END -->', self._generate_citation_content(metadata)),
