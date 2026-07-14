@@ -113,7 +113,8 @@ class CompleteListGenerationTests(unittest.TestCase):
         readme_path.write_text(
             "<!-- PAPER_INTRO_START -->\nold intro\n<!-- PAPER_INTRO_END -->\n"
             "<!-- PAPER_CITATION_TOP_START -->\nold top citation\n<!-- PAPER_CITATION_TOP_END -->\n"
-            "## Full paper list (old)\nold table\n=====List End====="
+            "[Complete paper list →](./COMPLETE_LIST.md)\n\n"
+            "## Selected paper list (old)\nold table\n=====List End====="
             "\n<!-- PAPER_CITATION_BOTTOM_START -->\nold bottom citation\n"
             "<!-- PAPER_CITATION_BOTTOM_END -->\n",
             encoding="utf-8",
@@ -130,7 +131,8 @@ class CompleteListGenerationTests(unittest.TestCase):
 
         update_complete.assert_called_once_with()
         updated = readme_path.read_text(encoding="utf-8")
-        self.assertIn("## Full paper list (0 papers)", updated)
+        self.assertIn("[Complete paper list →](./COMPLETE_LIST.md)\n\n"
+                      "## Selected paper list (0 papers)", updated)
         self.assertIn("quick links", updated)
         self.assertIn("new table", updated)
         self.assertIn("[Sample Paper](https://example.com/sample)", updated)
@@ -141,7 +143,7 @@ class CompleteListGenerationTests(unittest.TestCase):
 
     def test_readme_update_fails_safely_when_metadata_marker_is_missing(self):
         readme_path = self.root / "README.md"
-        original = "## Full paper list (old)\nold table\n=====List End=====\n"
+        original = "## Selected paper list (old)\nold table\n=====List End=====\n"
         readme_path.write_text(original, encoding="utf-8")
         self.generator.config = SimpleNamespace(project_root=self.root)
 

@@ -21,6 +21,8 @@ Maintainers can use the submit GUI's **完整库** button to load and edit `pape
 
 Edit only `config/paper_metadata.json` to update the paper introduction and BibTeX. Running `python src/convert.py` rewrites the managed introduction plus both Citation sections in `README.md` from that file. Do not remove the `PAPER_*_START` / `PAPER_*_END` comments: generation fails without writing the README if any managed block is missing.
 
+README long-field limits are configured independently in `config/config.ini` under `[readme]`: `max_analogy_summary_length`, `max_summary_motivation_length`, `max_summary_innovation_length`, `max_summary_method_length`, `max_summary_conclusion_length`, `max_summary_limitation_length`, and `max_notes_length`. Values are character counts; use `0` to disable truncation for a field. Multi-category papers are rendered fully once, with later category appearances kept as one-row links to the full entry.
+
 # Category changes
 
 Rename, merge, or remove categories through `CATEGORIES_CHANGE_LIST` in `config/categories_config.py`. Each old category must map to an enabled target before its category definition is removed. README generation normalizes legacy database values in memory, so existing database rows remain compatible without a bulk rewrite. Run `python config/categories_config.py` and the test suite after changing the taxonomy.

@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import json
+import hashlib
 from typing import Dict, List, Tuple
 from urllib.parse import quote
 
@@ -40,9 +41,19 @@ class ReadmeGenerator:
             os.path.join(self.project_root, 'config', 'paper_metadata.json'),
         )
         self._current_display_papers: List[Paper] = []
+        self._rendered_paper_anchors: Dict[Tuple[str, str], str] = {}
         
         self.max_title_length = int(self.settings['readme'].get('max_title_length', 100))
         self.max_authors_length = int(self.settings['readme'].get('max_authors_length', 150))
+        self.max_analogy_summary_length = self._read_length_setting('max_analogy_summary_length', 240)
+        self.summary_field_limits = {
+            'summary_motivation': self._read_length_setting('max_summary_motivation_length', 240),
+            'summary_innovation': self._read_length_setting('max_summary_innovation_length', 240),
+            'summary_method': self._read_length_setting('max_summary_method_length', 240),
+            'summary_conclusion': self._read_length_setting('max_summary_conclusion_length', 240),
+            'summary_limitation': self._read_length_setting('max_summary_limitation_length', 240),
+        }
+        self.max_notes_length = self._read_length_setting('max_notes_length', 400)
         self.translation_separator = self.settings['database'].get('translation_separator', '[翻译]')
         
         # ===== 恢复：配置项兼容逻辑 =====
@@ -59,6 +70,22 @@ class ReadmeGenerator:
             self.enable_markdown = str(markdown_val).lower() == 'true'
         except Exception:
             self.enable_markdown = bool(markdown_val)
+
+    def _read_length_setting(self, name: str, default: int) -> int:
+        """Read a non-negative README character limit; zero means unlimited."""
+        try:
+            return max(0, int(self.settings['readme'].get(name, default)))
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _truncate_field(text: str, max_length: int) -> str:
+        value = str(text or '')
+        if max_length <= 0 or len(value) <= max_length:
+            return value
+        if max_length == 1:
+            return '…'
+        return value[:max_length - 1].rstrip() + '…'
 
     def _load_paper_metadata(self) -> Tuple[bool, Dict[str, str]]:
         """Load the single source of truth for README paper information."""
@@ -287,6 +314,9 @@ class ReadmeGenerator:
             return ""
 
         papers_by_category = self._group_papers_by_category(display_papers)
+        # Render a multi-category paper in full only at its first category.
+        # Later categories keep a compact table row linking to that entry.
+        self._rendered_paper_anchors = {}
 
         markdown_output = ""
         roots, children_map = self._build_category_tree()
@@ -331,7 +361,7 @@ class ReadmeGenerator:
             raw = p.category or ""
             parts = [x.strip() for x in str(raw).split('|') if x.strip()]
             if not parts:
-                grouped.setdefault("", []).append(p)
+                grouped.setdefault("Uncategorized", []).append(p)
             else:
                 for cat in parts:
                     grouped.setdefault(cat, []).append(p)
@@ -346,11 +376,35 @@ class ReadmeGenerator:
         if not papers: return ""
         header = "| Title & Info | Analogy Summary | Pipeline | Summary |\n"
         sep = "|:--| :---: | :----: | :---: |\n"
-        rows = "".join([self._generate_paper_row(p) for p in papers])
+        rows = "".join(self._generate_paper_or_reference_row(p) for p in papers)
         return header + sep + rows
 
-    def _generate_paper_row(self, paper: Paper) -> str:
+    @staticmethod
+    def _paper_identity(paper: Paper) -> Tuple[str, str]:
+        return paper.get_key()
+
+    def _paper_anchor(self, paper: Paper) -> str:
+        identity = '\0'.join(self._paper_identity(paper))
+        if not identity.strip('\0'):
+            identity = str(paper.uid or paper.citation_key or paper.title or '')
+        digest = hashlib.sha1(identity.encode('utf-8')).hexdigest()[:12]
+        return f'paper-entry-{digest}'
+
+    def _generate_paper_or_reference_row(self, paper: Paper) -> str:
+        identity = self._paper_identity(paper)
+        anchor = self._rendered_paper_anchors.get(identity)
+        if anchor:
+            title = self._sanitize_field(truncate_text(paper.title, self.max_title_length))
+            return f'|[↪ {title}](#{anchor}) <sub>Full entry</sub>||||\n'
+
+        anchor = self._paper_anchor(paper)
+        self._rendered_paper_anchors[identity] = anchor
+        return self._generate_paper_row(paper, anchor)
+
+    def _generate_paper_row(self, paper: Paper, anchor: str = '') -> str:
         col1 = self._generate_title_authors_cell(paper)
+        if anchor:
+            col1 = f'<a id="{anchor}"></a>{col1}'
         col2 = self._generate_analogy_cell(paper)
         col3 = self._generate_pipeline_cell(paper)
         col4 = self._generate_summary_cell(paper)
@@ -361,7 +415,8 @@ class ReadmeGenerator:
     def _generate_analogy_cell(self, paper: Paper) -> str:
         if not paper.analogy_summary:
             return ""
-        return self._sanitize_field(paper.analogy_summary)
+        value = self._truncate_field(paper.analogy_summary, self.max_analogy_summary_length)
+        return self._sanitize_field(value)
 
     def _generate_title_authors_cell(self, paper: Paper) -> str:
         if not paper.title:
@@ -452,7 +507,6 @@ class ReadmeGenerator:
 
     def _generate_summary_cell(self, paper: Paper) -> str:
         # 复用原有逻辑
-        import html as _html
         fields = []
         tags_map = {
             'summary_motivation': 'motivation',
@@ -467,19 +521,20 @@ class ReadmeGenerator:
             if val:
                 disp = self.config.get_tag_field(k, 'display_name') or name
                 disp = str(disp).replace('\r', '').replace('\n', '')
+                val = self._truncate_field(val, self.summary_field_limits.get(k, 0))
                 fields.append(f"**[{disp}]** {self._sanitize_field(val)}")
         
         full_html = "<br>".join(fields)
         
         notes_html = ""
         if paper.notes:
-            notes_html = f'<details><summary>**[notes]**</summary><div style="margin-top:6px">{self._sanitize_field(paper.notes)}</div></details>'
+            notes = self._truncate_field(paper.notes, self.max_notes_length)
+            notes_html = f'<details><summary>**[notes]**</summary><div style="margin-top:6px">{self._sanitize_field(notes)}</div></details>'
             
         if not full_html and not notes_html: return ""
         
-        tooltip = _html.escape(re.sub(r'<br\s*/?>', ' ', full_html))
         if full_html:
-            blk = f'<details><summary title="{tooltip}">**[summary]**</summary><div style="margin-top:6px">{full_html}</div></details>'
+            blk = f'<details><summary>**[summary]**</summary><div style="margin-top:6px">{full_html}</div></details>'
             if notes_html: return blk + '<div style="margin-top:6px">' + notes_html + '</div>'
             return blk
         return notes_html
@@ -535,6 +590,9 @@ class ReadmeGenerator:
         count = 0
         for p in all_papers:
             p_cats = set([x.strip() for x in str(p.category or "").split('|')])
+            p_cats.discard("")
+            if not p_cats:
+                p_cats.add("Uncategorized")
             if not p_cats.isdisjoint(target_cats):
                 count += 1
 
