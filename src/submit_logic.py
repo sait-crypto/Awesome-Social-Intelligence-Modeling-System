@@ -381,16 +381,21 @@ class SubmitLogic:
         return 0
 
     def _is_database_file(self, filepath: str) -> bool:
-        """检查路径是否为核心数据库"""
-        db_path = self.settings['paths']['database']
-        if not os.path.isabs(db_path):
-            db_path = os.path.join(BASE_DIR, db_path)
-        
-        # 简单路径比对
-        try:
-            return os.path.samefile(filepath, db_path)
-        except:
-            return os.path.abspath(filepath) == os.path.abspath(db_path)
+        """检查路径是否为核心数据库或 Complete List 独立数据库。"""
+        for key in ('database', 'complete_list_database'):
+            db_path = self.settings['paths'].get(key)
+            if not db_path:
+                continue
+            if not os.path.isabs(db_path):
+                db_path = os.path.join(BASE_DIR, db_path)
+
+            try:
+                if os.path.samefile(filepath, db_path):
+                    return True
+            except Exception:
+                if os.path.abspath(filepath) == os.path.abspath(db_path):
+                    return True
+        return False
 
     def _read_existing_papers(self, filepath: str) -> List[Paper]:
         """读取已有文件中的论文；失败时返回空列表并输出日志。"""

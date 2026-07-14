@@ -187,11 +187,12 @@ jobs:
           
           # 获取核心数据库路径 (CSV)
           CORE_DB_PATH=$(uv run python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['database'])")
+          COMPLETE_DB_PATH=$(uv run python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['complete_list_database'])")
           
           # 强制添加文件
           # git add backups/ 会添加 Main 原有的备份 + 本次 update.py 新生成的备份
           # assets/ 也会被添加
-          git add -f "$CORE_DB_PATH" README.md assets/ backups/
+          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md assets/ backups/
           
           commit_msg=$(printf "@%s,Thank for Contribution--Auto-process papers submission [skip ci]" "$PR_USER")
           

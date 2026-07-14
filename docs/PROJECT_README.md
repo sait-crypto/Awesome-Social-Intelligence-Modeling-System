@@ -10,6 +10,7 @@ project/
 │   ├── categories_config.py
 │   ├── config_default.ini
 │   ├── config.ini
+│   ├── paper_metadata.json
 │   └── tag_config.py
 ├── docs/
 ├── figures/
@@ -32,9 +33,11 @@ project/
 │   ├── utils.py
 │   └── validate.py
 ├── tests/
-├── paper_database.xlsx
+├── paper_database_for_survey.csv
+├── paper_database_complete_list.csv
 ├── pyproject.toml
 ├── README.md
+├── COMPLETE_LIST.md
 ├── submit_template.json
 ├── submit_template.xlsx
 ├── submit.py

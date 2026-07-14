@@ -18,19 +18,21 @@ from src.utils import backup_file
 class DatabaseManager:
     """数据库管理器"""
     
-    def __init__(self):
+    def __init__(self, database_path: Optional[str] = None):
         self.config = get_config_instance()
         self.settings = get_config_instance().settings
         
         # 数据库路径 (CSV 或 JSON)
-        self.database_path = self.settings['paths']['database']
+        self.database_path = database_path or self.settings['paths']['database']
         self.backup_dir = self.settings['paths']['backup_dir']
         self.conflict_marker = self.settings['database']['conflict_marker']
         
         self.update_utils = get_update_file_utils()
 
         # 确保目录存在
-        os.makedirs(os.path.dirname(self.database_path), exist_ok=True)
+        database_dir = os.path.dirname(self.database_path)
+        if database_dir:
+            os.makedirs(database_dir, exist_ok=True)
         os.makedirs(self.backup_dir, exist_ok=True)
 
     def load_database(self) -> Tuple[bool, List[Paper]]:

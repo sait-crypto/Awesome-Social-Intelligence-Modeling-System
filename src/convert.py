@@ -4,6 +4,7 @@
 import os
 import sys
 import re
+import json
 from typing import Dict, List, Tuple
 from urllib.parse import quote
 
@@ -12,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.core.database_manager import DatabaseManager
 from src.core.database_model import Paper
 from src.core.config_loader import get_config_instance
+from src.core.update_file_utils import get_update_file_utils
 from src.utils import truncate_text, format_authors, create_hyperlink, escape_markdown, escape_markdown_base
 
 class ReadmeGenerator:
@@ -21,9 +23,22 @@ class ReadmeGenerator:
         self.config = get_config_instance()
         self.settings = self.config.settings
         self.db_manager = DatabaseManager()
+        self.update_utils = get_update_file_utils()
         self.project_root = str(self.config.project_root)
         self.assets_dir = self.settings['paths'].get('assets_dir', 'assets/').replace('\\', '/').rstrip('/')
         self.legacy_figure_dir = self.settings['paths'].get('figure_dir', 'figures/').replace('\\', '/').rstrip('/')
+        self.complete_list_database_path = self.settings['paths'].get(
+            'complete_list_database',
+            os.path.join(self.project_root, 'paper_database_complete_list.csv'),
+        )
+        self.complete_list_output_path = self.settings['paths'].get(
+            'complete_list_output',
+            os.path.join(self.project_root, 'COMPLETE_LIST.md'),
+        )
+        self.paper_metadata_path = self.settings['paths'].get(
+            'paper_metadata',
+            os.path.join(self.project_root, 'config', 'paper_metadata.json'),
+        )
         self._current_display_papers: List[Paper] = []
         
         self.max_title_length = int(self.settings['readme'].get('max_title_length', 100))
@@ -45,6 +60,108 @@ class ReadmeGenerator:
         except Exception:
             self.enable_markdown = bool(markdown_val)
 
+    def _load_paper_metadata(self) -> Tuple[bool, Dict[str, str]]:
+        """Load the single source of truth for README paper information."""
+        try:
+            with open(self.paper_metadata_path, 'r', encoding='utf-8') as f:
+                raw = json.load(f)
+            if not isinstance(raw, dict):
+                raise ValueError('paper metadata must be a JSON object')
+        except Exception as e:
+            print(f'Failed to load paper metadata {self.paper_metadata_path}: {e}')
+            return False, {}
+
+        defaults = {
+            'paper_title': 'TODO: Paper Title',
+            'authors': 'TODO: Authors',
+            'affiliations': 'TODO: Affiliations',
+            'venue': 'TODO',
+            'year': 'TODO',
+            'paper_url': '',
+            'bibtex_type': 'misc',
+            'bibtex_key': 'todo_social_intelligence',
+            'bibtex_author': 'TODO: Authors',
+            'bibtex_note': 'Paper metadata to be announced',
+            'repository_url': '',
+        }
+        return True, {key: str(raw.get(key, value) or '').strip() for key, value in defaults.items()}
+
+    @staticmethod
+    def _single_line(value: str) -> str:
+        return re.sub(r'\s+', ' ', str(value or '')).strip()
+
+    def _generate_paper_intro_content(self, metadata: Dict[str, str]) -> str:
+        title = self._single_line(metadata.get('paper_title')) or 'TODO: Paper Title'
+        paper_url = self._single_line(metadata.get('paper_url'))
+        title_display = f'[{title}]({paper_url})' if paper_url else title
+        authors = metadata.get('authors') or 'TODO: Authors'
+        affiliations = metadata.get('affiliations') or 'TODO: Affiliations'
+        venue = self._single_line(metadata.get('venue')) or 'TODO'
+        year = self._single_line(metadata.get('year')) or 'TODO'
+        return (
+            'This repository accompanies our paper:\n\n'
+            f'> **{title_display}** \\\n'
+            f'> {authors} \\\n'
+            f'> {affiliations} \\\n'
+            f'> **Venue:** {venue} &nbsp;|&nbsp; **Year:** {year}\n\n'
+            '> 🌟 If this resource helps your research, please star the repository and cite our paper.'
+        )
+
+    def _generate_citation_content(self, metadata: Dict[str, str]) -> str:
+        entry_type = re.sub(r'[^A-Za-z]', '', metadata.get('bibtex_type', 'misc')) or 'misc'
+        entry_key = re.sub(r'[^A-Za-z0-9:_-]', '_', metadata.get('bibtex_key', 'todo_social_intelligence'))
+        title = self._single_line(metadata.get('paper_title')) or 'TODO: Paper Title'
+        author = self._single_line(metadata.get('bibtex_author') or metadata.get('authors')) or 'TODO: Authors'
+        venue = self._single_line(metadata.get('venue')) or 'TODO'
+        year = self._single_line(metadata.get('year')) or 'TODO'
+        note = self._single_line(metadata.get('bibtex_note'))
+        url = self._single_line(metadata.get('paper_url') or metadata.get('repository_url'))
+
+        fields = [
+            ('title', title),
+            ('author', author),
+            ('howpublished', venue),
+            ('year', year),
+        ]
+        if note:
+            fields.append(('note', note))
+        if url:
+            fields.append(('url', url))
+
+        bibtex_lines = [f'@{entry_type}{{{entry_key},']
+        for index, (name, value) in enumerate(fields):
+            comma = ',' if index < len(fields) - 1 else ''
+            bibtex_lines.append(f'  {name:<12} = {{{value}}}{comma}')
+        bibtex_lines.append('}')
+        return '## Citation\n\n```bibtex\n' + '\n'.join(bibtex_lines) + '\n```'
+
+    @staticmethod
+    def _replace_managed_block(content: str, start_marker: str, end_marker: str, body: str) -> Tuple[bool, str]:
+        start_index = content.find(start_marker)
+        end_index = content.find(end_marker, start_index + len(start_marker))
+        if start_index == -1 or end_index == -1:
+            return False, content
+        body_start = start_index + len(start_marker)
+        replacement = '\n' + body.strip() + '\n'
+        return True, content[:body_start] + replacement + content[end_index:]
+
+    def _render_paper_metadata_blocks(self, content: str) -> Tuple[bool, str]:
+        success, metadata = self._load_paper_metadata()
+        if not success:
+            return False, content
+
+        blocks = [
+            ('<!-- PAPER_INTRO_START -->', '<!-- PAPER_INTRO_END -->', self._generate_paper_intro_content(metadata)),
+            ('<!-- PAPER_CITATION_TOP_START -->', '<!-- PAPER_CITATION_TOP_END -->', self._generate_citation_content(metadata)),
+            ('<!-- PAPER_CITATION_BOTTOM_START -->', '<!-- PAPER_CITATION_BOTTOM_END -->', self._generate_citation_content(metadata)),
+        ]
+        for start_marker, end_marker, body in blocks:
+            replaced, content = self._replace_managed_block(content, start_marker, end_marker, body)
+            if not replaced:
+                print(f'Missing README managed block: {start_marker} ... {end_marker}')
+                return False, content
+        return True, content
+
     def _load_display_papers(self) -> Tuple[bool, List[Paper]]:
         """加载并预处理用于 README 展示的论文列表"""
         success, papers = self.db_manager.load_database()
@@ -55,10 +172,111 @@ class ReadmeGenerator:
         for paper in papers:
             if not paper.show_in_readme or paper.conflict_marker:
                 continue
+            # Apply category aliases/migrations in memory so README generation is
+            # compatible with older database values without rewriting the database.
+            paper.category = self.update_utils.normalize_category_value(paper.category, self.config)
             if self.is_truncate_translation:
                 self._truncate_translation_in_paper(paper)
             display_papers.append(paper)
         return True, display_papers
+
+    def _load_complete_list_papers(self) -> Tuple[bool, List[Paper]]:
+        """Load the independent database used only for COMPLETE_LIST.md.
+
+        This read-only path deliberately bypasses UpdateProcessor and AIGenerator.
+        Entries hidden from the detailed README and conflict variants are included
+        because this file is an exhaustive view of its source database. Only rows
+        without a title are omitted because they cannot form a useful list item.
+        """
+        success, papers = self.update_utils.read_data(self.complete_list_database_path)
+        if not success:
+            return False, []
+
+        complete_papers = [paper for paper in papers if str(paper.title or '').strip()]
+        complete_papers.sort(key=lambda p: str(p.title or '').casefold())
+        complete_papers.sort(
+            key=lambda p: (str(p.date or ''), str(p.submission_time or '')),
+            reverse=True,
+        )
+        return True, complete_papers
+
+    @staticmethod
+    def _sanitize_complete_list_cell(value: str) -> str:
+        return (
+            str(value or '')
+            .strip()
+            .replace('\\', '\\\\')
+            .replace('|', '\\|')
+            .replace('\r\n', '<br>')
+            .replace('\r', '<br>')
+            .replace('\n', '<br>')
+        )
+
+    def _generate_complete_list_row(self, paper: Paper) -> str:
+        title = (
+            str(paper.title or '')
+            .strip()
+            .replace('\r\n', ' ')
+            .replace('\r', ' ')
+            .replace('\n', ' ')
+        )
+        title_cell = create_hyperlink(title, str(paper.paper_url or '').strip()).replace('|', '\\|')
+        venue = self._sanitize_complete_list_cell(paper.conference) or '—'
+
+        links = []
+        seen_urls = set()
+
+        def append_link(label: str, url: str):
+            normalized = str(url or '').strip()
+            if not normalized or normalized in seen_urls:
+                return
+            seen_urls.add(normalized)
+            links.append(f'[{label}]({normalized.replace(" ", "%20")})')
+
+        append_link('Paper', paper.paper_url)
+        append_link('Project', paper.project_url)
+        if paper.doi:
+            append_link('DOI', f'https://doi.org/{paper.doi}')
+
+        links_cell = ' · '.join(links) if links else '—'
+        return f'| {title_cell} | {venue} | {links_cell} |\n'
+
+    def generate_complete_list_content(self) -> str:
+        """Generate the compact list from its independent Paper database."""
+        success, papers = self._load_complete_list_papers()
+        if not success:
+            return ''
+
+        rows = ''.join(self._generate_complete_list_row(paper) for paper in papers)
+        return (
+            '# Complete Paper List\n\n'
+            '<!-- This file is generated by src/convert.py. Do not edit it manually. -->\n\n'
+            f'This compact index contains {len(papers)} papers. '
+            'For categorized summaries and detailed review fields, return to the '
+            '[main README](./README.md).\n\n'
+            '| Title | Venue | Links |\n'
+            '|:--|:--:|:--:|\n'
+            f'{rows}'
+        )
+
+    def update_complete_list_file(self) -> bool:
+        """Write COMPLETE_LIST.md without modifying the independent database."""
+        content = self.generate_complete_list_content()
+        if not content:
+            print(f'Unable to generate complete list from: {self.complete_list_database_path}')
+            return False
+
+        try:
+            output_dir = os.path.dirname(self.complete_list_output_path)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+            with open(self.complete_list_output_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f'Complete list updated: {self.complete_list_output_path}')
+            return True
+        except Exception as e:
+            print(f'Failed to write complete list: {e}')
+            return False
 
     def generate_readme_tables(self) -> str:
         """生成README的论文表格部分"""
@@ -356,7 +574,7 @@ class ReadmeGenerator:
         return "\n".join(lines)
 
     def update_readme_file(self) -> bool:
-        """更新README文件"""
+        """Update README.md and the independently generated complete list."""
         readme_path = os.path.join(self.config.project_root, 'README.md')
 
         if not os.path.exists(readme_path):
@@ -368,6 +586,10 @@ class ReadmeGenerator:
                 content = f.read()
         except Exception as e:
             print(f"读取README文件失败: {e}")
+            return False
+
+        metadata_success, content = self._render_paper_metadata_blocks(content)
+        if not metadata_success:
             return False
 
         new_tables = self.generate_readme_tables()
@@ -407,7 +629,7 @@ class ReadmeGenerator:
             with open(readme_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
             print(f"README文件已更新: {readme_path}")
-            return True
+            return self.update_complete_list_file()
         except Exception as e:
             print(f"写入README文件失败: {e}")
             return False

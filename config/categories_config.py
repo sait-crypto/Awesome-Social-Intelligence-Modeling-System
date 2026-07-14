@@ -3,7 +3,7 @@
 
 重要说明：
 1. unique_name字段是分类的唯一标识符，不可重复，用于内部存储和系统处理
-2. order字段决定分类在Excel和README中的显示顺序，必须唯一
+2. order字段决定分类在Excel和README中的显示顺序；允许重复，重复时按配置中的先后顺序稳定排序
 3. enabled=false的分类会被系统忽略，相关论文不会出现在该分类下
 4. predecessor_category字段用于表示分类的直接上级分类，根分类的predecessor_category应为None，支持任意层级。
     注意：`predecessor_category` 应使用父类的 `unique_name` 字符串进行引用，**不要使用 `order` 作为标识**。order 仅用于显示排序，可随时修改。
@@ -44,6 +44,42 @@ CATEGORIES_CHANGE_LIST = [
     #     "new_unique_name": "Hate Speech Analysis",
     # },
     {
+        "old_unique_name": "Base Techniques",
+        "new_unique_name": "Other",
+    },
+    {
+        "old_unique_name": "Ethics and Safety",
+        "new_unique_name": "Other",
+    },
+    {
+        "old_unique_name": "Sarcasm Detection",
+        "new_unique_name": "Micro-Level Pragmatic Expressions",
+    },
+    {
+        "old_unique_name": "Humor Recognition",
+        "new_unique_name": "Micro-Level Pragmatic Expressions",
+    },
+    {
+        "old_unique_name": "Euphemism Recognition",
+        "new_unique_name": "Micro-Level Pragmatic Expressions",
+    },
+    {
+        "old_unique_name": "Metaphor Recognition",
+        "new_unique_name": "Micro-Level Pragmatic Expressions",
+    },
+    {
+        "old_unique_name": "Bragging Detection",
+        "new_unique_name": "Micro-Level Pragmatic Expressions",
+    },
+    {
+        "old_unique_name": "Rumor Refutation Generation",
+        "new_unique_name": "Evidence-Grounded Rumor Refutation",
+    },
+    {
+        "old_unique_name": "Social Psychological Phenomena Analysis",
+        "new_unique_name": "User-Level Understanding",
+    },
+    {
         "old_unique_name": "Social Content Generation",   # 旧的唯一标识符（被替换）
         "new_unique_name": "Comment Generation",   # 新的唯一标识符（替换目标）
     },
@@ -73,7 +109,7 @@ CATEGORIES_CHANGE_LIST = [
     },
     {
         "old_unique_name": "Social Media Security",   # 旧的唯一标识符（被替换）
-        "new_unique_name": "Ethics and Safety",   # 新的唯一标识符（替换目标）
+        "new_unique_name": "Other",   # Ethics and Safety 已移除，保留旧数据并归入 Other
     },
     {
         "old_unique_name": "Dialogue and Conversational Systems",   # 旧的唯一标识符（被替换）
@@ -97,14 +133,6 @@ CATEGORIES_CONFIG = {
             "predecessor_category": None,# 直接上级分类，None表示本身为根分类
             "enabled": True,                # 是否启用该分类
             "description": "[一级分类] —  未分类",
-        },
-        {
-            "unique_name": "Base Techniques",
-            "order": 99,                     # 排序顺序，0为第一个
-            "name": "Base Techniques",  # 显示名称
-            "predecessor_category": None,# None表示本身为根分类
-            "enabled": True,                # 是否启用该分类
-            "description": "[一级分类] —  基础技术",
         },
         {
             "unique_name": "Perception and Classification",
@@ -138,14 +166,6 @@ CATEGORIES_CONFIG = {
             "enabled": True,                # 是否启用该分类
             "description": "[一级分类] —  仿真与推理",
         },
-        # {
-        #     "unique_name": "Ethics and Safety",
-        #     "order": 104,                     # 排序顺序，0为第一个
-        #     "name": "Ethics and Safety",  # 显示名称
-        #     "predecessor_category": None,# None表示本身为根分类
-        #     "enabled": True,                # 是否启用该分类
-        #     "description": "[一级分类] —  伦理与安全",
-        # },
         {
             "unique_name": "Other",
             "order": 200,
@@ -219,46 +239,6 @@ CATEGORIES_CONFIG = {
             "predecessor_category": "Discourse and Pragmatic Analysis",
             "enabled": True,
             "description": "[四级分类]（Discourse and Pragmatic Analysis） —  微观语用表达分析（包含讽刺、幽默、委婉语、隐喻、吹牛等微观语用表达分析）",
-        },
-        {
-            "unique_name": "Sarcasm Detection",
-            "order": 5,
-            "name": "Sarcasm Detection",
-            "predecessor_category": "Micro-Level Pragmatic Expressions",
-            "enabled": True,
-            "description": "[五级分类]（Micro-Level Pragmatic Expressions） —  讽刺检测",
-        },
-        {
-            "unique_name": "Humor Recognition",
-            "order": 6,
-            "name": "Humor Recognition",
-            "predecessor_category": "Micro-Level Pragmatic Expressions",
-            "enabled": True,
-            "description": "[五级分类]（Micro-Level Pragmatic Expressions） — 幽默识别",
-        },
-        {
-            "unique_name": "Euphemism Recognition",
-            "order": 6,
-            "name": "Euphemism Recognition",
-            "predecessor_category": "Micro-Level Pragmatic Expressions",
-            "enabled": True,
-            "description": "[五级分类]（Micro-Level Pragmatic Expressions） — 委婉语识别",
-        },
-        # {
-        #     "unique_name": "Metaphor Recognition",
-        #     "order": 6,
-        #     "name": "Metaphor Recognition",
-        #     "predecessor_category": "Micro-Level Pragmatic Expressions",
-        #     "enabled": True,
-        #     "description": "[五级分类]（Micro-Level Pragmatic Expressions） — 隐喻识别",
-        # },
-        {
-            "unique_name": "Bragging Detection",
-            "order": 6,
-            "name": "Bragging Detection",
-            "predecessor_category": "Micro-Level Pragmatic Expressions",
-            "enabled": True,
-            "description": "[五级分类]（Micro-Level Pragmatic Expressions） — 吹牛识别",
         },
         {
             "unique_name": "Macro-Level Discourse Analysis",
@@ -711,42 +691,6 @@ CATEGORIES_CONFIG = {
             "enabled": True,
             "description": "[三级分类]（Social Simulation） —  研究社会仿真社会价值与偏见",
         },
-
-
-        # {
-        #     "unique_name": "Bias Analysis and Mitigation",
-        #     "order":34,
-        #     "name": "Bias Analysis and Mitigation",
-        #     "predecessor_category": "Ethics and Safety",
-        #     "enabled": True,
-        #     "description": "[二级分类]（Ethics and Safety） — 偏见分析与缓解",
-        # },
-        # {
-        #     "unique_name": "Data Privacy and Copyright",
-        #     "order":34,
-        #     "name": "Data Privacy and Copyright",
-        #     "predecessor_category": "Ethics and Safety",
-        #     "enabled": True,
-        #     "description": "[二级分类]（Ethics and Safety） — 数据隐私与版权",
-
-        # },
-        # {
-        #     "unique_name": "Value Alignment",
-        #     "order":34,
-        #     "name": "Value Alignment",
-        #     "predecessor_category": "Ethics and Safety",
-        #     "enabled": True,
-        #     "description": "[二级分类]（Ethics and Safety） — 价值观对齐",
-        # },
-        # {
-        #     "unique_name": "Robustness and Adversarial Attacks",
-        #     "order":34,
-        #     "name": "Robustness and Adversarial Attacks",
-        #     "predecessor_category": "Ethics and Safety",
-        #     "enabled": True,
-        #     "description": "[二级分类]（Ethics and Safety） — 鲁棒性与对抗攻击",
-
-        # },
     ],
     
     # ============= 分类变更列表 =============
@@ -779,20 +723,14 @@ def validate_categories_config():
         else:
             unique_names[unique_name] = True
     
-    # 检查order唯一性，并建立order->category映射
-    orders = {}
-    categories_by_order = {}
+    # 检查 order 可用于排序。order 允许重复；ConfigLoader 会用配置顺序稳定排序。
     for category in CATEGORIES_CONFIG["categories"]:
         order = category.get("order")
         if order is None:
             errors.append(f"分类 {category.get('unique_name')} 缺少order字段")
             continue
-            
-        if order in orders:
-            errors.append(f"order {order} 重复: {orders[order]} 和 {category['unique_name']}")
-        else:
-            orders[order] = category["unique_name"]
-            categories_by_order[order] = category
+        if not isinstance(order, (int, float)):
+            errors.append(f"分类 {category.get('unique_name')} 的order必须是数字，当前为 {order!r}")
     
     # 检查 predecessor_category 合法性：
     # - 根分类（predecessor_category 为 None）允许存在
@@ -827,6 +765,28 @@ def validate_categories_config():
                 break
             predecessor = parent.get("predecessor_category")
 
+    # 变更规则必须唯一地指向仍启用的有效分类，避免旧数据在规范化后静默消失。
+    seen_old_names = set()
+    for rule in CATEGORIES_CONFIG.get('categories_change_list', []):
+        old_name = str(rule.get('old_unique_name', '') or '').strip()
+        new_name = str(rule.get('new_unique_name', '') or '').strip()
+        old_key = old_name.casefold()
+        if not old_name or not new_name:
+            errors.append(f"分类变更规则缺少 old_unique_name 或 new_unique_name: {rule}")
+            continue
+        if old_key in seen_old_names:
+            errors.append(f"分类变更规则重复定义旧分类: {old_name}")
+        seen_old_names.add(old_key)
+
+        target = next(
+            (c for c in CATEGORIES_CONFIG['categories'] if c.get('unique_name', '').casefold() == new_name.casefold()),
+            None,
+        )
+        if target is None:
+            errors.append(f"分类变更规则 {old_name} 的目标分类不存在: {new_name}")
+        elif not target.get('enabled', True):
+            errors.append(f"分类变更规则 {old_name} 的目标分类未启用: {new_name}")
+
     # 检查name不为空
     for category in CATEGORIES_CONFIG["categories"]:
         name = category.get("name", "").strip()
@@ -839,9 +799,9 @@ def validate_categories_config():
 if __name__ == "__main__":
     is_valid, error_list = validate_categories_config()
     if is_valid:
-        print("✅ 分类配置验证通过")
+        print("[OK] 分类配置验证通过")
     else:
-        print("❌ 分类配置验证失败:")
+        print("[ERROR] 分类配置验证失败:")
         for error in error_list:
             print(f"   - {error}")
         exit(1)

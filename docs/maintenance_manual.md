@@ -1,1 +1,26 @@
 [Document Homepage](./../README.md)
+
+# Complete List maintenance
+
+The compact paper index is maintained separately from the curated review table:
+
+- Source database: `paper_database_complete_list.csv`
+- Generated output: `COMPLETE_LIST.md`
+- Configuration: `complete_list_database` and `complete_list_output` in `[paths]`
+- Generator: `python src/convert.py`
+
+The source uses the same two-header-row `Paper` CSV schema as the core database. It is read directly by `ReadmeGenerator` and never enters `AIGenerator`.
+
+`COMPLETE_LIST.md` is overwritten whenever the normal README generator runs. Edit the database rather than the generated Markdown. The compact output includes only title, venue, and Paper/Project/DOI links. Every titled database row is retained, including entries with `show_in_readme=false` and conflict variants; only rows without a title are omitted.
+
+During the normal submission update, each validated input entry is deep-copied into `paper_database_complete_list.csv` before any optional AI generation. The existing AI stage then processes only the copy continuing toward the core database. The Complete List database therefore receives the submitted fields exactly as they existed before automatic AI completion.
+
+Maintainers can use the submit GUI's **完整库** button to load and edit `paper_database_complete_list.csv` directly. Saving the loaded file updates that database without involving AI; run `python src/convert.py` afterward to regenerate the Markdown list.
+
+# Paper metadata
+
+Edit only `config/paper_metadata.json` to update the paper introduction and BibTeX. Running `python src/convert.py` rewrites the managed introduction plus both Citation sections in `README.md` from that file. Do not remove the `PAPER_*_START` / `PAPER_*_END` comments: generation fails without writing the README if any managed block is missing.
+
+# Category changes
+
+Rename, merge, or remove categories through `CATEGORIES_CHANGE_LIST` in `config/categories_config.py`. Each old category must map to an enabled target before its category definition is removed. README generation normalizes legacy database values in memory, so existing database rows remain compatible without a bulk rewrite. Run `python config/categories_config.py` and the test suite after changing the taxonomy.

@@ -2490,6 +2490,7 @@ class PaperSubmissionGUI:
         
         if not self._is_packaged_exe:
             ttk.Button(file_frame, text="💾 加载数据库", command=self._open_database_action, width=12).pack(side=tk.LEFT, padx=5, pady=5)
+            ttk.Button(file_frame, text="📚 完整库", command=self._open_complete_list_database_action, width=10).pack(side=tk.LEFT, padx=5, pady=5)
 
         self.save_btn_var = tk.StringVar(value="📤 保存文件 ▾")
         self.save_btn = ttk.Button(file_frame, textvariable=self.save_btn_var, width=14)
@@ -3638,6 +3639,34 @@ class PaperSubmissionGUI:
                 db_path,
                 cnt,
                 status_text=f"已加载数据库: {os.path.basename(db_path)}",
+                show_success=False,
+            )
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _open_complete_list_database_action(self):
+        """直接加载 Complete List 独立数据库。"""
+        if not self._confirm_all_pending_file_fields_for_current_paper(show_popup=True):
+            return
+        if not self._confirm_replace_workspace_before_load():
+            return
+
+        if not self._ensure_admin_for_db_load("权限限制", "加载完整库需要管理员权限。\n是否立即切换模式？"):
+            return
+
+        db_path = self.config.settings['paths'].get('complete_list_database', '')
+        if not db_path:
+            messagebox.showerror("Error", "未配置 complete_list_database")
+            return
+        if not os.path.isabs(db_path):
+            db_path = os.path.join(BASE_DIR, db_path)
+
+        try:
+            cnt = self.logic.load_papers_from_file(db_path)
+            self._apply_loaded_workspace_state(
+                db_path,
+                cnt,
+                status_text=f"已加载完整库: {os.path.basename(db_path)}",
                 show_success=False,
             )
         except Exception as e:

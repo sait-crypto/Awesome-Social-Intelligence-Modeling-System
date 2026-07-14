@@ -2,6 +2,7 @@
 项目入口2：将更新文件（CSV/JSON）的内容更新到核心数据库（CSV）
 """
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -13,7 +14,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.core.config_loader import get_config_instance
 from src.core.database_manager import DatabaseManager
 from src.core.database_model import Paper, is_same_identity
-from src.ai_generator import AIGenerator
 from src.utils import get_current_timestamp, backup_file
 from src.core.update_file_utils import get_update_file_utils
 
@@ -22,20 +22,32 @@ class UpdateProcessor:
     
     def __init__(self):
         self.config = get_config_instance()
-        self.settings = get_config_instance().settings
-        self.db_manager = DatabaseManager()
-        self.ai_generator = AIGenerator()
+        self.settings = self.config.settings
         self.update_utils = get_update_file_utils()
+        configured_ai_enabled = (
+            str(self.settings['ai'].get('enable_ai_generation', 'true')).lower() == 'true'
+        )
         
         # 获取所有可能的更新文件路径
         self.update_files = []
         paths = self.settings['paths']
-        
+        self.db_manager = DatabaseManager()
+        complete_list_database = paths.get('complete_list_database')
+        if not complete_list_database:
+            raise ValueError('未配置 complete_list_database')
+        self.complete_list_db_manager = DatabaseManager(database_path=complete_list_database)
+
+        if configured_ai_enabled:
+            from src.ai_generator import AIGenerator
+            self.ai_generator = AIGenerator()
+        else:
+            self.ai_generator = None
+
         # 标准更新文件
         for k in ['update_csv', 'update_json', 'my_update_csv', 'my_update_json']:
             if paths.get(k):
                 self.update_files.append(paths[k])
-                
+
         # 额外更新文件
         extra = paths.get('extra_update_files_list', [])
         self.update_files.extend(extra)
@@ -49,16 +61,16 @@ class UpdateProcessor:
         self.is_remove_added_paper = str(remove_val).lower() == 'true'
 
         # 这里的 enable_ai_generation 控制自动流程
-        self.enable_ai = str(self.settings['ai'].get('enable_ai_generation', 'true')).lower() == 'true'
+        self.enable_ai = configured_ai_enabled
     
-    def _get_database_abs_path(self) -> str:
-        db_path = self.db_manager.database_path
+    def _get_database_abs_path(self, manager: DatabaseManager = None) -> str:
+        db_path = (manager or self.db_manager).database_path
         if os.path.isabs(db_path):
             return db_path
         return os.path.abspath(os.path.join(str(self.config.project_root), db_path))
 
-    def _get_database_fingerprint(self) -> str:
-        db_path = self._get_database_abs_path()
+    def _get_database_fingerprint(self, manager: DatabaseManager = None) -> str:
+        db_path = self._get_database_abs_path(manager)
         if not os.path.exists(db_path):
             return ""
         try:
@@ -88,9 +100,14 @@ class UpdateProcessor:
             'empty_update_reason': '',
             'processed_files': 0,
             'files_with_entries': 0,
+            'complete_list_new_papers': 0,
+            'complete_list_conflicts': 0,
+            'complete_list_errors': [],
+            'complete_list_database_changed': False,
         }
 
         db_before = self._get_database_fingerprint()
+        complete_list_db_before = self._get_database_fingerprint(self.complete_list_db_manager)
         had_db_update_attempt = False
         
         # 过滤有效文件
@@ -109,7 +126,7 @@ class UpdateProcessor:
         
         for file_path in valid_files:
             result['processed_files'] += 1
-            print(f"\n📝--- 处理文件: {os.path.basename(file_path)} ---")
+            print(f"\n--- 处理文件: {os.path.basename(file_path)} ---")
             
             # 1. 加载论文
             try:
@@ -126,7 +143,7 @@ class UpdateProcessor:
                 continue
 
             if not current_papers:
-                print(f"⚠ 文件中没有论文数据")
+                print("[WARN] 文件中没有论文数据")
                 continue
 
             result['files_with_entries'] += 1
@@ -168,8 +185,29 @@ class UpdateProcessor:
             if not valid_papers:
                 continue
 
-            # 4. AI 生成缺失内容并回写到 *当前文件*
-            if self.ai_generator.is_available():
+            # 4. 在任何 AI 自动补全之前，将原始有效条目镜像到 Complete List 数据库。
+            # 使用深拷贝隔离冲突标记、资源规范化等数据库写入副作用，确保后续主流程不受影响。
+            try:
+                complete_added, complete_conflicts, complete_invalid = self.complete_list_db_manager.add_papers(
+                    copy.deepcopy(valid_papers),
+                    conflict_resolution,
+                )
+                result['complete_list_new_papers'] += len(complete_added)
+                result['complete_list_conflicts'] += len(complete_conflicts)
+                if complete_invalid:
+                    result['invalid_msg'].extend(complete_invalid)
+                print(
+                    f"Complete List 镜像完成: 新增 {len(complete_added)}，"
+                    f"冲突 {len(complete_conflicts)}"
+                )
+            except Exception as e:
+                err = f"Complete List 数据库镜像失败 ({file_path}): {e}"
+                result['complete_list_errors'].append(err)
+                result['errors'].append(err)
+                print(f"错误: {err}")
+
+            # 5. AI 生成缺失内容并回写到 *当前文件*
+            if self.enable_ai and self.ai_generator and self.ai_generator.is_available():
                 print("使用AI生成缺失内容...")
                 try:
                     valid_papers, is_enhanced = self.ai_generator.batch_enhance_papers(valid_papers)
@@ -201,7 +239,7 @@ class UpdateProcessor:
                     result['errors'].append(err)
                     print(f"错误: {err}")
 
-            # 5. 添加到数据库
+            # 6. 将可能已经 AI 补全的条目添加到主数据库
             print(f"正在更新 {len(valid_papers)} 篇论文到数据库...")
             try:
                 had_db_update_attempt = True
@@ -219,7 +257,7 @@ class UpdateProcessor:
                 print(f"错误: {err}")
                 continue
 
-            # 6. 从更新文件移除已处理论文
+            # 7. 从更新文件移除已处理论文
             if self.is_remove_added_paper:
                 try:
                     # 从 valid_papers 中找出那些已经成功 add 或 标记为 conflict 的
@@ -245,7 +283,7 @@ class UpdateProcessor:
                             backup_file(file_path, self.settings['paths']['backup_dir'])
                             # 写入
                             self.update_utils.write_data(file_path, remaining)
-                            print(f"🗑️ 已从 {os.path.basename(file_path)} 移除 {len(current_file_papers)-len(remaining)} 篇已处理论文")
+                            print(f"[OK] 已从 {os.path.basename(file_path)} 移除 {len(current_file_papers)-len(remaining)} 篇已处理论文")
                             
                 except Exception as e:
                     err = f"清理更新文件 {file_path} 失败: {e}"
@@ -282,7 +320,9 @@ class UpdateProcessor:
         result['invalid_msg'] = list(set(result['invalid_msg']))
 
         db_after = self._get_database_fingerprint()
+        complete_list_db_after = self._get_database_fingerprint(self.complete_list_db_manager)
         result['database_changed'] = (db_before != db_after)
+        result['complete_list_database_changed'] = (complete_list_db_before != complete_list_db_after)
         result['database_rewrite_only'] = bool(
             result['empty_update_used']
             and result['empty_update_reason'] in ('database-only', 'no-valid-updates')
@@ -292,7 +332,13 @@ class UpdateProcessor:
             and result['ai_generated'] == 0
         )
 
-        if result['new_papers'] > 0 or result['conflicts'] or result['ai_generated'] > 0 or result['database_changed']:
+        if (
+            result['new_papers'] > 0
+            or result['conflicts']
+            or result['ai_generated'] > 0
+            or result['database_changed']
+            or result['complete_list_database_changed']
+        ):
             result['success'] = True
 
         return result
@@ -319,27 +365,30 @@ class UpdateProcessor:
         print("="*50)
         
         if result.get('database_rewrite_only'):
-            print("✓ 本次仅执行了空更新（通过add_papers），且 database 发生变化")
+            print("[OK] 本次仅执行了空更新（通过add_papers），且 database 发生变化")
         elif result['success']:
-            print(f"✓ 成功添加 {result['new_papers']} 篇新论文")
+            print(f"[OK] 成功添加 {result['new_papers']} 篇新论文")
             if result['ai_generated'] > 0:
-                print(f"✓ AI生成了 {result['ai_generated']} 处内容")
+                print(f"[OK] AI生成了 {result['ai_generated']} 处内容")
             if result['conflicts']:
-                print(f"⚠ 发现 {len(result['conflicts'])} 处冲突，已标记并添加，请在 GUI 中搜索 '{self.settings['database']['conflict_marker']}' 处理")
+                print(f"[WARN] 发现 {len(result['conflicts'])} 处冲突，已标记并添加，请在 GUI 中搜索 '{self.settings['database']['conflict_marker']}' 处理")
         else:
             print("- 没有产生有效更新")
 
         if result.get('database_changed'):
-            print("✓ database 文件在本次更新中发生了变更")
+            print("[OK] database 文件在本次更新中发生了变更")
         else:
             print("- database 文件在本次更新中未发生变更")
+
+        if result.get('complete_list_database_changed'):
+            print("[OK] Complete List database 文件在本次更新中发生了变更")
             
         if result['errors']:
-            print("\n❌ 错误:")
+            print("\n[ERROR] 错误:")
             for e in result['errors']: print(f"  - {e}")
             
         if result['invalid_msg']:
-            print(f"\n⚠ 数据库格式警告 ({len(result['invalid_msg'])}):")
+            print(f"\n[WARN] 数据库格式警告 ({len(result['invalid_msg'])}):")
             for m in result['invalid_msg'][:5]: print(f"  - {m}")
             if len(result['invalid_msg']) > 5: print("  ...")
 
@@ -349,18 +398,18 @@ def main(update_mode: str = 'normal'):
     result = processor.process_updates(conflict_resolution='mark', update_mode=update_mode)
     processor.print_result(result)
     print(f"UPDATE_RESULT_JSON::{json.dumps(result, ensure_ascii=False)}")
-    backup_file("assets","backups")
+    backup_file("assets", "backups")
     if result['success']:
         print("\n正在重新生成 README...")
         try:
             from src.convert import ReadmeGenerator
             gen = ReadmeGenerator()
             if gen.update_readme_file():
-                print("✓ README 更新成功")
+                print("[OK] README 更新成功")
             else:
-                print("❌ README 更新失败")
+                print("[ERROR] README 更新失败")
         except Exception as e:
-            print(f"❌ README 生成出错: {e}")
+            print(f"[ERROR] README 生成出错: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="处理更新文件并更新数据库")
