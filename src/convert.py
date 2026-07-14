@@ -595,7 +595,7 @@ class ReadmeGenerator:
         new_tables = self.generate_readme_tables()
         tables_intro = self._generate_quick_links()
 
-        start_marker = "## Full paper list"
+        start_marker = "## Selected paper list"
         end_marker = "=====List End====="
 
         start_index = content.find(start_marker)

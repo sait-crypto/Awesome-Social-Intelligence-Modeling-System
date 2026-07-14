@@ -44,7 +44,6 @@ This repository accompanies our paper:
 
 ---
 
-> The version supporting Excel processing is available at [excel version](https://github.com/saiteiii/Awesome-Social-media-LLM-based-Analysis)(**no longer maintained**); In this version, the GUI has no administrator mode, and management is achieved by manually modifying an Excel-formatted database containing review prompt information.
 
 > **Contributions**<br>
 > If you want to add your own paper or update paper details, please follow the [contributor_manual](./docs/contributor_manual_chs.md)  for the relevant operations. We greatly appreciate your contributions. Alternatively, you can email me  ([Gmail](lixiajie2182712226@gmail.com))with the links to your paper and project, and I will manually add your paper to the list.
@@ -64,11 +63,7 @@ This repository accompanies our paper:
 <img src="assets/taxonomy.png" width = "95%" alt="" align=center />
 </p>
 
-### Key Points for Table Usage
-- <b>Paper Link</b>: Please click the paper title
-- <b>Paper Project Link</b>: Please click the GitHub icon or Project icon above the paper title
-- <b>Summary</b> and <b>Notes</b> can be expanded by clicking
-## Full paper list (195 papers)
+## Selected paper list (195 papers)
 ### Quick Links
 
   - [Uncategorized](#-Uncategorized-0-papers) (0 papers)
