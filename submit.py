@@ -11,6 +11,11 @@ import subprocess
 import webbrowser
 from tkinter import messagebox
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+ENGINEERING_DIR = os.path.join(ROOT_DIR, "engineering")
+if ENGINEERING_DIR not in sys.path:
+    sys.path.insert(0, ENGINEERING_DIR)
+
 def check_dependencies():
     """检查依赖"""
     try:
@@ -39,7 +44,7 @@ def main():
         sys.exit(1)
     
     # 检查是否在正确的目录
-    if not os.path.exists("config"):
+    if not os.path.exists(os.path.join(ENGINEERING_DIR, "config")):
         print("错误: 请在项目根目录运行此脚本")
         input("按Enter键退出...")
         sys.exit(1)
