@@ -394,11 +394,11 @@ class ReadmeGenerator:
     def _generate_category_table(self, papers: List[Paper]) -> str:
         if not papers: return ""
         if self.show_summary_column:
-            header = "| Title & Info | Analogy Summary | Pipeline | Summary |\n"
-            sep = "|:--| :---: | :----: | :---: |\n"
+            header = "| Title & Info | Pipeline | Summary |\n"
+            sep = "|:--| :----: | :---: |\n"
         else:
-            header = "| Title & Info | Analogy Summary | Pipeline |\n"
-            sep = "|:--| :---: | :----: |\n"
+            header = "| Title & Info | Pipeline |\n"
+            sep = "|:--| :----: |\n"
         rows = "".join(self._generate_paper_or_reference_row(p) for p in papers)
         return header + sep + rows
 
@@ -418,7 +418,7 @@ class ReadmeGenerator:
         anchor = self._rendered_paper_anchors.get(identity)
         if anchor:
             title = self._sanitize_field(truncate_text(paper.title, self.max_title_length))
-            empty_cells = '|||' if self.show_summary_column else '||'
+            empty_cells = '||' if self.show_summary_column else '|'
             return f'|[↪ {title}](#{anchor}) <sub>Full entry</sub>|{empty_cells}\n'
 
         anchor = self._paper_anchor(paper)
@@ -429,14 +429,22 @@ class ReadmeGenerator:
         col1 = self._generate_title_authors_cell(paper)
         if anchor:
             col1 = f'<a id="{anchor}"></a>{col1}'
-        col2 = self._generate_analogy_cell(paper)
-        col3 = self._generate_pipeline_cell(paper)
+        col2 = self._generate_pipeline_cell(paper)
         if not self.show_summary_column:
-            return f"|{col1}|{col2}|{col3}|\n"
-        col4 = self._generate_summary_cell(paper)
-        if col4:
-            col4 = f" <div style=\"line-height: 1.05;font-size: 0.8em\"> {col4}</div>"
-        return f"|{col1}|{col2}|{col3}|{col4}|\n"
+            return f"|{col1}|{col2}|\n"
+        col3 = self._generate_combined_summary_cell(paper)
+        return f"|{col1}|{col2}|{col3}|\n"
+
+    def _generate_combined_summary_cell(self, paper: Paper) -> str:
+        analogy = self._generate_analogy_cell(paper)
+        summary = self._generate_summary_cell(paper)
+        blocks = [block for block in (analogy, summary) if block]
+        if not blocks:
+            return ""
+        content = blocks[0]
+        for block in blocks[1:]:
+            content += f'<div style="margin-top:6px">{block}</div>'
+        return f' <div style="line-height: 1.05;font-size: 0.8em"> {content}</div>'
 
     def _generate_analogy_cell(self, paper: Paper) -> str:
         if not paper.analogy_summary:

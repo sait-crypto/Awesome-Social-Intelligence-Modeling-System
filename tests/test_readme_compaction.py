@@ -63,7 +63,7 @@ class ReadmeCompactionTests(unittest.TestCase):
         self.assertIn('<a id="paper-entry-', full_row)
         self.assertIn('[↪ A Multi-Category Paper](#paper-entry-', reference_row)
         self.assertIn('<sub>Full entry</sub>', reference_row)
-        self.assertEqual(reference_row.count('|'), 5)
+        self.assertEqual(reference_row.count('|'), 4)
         self.assertEqual(reference_row.count('\n'), 1)
         self.assertNotIn('<details>', reference_row)
 
@@ -81,14 +81,17 @@ class ReadmeCompactionTests(unittest.TestCase):
         self.generator.show_summary_column = False
         paper = Paper(
             title='Hidden Summary Paper',
+            analogy_summary='Stored analogy',
             summary_motivation='Stored motivation',
             notes='Stored notes',
         )
 
         table = self.generator._generate_category_table([paper])
 
-        self.assertIn('| Title & Info | Analogy Summary | Pipeline |', table)
+        self.assertIn('| Title & Info | Pipeline |', table)
+        self.assertNotIn('Analogy Summary', table)
         self.assertNotIn('| Summary |', table)
+        self.assertNotIn('Stored analogy', table)
         self.assertNotIn('Stored motivation', table)
         self.assertNotIn('Stored notes', table)
         self.assertEqual(paper.summary_motivation, 'Stored motivation')
@@ -101,8 +104,24 @@ class ReadmeCompactionTests(unittest.TestCase):
         self.generator._generate_paper_or_reference_row(paper)
         reference_row = self.generator._generate_paper_or_reference_row(paper)
 
-        self.assertEqual(reference_row.count('|'), 4)
+        self.assertEqual(reference_row.count('|'), 3)
         self.assertIn('<sub>Full entry</sub>', reference_row)
+
+    def test_analogy_precedes_summary_in_combined_column(self):
+        paper = Paper(
+            title='Combined Review Paper',
+            analogy_summary='Analogy body',
+            summary_motivation='Summary body',
+        )
+
+        table = self.generator._generate_category_table([paper])
+
+        self.assertIn('| Title & Info | Pipeline | Summary |', table)
+        self.assertNotIn('| Analogy Summary |', table)
+        self.assertLess(
+            table.index('<summary>**[analogy]**</summary>'),
+            table.index('<summary>**[summary]**</summary>'),
+        )
 
 if __name__ == '__main__':
     unittest.main()
