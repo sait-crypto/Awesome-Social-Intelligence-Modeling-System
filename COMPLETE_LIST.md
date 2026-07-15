@@ -981,3 +981,5 @@ This compact index contains 975 papers. For categorized summaries and detailed r
 | [The rise and potential of large language model based agents: a survey](https://link.springer.com/10.1007/s11432-024-4222-0) | Sci. China Inf. Sci. | [Paper](https://link.springer.com/10.1007/s11432-024-4222-0) · [DOI](https://doi.org/10.1007/s11432-024-4222-0) |
 | [Announcing the Agent2Agent protocol (A2A)- google developers blog](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) | — | [Paper](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) |
 | Social interactions as recursive MDPs | — | — |
+
+[← Back to main README](./README.md)

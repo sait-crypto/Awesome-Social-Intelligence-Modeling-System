@@ -81,6 +81,8 @@ class CompleteListGenerationTests(unittest.TestCase):
         self.assertNotIn("Author Must Not Appear", content)
         self.assertNotIn("Summary Must Not Appear", content)
         self.assertLess(content.index("Newest"), content.index("Older Paper"))
+        self.assertTrue(content.endswith("[← Back to main README](./README.md)\n"))
+        self.assertEqual(content.count("(./README.md)"), 2)
 
     def test_preserves_all_titled_database_rows(self):
         self._write_papers(

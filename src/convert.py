@@ -54,6 +54,10 @@ class ReadmeGenerator:
             'summary_limitation': self._read_length_setting('max_summary_limitation_length', 240),
         }
         self.max_notes_length = self._read_length_setting('max_notes_length', 400)
+        self.show_summary_column = (
+            str(self.settings['readme'].get('show_summary_column', 'true')).strip().lower()
+            == 'true'
+        )
         self.translation_separator = self.settings['database'].get('translation_separator', '[翻译]')
         
         # ===== 恢复：配置项兼容逻辑 =====
@@ -297,7 +301,8 @@ class ReadmeGenerator:
             '[main README](./README.md).\n\n'
             '| Title | Venue | Links |\n'
             '|:--|:--:|:--:|\n'
-            f'{rows}'
+            f'{rows}\n'
+            '[← Back to main README](./README.md)\n'
         )
 
     def update_complete_list_file(self) -> bool:
@@ -388,8 +393,12 @@ class ReadmeGenerator:
 
     def _generate_category_table(self, papers: List[Paper]) -> str:
         if not papers: return ""
-        header = "| Title & Info | Analogy Summary | Pipeline | Summary |\n"
-        sep = "|:--| :---: | :----: | :---: |\n"
+        if self.show_summary_column:
+            header = "| Title & Info | Analogy Summary | Pipeline | Summary |\n"
+            sep = "|:--| :---: | :----: | :---: |\n"
+        else:
+            header = "| Title & Info | Analogy Summary | Pipeline |\n"
+            sep = "|:--| :---: | :----: |\n"
         rows = "".join(self._generate_paper_or_reference_row(p) for p in papers)
         return header + sep + rows
 
@@ -409,7 +418,8 @@ class ReadmeGenerator:
         anchor = self._rendered_paper_anchors.get(identity)
         if anchor:
             title = self._sanitize_field(truncate_text(paper.title, self.max_title_length))
-            return f'|[↪ {title}](#{anchor}) <sub>Full entry</sub>||||\n'
+            empty_cells = '|||' if self.show_summary_column else '||'
+            return f'|[↪ {title}](#{anchor}) <sub>Full entry</sub>|{empty_cells}\n'
 
         anchor = self._paper_anchor(paper)
         self._rendered_paper_anchors[identity] = anchor
@@ -421,6 +431,8 @@ class ReadmeGenerator:
             col1 = f'<a id="{anchor}"></a>{col1}'
         col2 = self._generate_analogy_cell(paper)
         col3 = self._generate_pipeline_cell(paper)
+        if not self.show_summary_column:
+            return f"|{col1}|{col2}|{col3}|\n"
         col4 = self._generate_summary_cell(paper)
         if col4:
             col4 = f" <div style=\"line-height: 1.05;font-size: 0.8em\"> {col4}</div>"

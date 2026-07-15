@@ -8,6 +8,7 @@ class ReadmeCompactionTests(unittest.TestCase):
     def setUp(self):
         self.generator = ReadmeGenerator()
         self.generator.enable_markdown = True
+        self.generator.show_summary_column = True
 
     def test_long_readme_fields_use_independent_limits_without_tooltips(self):
         self.generator.max_analogy_summary_length = 5
@@ -72,6 +73,33 @@ class ReadmeCompactionTests(unittest.TestCase):
             'Uncategorized', [paper]
         )
         self.assertEqual(count, 1)
+
+    def test_summary_column_can_be_hidden_without_changing_paper_data(self):
+        self.generator.show_summary_column = False
+        paper = Paper(
+            title='Hidden Summary Paper',
+            summary_motivation='Stored motivation',
+            notes='Stored notes',
+        )
+
+        table = self.generator._generate_category_table([paper])
+
+        self.assertIn('| Title & Info | Analogy Summary | Pipeline |', table)
+        self.assertNotIn('| Summary |', table)
+        self.assertNotIn('Stored motivation', table)
+        self.assertNotIn('Stored notes', table)
+        self.assertEqual(paper.summary_motivation, 'Stored motivation')
+        self.assertEqual(paper.notes, 'Stored notes')
+
+    def test_duplicate_reference_matches_hidden_summary_table_width(self):
+        self.generator.show_summary_column = False
+        paper = Paper(title='Referenced Paper')
+
+        self.generator._generate_paper_or_reference_row(paper)
+        reference_row = self.generator._generate_paper_or_reference_row(paper)
+
+        self.assertEqual(reference_row.count('|'), 4)
+        self.assertIn('<sub>Full entry</sub>', reference_row)
 
 
 if __name__ == '__main__':
