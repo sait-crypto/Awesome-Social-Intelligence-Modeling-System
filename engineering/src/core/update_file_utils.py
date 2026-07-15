@@ -698,6 +698,17 @@ class UpdateFileUtils:
         # 2. 相对项目根目录 (最优先)
         p1 = os.path.join(self.project_root, path_str)
         if os.path.exists(p1): return p1
+
+        # Databases created before the directory migration use assets/... paths.
+        # Resolve those paths against the configured asset root transparently.
+        normalized = str(path_str).replace('\\', '/')
+        if normalized.startswith('assets/'):
+            assets_root = self.assets_dir
+            p_assets = os.path.join(assets_root, normalized[len('assets/'):])
+            if not os.path.isabs(p_assets):
+                p_assets = os.path.join(self.project_root, p_assets)
+            if os.path.exists(p_assets):
+                return p_assets
         
         # 3. 相对旧目录 (兼容 figures/xxx 这种写法)
         # 如果 path_str 已经包含 legacy_dir_rel (e.g. figures/a.png), p1 已经覆盖

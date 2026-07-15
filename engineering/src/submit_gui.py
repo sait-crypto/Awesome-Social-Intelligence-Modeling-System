@@ -4060,7 +4060,7 @@ class PaperSubmissionGUI:
         if not messagebox.askyesno(title, content):
             return
 
-        cmd = [sys.executable, os.path.join(BASE_DIR, "src/update.py"), "--mode", update_mode]
+        cmd = [sys.executable, os.path.join(BASE_DIR, "engineering/src/update.py"), "--mode", update_mode]
 
         def _on_complete(return_code: int, output_text: str):
             if return_code != 0:
@@ -4087,7 +4087,7 @@ class PaperSubmissionGUI:
         ):
             return
 
-        cmd = [sys.executable, os.path.join(BASE_DIR, "src/validate.py")]
+        cmd = [sys.executable, os.path.join(BASE_DIR, "engineering/src/validate.py")]
         self._run_command_with_output_window(
             title_base="验证脚本输出",
             cmd=cmd,
@@ -4727,7 +4727,7 @@ class PaperSubmissionGUI:
                         rel_path = str(getattr(selected_paper, 'paper_file', '') or '').strip()
                         if not uid or not rel_path:
                             continue
-                        abs_path = os.path.join(BASE_DIR, rel_path)
+                        abs_path = self.logic.update_utils.resolve_asset_path(rel_path, 'paper_file') or os.path.join(BASE_DIR, rel_path)
                         selected_paper_texts[uid] = reader.read_paper_file(abs_path)
 
                     paper_text = selected_paper_texts.get(str(getattr(primary_paper, 'uid', '') or '').strip(), "")
@@ -4757,7 +4757,7 @@ class PaperSubmissionGUI:
                             rel_path = str(getattr(rp, 'paper_file', '') or '').strip()
                             if not uid or not rel_path:
                                 continue
-                            abs_related_path = os.path.join(BASE_DIR, rel_path)
+                            abs_related_path = self.logic.update_utils.resolve_asset_path(rel_path, 'paper_file') or os.path.join(BASE_DIR, rel_path)
                             related_paper_texts[uid] = reader.read_paper_file(abs_related_path)
 
                     gen = AIGenerator()
@@ -4829,7 +4829,7 @@ class PaperSubmissionGUI:
         
         paper_text = ""
         if paper_ref.paper_file:
-            abs_path = os.path.join(BASE_DIR, paper_ref.paper_file)
+            abs_path = self.logic.update_utils.resolve_asset_path(paper_ref.paper_file, 'paper_file') or os.path.join(BASE_DIR, paper_ref.paper_file)
             gen_reader = AIGenerator()
             paper_text = gen_reader.read_paper_file(abs_path)
             
@@ -5360,7 +5360,8 @@ class PaperSubmissionGUI:
         paper = self.logic.papers[real_idx]
         paper_text = ""
         if paper.paper_file:
-             paper_text = AIGenerator().read_paper_file(os.path.join(BASE_DIR, paper.paper_file))
+             paper_path = self.logic.update_utils.resolve_asset_path(paper.paper_file, 'paper_file') or os.path.join(BASE_DIR, paper.paper_file)
+             paper_text = AIGenerator().read_paper_file(paper_path)
         gen = AIGenerator()
         cat, reasoning = gen.generate_category(paper, paper_text)
 

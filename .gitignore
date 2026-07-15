@@ -4,9 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
+engineering/build/
 develop-eggs/
-dist/
+engineering/dist/
 downloads/
 eggs/
 .eggs/
@@ -31,7 +31,7 @@ wheels/
 my_submit.xlsx
 my_submit.json
 **/*my_submit*
-figures_temp/
+engineering/figures_temp/
 from_others/
 数据库相关文件备份/
 

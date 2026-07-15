@@ -100,7 +100,8 @@ class Validator:
             # 资源引用验证 (双重检查 assets 实际存在性)
             # validate_paper_fields 已经包含路径检查，这里做更直观的输出
             if p.uid:
-                asset_dir = os.path.join(self.config.project_root, 'assets', p.uid)
+                asset_root = self.settings['paths'].get('assets_dir', 'engineering/assets')
+                asset_dir = os.path.join(asset_root, p.uid)
                 if not os.path.exists(asset_dir) and (p.pipeline_image or p.paper_file):
                     print(f"  #{i+1} [Asset Error] UID文件夹缺失: assets/{p.uid}")
                     assets_issues += 1

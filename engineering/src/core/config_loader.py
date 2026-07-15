@@ -28,9 +28,12 @@ class ConfigLoader:
         else:
             # 以模块位置上溯两级作为项目根（保证以项目根为基准解析所有相对路径）
             # src/core -> src -> root (2 levels up from src, so 3 levels from here)
-            self.project_root = Path(__file__).resolve().parents[2]
+            self.project_root = Path(__file__).resolve().parents[3]
         # config 目录在项目根下的 config 子目录
-        self.config_path = (self.project_root / 'config').resolve()
+        if getattr(sys, 'frozen', False):
+            self.config_path = (self.project_root / 'config').resolve()
+        else:
+            self.config_path = (self.project_root / 'engineering' / 'config').resolve()
 
         # 读取配置（_load_settings 会使用 self.project_root 来解析相对路径）
         self.settings = self._load_settings()

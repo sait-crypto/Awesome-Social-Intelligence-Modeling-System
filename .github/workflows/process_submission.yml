@@ -56,6 +56,11 @@ jobs:
           
           # 3. Assets 暂存 (供脚本读取，稍后智能合并)
           # 新逻辑：支持 assets/ 目录结构
+          if [ -d pr_workspace/engineering/assets ]; then
+            mkdir -p pr_workspace_assets
+            cp -r pr_workspace/engineering/assets/* pr_workspace_assets/ || true
+          fi
+          # Accept submissions created before the engineering/ migration.
           if [ -d pr_workspace/assets ]; then
             mkdir -p pr_workspace_assets
             cp -r pr_workspace/assets/* pr_workspace_assets/ || true
@@ -102,7 +107,7 @@ jobs:
       - name: Validate Submission
         id: validate
         env:
-          PYTHONPATH: .
+          PYTHONPATH: engineering
           # 传递暂存的资产目录给脚本
           PR_ASSETS_DIR: pr_workspace_assets
           PR_FIGURES_DIR: pr_workspace_figures
@@ -110,7 +115,7 @@ jobs:
         run: |
           set -o pipefail
           # 使用 scripts 验证入口
-          uv run scripts/validate_submission.py 2>&1 | tee validation_log.txt
+          uv run engineering/scripts/validate_submission.py 2>&1 | tee validation_log.txt
 
       - name: Comment on Validation Failure
         if: failure() && steps.validate.outcome == 'failure'
@@ -135,23 +140,23 @@ jobs:
       - name: Update Assets
         if: success()
         env:
-          PYTHONPATH: .
+          PYTHONPATH: engineering
           PR_ASSETS_DIR: pr_workspace_assets
           PR_FIGURES_DIR: pr_workspace_figures
-        run: uv run scripts/update_submission_figures.py
+        run: uv run engineering/scripts/update_submission_figures.py
 
       # --- 步骤 6: 核心更新 (生成新备份) ---
       - name: Run Core Update
         id: core_update
         if: success()
         env:
-          PYTHONPATH: .
+          PYTHONPATH: engineering
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           # 移除 EXCEL_KEY，改用数据库密码（如果需要）
         run: |
           set -o pipefail
           # update.py 运行成功后，会在 backups/ 目录生成新的备份文件
-          uv run src/update.py 2>&1 | tee update_log.txt
+          uv run engineering/src/update.py 2>&1 | tee update_log.txt
 
       - name: Comment Update Log
         if: steps.core_update.conclusion != 'skipped'
@@ -176,7 +181,7 @@ jobs:
       - name: Commit and Push
         if: success()
         env:
-          PYTHONPATH: .
+          PYTHONPATH: engineering
           PR_USER: ${{ github.event.pull_request.user.login }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
@@ -192,7 +197,7 @@ jobs:
           # 强制添加文件
           # git add backups/ 会添加 Main 原有的备份 + 本次 update.py 新生成的备份
           # assets/ 也会被添加
-          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md assets/ backups/
+          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md engineering/assets/ engineering/backups/
           
           commit_msg=$(printf "@%s,Thank for Contribution--Auto-process papers submission [skip ci]" "$PR_USER")
           
@@ -214,7 +219,7 @@ jobs:
       - name: Send Notification
         if: always()
         env:
-          PYTHONPATH: .
+          PYTHONPATH: engineering
           NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
           # 修改点：从 vars 获取 Server, Port, User
           SMTP_SERVER: ${{ vars.SMTP_SERVER }}
@@ -225,4 +230,4 @@ jobs:
           workflow_status: ${{ job.status }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_USER: ${{ github.event.pull_request.user.login }}
-        run: uv run scripts/send_notification.py
+        run: uv run engineering/scripts/send_notification.py
