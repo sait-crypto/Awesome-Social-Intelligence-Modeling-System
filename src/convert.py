@@ -27,6 +27,11 @@ class ReadmeGenerator:
         self.update_utils = get_update_file_utils()
         self.project_root = str(self.config.project_root)
         self.assets_dir = self.settings['paths'].get('assets_dir', 'assets/').replace('\\', '/').rstrip('/')
+        assets_abs = self.assets_dir
+        if not os.path.isabs(assets_abs):
+            assets_abs = os.path.join(self.project_root, assets_abs)
+        assets_relative = os.path.relpath(assets_abs, self.project_root).replace('\\', '/').rstrip('/')
+        self.table_column_spacer_path = f'{assets_relative}/table-column-spacer.svg'
         self.legacy_figure_dir = self.settings['paths'].get('figure_dir', 'figures/').replace('\\', '/').rstrip('/')
         self.complete_list_database_path = self.settings['paths'].get(
             'complete_list_database',
@@ -413,9 +418,8 @@ class ReadmeGenerator:
     def _generate_width_header(self, label: str, width: int) -> str:
         if width <= 0:
             return label
-        spacer_path = f'{self.assets_dir}/table-column-spacer.svg'
         return (
-            f'<img src="{spacer_path}" width="{width}" height="1" alt="">'
+            f'<img src="{self.table_column_spacer_path}" width="{width}" height="1" alt="">'
             f'<br>{label}'
         )
 

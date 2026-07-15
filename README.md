@@ -139,7 +139,7 @@ This repository accompanies our paper:
 
 ### | Uncategorized (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-e64f5ad47d06"></a> [![Publish](https://img.shields.io/badge/Conference-Findings%202024-blue)]()<br>[Platform-invariant topic modeling via contrastive learning to mitigate platform-induced bias](https://aclanthology.org/2024.findings-emnlp.650/) <br> Minseo Koo, Doeun Kim, Sungwon Han, Sungkyu Shaun Park <br> 2024-11|||
 
@@ -151,7 +151,7 @@ This repository accompanies our paper:
 
 ##### Hate Speech Analysis (34 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-38afad64a926"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[TOT: Topology-Aware Optimal Transport for Multimodal Hate Detection](https://ojs.aaai.org/index.php/AAAI/article/view/25614) <br> Linhao Zhang，Li Jin，Xian Sun，Guangluan Xu，Zequn Zhang,Xiaoyu Li,Nayu Liu,Qing Liu,Shiyao Yan <br> 2023-06-26|强化恶意Meme的图像与文本之间的语义对齐，使用OT方法建立特征向量间的可解释|<img width="1200" alt="pipeline" src="assets/e8d93670/TOT.png">|
 |<a id="paper-entry-cfaa2f90c84c"></a> [![Publish](https://img.shields.io/badge/Conference-IEEE%20Transactions%20on%20Multimedia-blue)]()<br>[Flexible optimal transport with contrastive graphical modeling for multimodal hate detection](https://ieeexplore.ieee.org/abstract/document/11045556) <br> Linhao Zhang，Li Jin，Xiaoyu Li,Xian Sun,Senior Member,IEEE,Xin Wang,Zequn Zhang,Jian Liu，Zhicong Lu，Graduate Student Member,IEEE,and Guangluan Xu <br> 2025|\[AI generated\] This method bridges multimodal gaps like a flexible translator, aligning implicit hateful memes through optimal transport and contrastive graphs. \[翻译\]该方法通过最优传输和图对比学习，像灵活的翻译官一样弥合模态鸿沟，对齐隐含仇恨表情包。|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/bd2d2e30/FLOT1.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/bd2d2e30/FLOT.png"></div>|
@@ -190,7 +190,7 @@ This repository accompanies our paper:
 
 ##### Misinformation Analysis (9 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-4813cdbbfce0"></a> [![Publish](https://img.shields.io/badge/Conference-ICWSM-blue)]()<br>[Susceptibility of Communities Against Low-Credibility Content in Social News Websites](https://ojs.aaai.org/index.php/ICWSM/article/view/35813) <br> Yigit Ege Bayiz, Arash Amini, Radu Marculescu, Ufuk Topcu <br> 2025-06-07 <br> <span style="color:cyan">[multi-category：[Community Detection and Analysis](#Community-Detection-and-Analysis-2-papers), [Misinformation Analysis](#Misinformation-Analysis-9-papers)]</span>|This work presents a computational framework for identifying and profiling ideological communities on social news platforms based on their susceptibility to low-credibility and biased content, using stance-derived user embeddings.<br>\[翻译\]<br>本研究…|<img width="1200" alt="pipeline" src="assets/73bb7b57/SC-LCC.png">|
 |<a id="paper-entry-76128ea58d8f"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[GAMC: An Unsupervised Method for Fake News Detection Using Graph Autoencoder with Masking](https://ojs.aaai.org/index.php/AAAI/article/view/27788) <br> Shu Yin,Peican Zhu,Lianwei Wu,Chao Gao,Zhen Wang <br> 2024-03-24|自编码器方法处理类社交网络图结构|<img width="1200" alt="pipeline" src="assets/08e8f38b/GAMC.png">|
@@ -204,13 +204,13 @@ This repository accompanies our paper:
 
 ##### Controversy Analysis (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-fdd45b33485b"></a>[![Star](https://img.shields.io/github/stars/gvrkiran/controversy-detection.svg?style=social&label=Star)](https://github.com/gvrkiran/controversy-detection) [![Publish](https://img.shields.io/badge/Conference-World%20Wide%20Web-blue)]()<br>[A text and GNN based controversy detection method on social media](https://doi.org/10.1007/s11280-022-01116-0) <br> Samy Benslimane, Jér?me Azé, Sandra Bringay, Maximilien Servajean, Caroline Mollevi <br> 2023-03-01|To identify controversial topics from discussion inputs, the method aggregates historical comments into user node features to encode intrinsic user and network attributes, and subsequently applies GNN methods on the user-centric social net…|<img width="1200" alt="pipeline" src="assets/6d0fb44d/HRL-GCN.png">|
 
 ##### Machine-Generated Content Detection (15 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-56f877e4e1fe"></a> [![Publish](https://img.shields.io/badge/Conference-ACL%202024-blue)]()<br>[MAGE: Machine-generated text detection in the wild](https://aclanthology.org/2024.acl-long.3/) <br> Yafu Li, Qintong Li, Leyang Cui, Wei Bi, Zhilin Wang, Longyue Wang, Linyi Yang, Shuming Shi, Yue Zhang <br> 2024-08|\[AI generated\] Detecting machine-generated text is akin to finding a needle in a haystack, as LLMs produce content increasingly indistinguishable from human writing. \[翻译\] 检测机器生成文本如同大海捞针，因为大语言模型生成的内容与人类写作的界限日益模糊。||
 |<a id="paper-entry-0269c4b4c917"></a> [![Publish](https://img.shields.io/badge/Conference-Findings%202024-blue)]()<br>[A survey on detection of LLMs-generated content](https://aclanthology.org/2024.findings-emnlp.572/) <br> Xianjun Yang, Liangming Pan, Xuandong Zhao, Haifeng Chen, Linda Ruth Petzold, William Yang Wang, Wei Cheng <br> 2024-11|\[AI generated\] Detecting LLM-generated content is akin to distinguishing synthetic diamonds from natural ones, requiring specialized tools to identify subtle, model-specific patterns. \[翻译\] 检测大语言模型生成内容类似于区分合成钻石与天然钻石，需要专门工具来识别细微的、模型特有的模式。||
@@ -230,7 +230,7 @@ This repository accompanies our paper:
 
 ##### Sentiment Analysis (4 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-d2dacb22b91f"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[CAMEL: Capturing metaphorical alignment with context disentangling for multimodal emotion recogni...](https://ojs.aaai.org/index.php/AAAI/article/view/28787) <br> Linhao Zhang,Li Jin\*,Guangluan Xu,Xiaoyu Li,Cai Xu,Kaiwen Wei,Nayu Liu,Haonan Liu <br> 2024-03-24|\[AI generated\] CAMEL disentangles metaphorical alignment like a prism separating light, then adaptively fuses context for emotion recognition. \[翻译\]CAMEL像棱镜分离光线般解耦隐喻对齐，再自适应融合上下文进行情感识别。|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/a2ebb2d3/CAMEL1.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/a2ebb2d3/CAMEL.png"></div>|
 |<a id="paper-entry-8d12905aba9e"></a>[![Star](https://img.shields.io/github/stars/neuralnaresh/multimodal-emotion-recognition.svg?style=social&label=Star)](https://github.com/neuralnaresh/multimodal-emotion-recognition) [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%2031st%20ACM%20International%20Conference%20on%20Multimedia-blue)]()<br>[Multi-label emotion analysis in conversation via multimodal knowledge distillation](https://dl.acm.org/doi/10.1145/3581783.3612517) <br> Sidharth Anand?,Naresh Kumar Devulapally?,Sreyasee Das Bhattacharjee,Junsong Yuan <br> 2023-10-27|三个专家分别处理一个模态，训练的同时将能力蒸馏给融合分支，最终形成一个整体模型，教师（分支专家）与学生（融合专家）一同处理多模态内容，得到情感分类|<img width="1200" alt="pipeline" src="assets/b278a7fa/SeMuL-PCD.png">|
@@ -239,14 +239,14 @@ This repository accompanies our paper:
 
 ##### Discourse and Pragmatic Analysis (26 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-f5f69ca1c916"></a>[![Project](https://img.shields.io/badge/Project-View-blue)](https://netsys.surrey.ac.uk/datasets/slashdot/) [![Publish](https://img.shields.io/badge/Conference-ICWSM-blue)]()<br>[Conversation Kernels: A Flexible Mechanism to Learn Relevant Context for Online Conversation Unde...](https://ojs.aaai.org/index.php/ICWSM/article/view/35800) <br> Vibhor Agarwal,Arjoo Gupta,Suparna De,Nishanth Sastry <br> 2025-06-07 <br> <span style="color:cyan">[multi-category：[Discourse and Pragmatic Analysis](#Discourse-and-Pragmatic-Analysis-26-papers), [Macro-Level Discourse Analysis](#Macro-Level-Discourse-Analysis-8-papers)]</span>|A flexible, structural context discovery framework that enhances conversation understanding by learning to attend to relevant topological neighborhoods within conversation trees.\[翻译\] 一个灵活的结构化上下文发现框架，通过学习关注对话树内相关的拓扑邻域来增强对话理解能力。|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/01e95642/Conversation Kernels.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/01e95642/Conversation Kernels2.png"></div>|
 |<a id="paper-entry-0e97b598a2de"></a> [![Publish](https://img.shields.io/badge/Conference-Findings%202023-blue)]()<br>[Contrastive learning of sociopragmatic meaning in social media](https://aclanthology.org/2023.findings-acl.152/) <br> Chiyu Zhang, Muhammad Abdul-Mageed, Ganesh Jawahar <br> 2023-07|||
 
 ###### Micro-Level Pragmatic Expressions (17 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Sheep's skin, wolf's deeds: Are LLMs ready for metaphorical implicit hate speech?](#paper-entry-d6225b9ac480) <sub>Full entry</sub>|||
 |<a id="paper-entry-aef9e049a320"></a> [![Publish](https://img.shields.io/badge/Conference-ACL%202023-blue)]()<br>[Just like a human would, direct access to sarcasm augmented with potential result and reaction](https://aclanthology.org/2023.acl-long.566/) <br> Changrong Min, Ximing Li, Liang Yang, Zhilin Wang, Bo Xu, Hongfei Lin <br> 2023-07|||
@@ -268,7 +268,7 @@ This repository accompanies our paper:
 
 ###### Macro-Level Discourse Analysis (8 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Conversation Kernels: A Flexible Mechanism to Learn Relevant Context for Online Conversation Unde...](#paper-entry-f5f69ca1c916) <sub>Full entry</sub>|||
 |[↪ Silent signals, loud impact: LLMs for word-sense disambiguation of coded dog whistles](#paper-entry-3c97bb570fd8) <sub>Full entry</sub>|||
@@ -284,7 +284,7 @@ This repository accompanies our paper:
 
 ##### User Stance Detection (19 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-7bc3000da790"></a>[![Star](https://img.shields.io/github/stars/HITSZ-HLT/KA-Stance-Detection.svg?style=social&label=Star)](https://github.com/HITSZ-HLT/KA-Stance-Detection) [![Publish](https://img.shields.io/badge/Conference-EMNLP%202023-blue)]()<br>[Stance Detection on Social Media with Background Knowledge](https://aclanthology.org/2023.emnlp-main.972) <br> Ang Li, Bin Liang, Jingqian Zhao, Bowen Zhang, Min Yang, Ruifeng Xu <br> 2023|A retrieval-augmented stance detection framework that synthesizes LLM-refined Wikipedia facts and linguistic expansions to address the issue of stance implicitness in social media posts.<br>\[翻译\] 检索增强的立场检测框架，通过综合经LLM提炼的维基百科事实和语言扩展信息，来解决社交媒体帖子的…|<img width="1200" alt="pipeline" src="assets/20511a5d/KASD.png">|
 |<a id="paper-entry-8665a8450fa9"></a>[![Star](https://img.shields.io/github/stars/tsinghua-fib-lab/COLA.svg?style=social&label=Star)](https://github.com/tsinghua-fib-lab/COLA) [![Publish](https://img.shields.io/badge/Conference-ICWSM-blue)]()<br>[Stance Detection with Collaborative Role-Infused LLM-Based Agents](https://ojs.aaai.org/index.php/ICWSM/article/view/31360) <br> Xiaochong Lan, Chen Gao, Depeng Jin, Yong Li <br> 2024-05-28|ABM辩论场模拟（本质上类似高级cot）|<img width="1200" alt="pipeline" src="assets/844567f2/COLA.png">|
@@ -308,7 +308,7 @@ This repository accompanies our paper:
 
 ##### Malicious User Detection (12 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-58d33a6f1d52"></a> [![Publish](https://img.shields.io/badge/Conference-AAAI-blue)]()<br>[Pre-trained Behavioral Model for Malicious User Prediction on Social Platform](https://ojs.aaai.org/index.php/AAAI/article/view/35032) <br> Meng Jiang, Wenjie Wang, Shaofeng Hu, Kaishen Ou, Zhenjing Zheng, Fuli Feng <br> 2025-04-11|MaP is a self-supervised pre-training framework designed to extract robust representations of malicious users by modeling repetitive and sporadic anomalies in behavior sequences without relying on content analysis.<br>\[翻译\] MaP是一个自监督预训练框架，旨在通过…|<img width="1200" alt="pipeline" src="assets/bff668c9/MaP.png">|
 |<a id="paper-entry-8fc3b526aac0"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%2031st%20ACM%20International%20Conference%20on%20Multimedia-blue)]()<br>[Multi-modal social bot detection: Learning homophilic and heterophilic connections adaptively](https://dl.acm.org/doi/10.1145/3581783.3612569) <br> Shilong Li, Boyu Qiao, Kun Li, Qianqian Lu, Meng Lin, Wei Zhou <br> 2023-10-26|【争对包含机器人网络的异质性】使用节点特征相似度补充转发图中的边，确保bot的特征不会被包围他的正常用户平滑掉|<img width="1200" alt="pipeline" src="assets/10eaf5ab/BothH.png">|
@@ -331,7 +331,7 @@ This repository accompanies our paper:
 
 ##### Event Extraction (6 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-a5d07b79d516"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%202023%20Conference%20on%20Empirical%20Methods%20in%20Natural%20Language%20Processing-blue)]()<br>[Event causality extraction via implicit cause-effect interactions](https://aclanthology.org/2023.emnlp-main.420) <br> Jintao Liu,Zequn Zhang,Kaiwen Wei,Zhi Guo,Xian Sun,Li Jin,Xiaoyu Li <br> 2023|通过OT强制学生模型与教师模型对齐|<img width="1200" alt="pipeline" src="assets/f19421ea/ICE.png">|
 |<a id="paper-entry-47afe80b9228"></a>[![Star](https://img.shields.io/github/stars/social-info-lab/disaster_event_analysis.svg?style=social&label=Star)](https://github.com/social-info-lab/disaster_event_analysis) [![Publish](https://img.shields.io/badge/Conference-ICWSM-blue)]()<br>[Identifying and Investigating Global News Coverage of Critical Events Such as Disasters and Terro...](https://ojs.aaai.org/index.php/ICWSM/article/view/35818) <br> Erica Cai1,Xi Chen1,Reagan Grey Keeney1,Ethan Zuckerman1,Brendan O'Connor1,Przemyslaw A.Grabowicz <br> 2025-06-07|两级匹配筛选要求新闻，关键词匹配初步筛选（关键词通过启发式方法获得）->事件抽取|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/eba0a246/FAME.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/eba0a246/FAME2.png"></div>|
@@ -342,7 +342,7 @@ This repository accompanies our paper:
 
 ##### Topic Modeling (6 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-e1524ddf57c7"></a> [![Publish](https://img.shields.io/badge/Conference-ACL%202025-blue)]()<br>[Hierarchical level-wise news article clustering via multilingual matryoshka embeddings](https://aclanthology.org/2025.acl-long.124/) <br> Hans William Alexander Hanley, Zakir Durumeric <br> 2025-07|||
 |<a id="paper-entry-f92eed4b8a36"></a> [![Publish](https://img.shields.io/badge/Conference-EMNLP%202024-blue)]()<br>[Multilingual topic classification in X: Dataset and analysis](https://aclanthology.org/2024.emnlp-main.1123/) <br> Dimosthenis Antypas, Asahi Ushio, Francesco Barbieri, Jose Camacho-Collados <br> 2024-11|||
@@ -353,7 +353,7 @@ This repository accompanies our paper:
 
 ##### Meme and Multimodal Understanding (7 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-385898b06447"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[Retrieval-Augmented Dynamic Prompt Tuning for Incomplete Multimodal Learning](https://ojs.aaai.org/index.php/AAAI/article/view/33984) <br> Jian Lang, Zhangtao Cheng, Ting Zhong, Fan Zhou <br> 2025-04-11|\[AI generated\] Retrieval-Augmented Dynamic Prompt Tuning for Incomplete Multimodal Learning is like a librarian who not only finds relevant books for a researcher but also summarizes missing chapters and provides tailored reading guides to…|<img width="1200" alt="pipeline" src="assets/e3ada1ed/4.png">|
 |<a id="paper-entry-05caa3c5a90c"></a> [![Publish](https://img.shields.io/badge/Conference-KDD%2025-blue)]()<br>[Seeing the Unseen in Micro-Video Popularity Prediction: Self-Correlation Retrieval for Missing Mo...](https://dl.acm.org/doi/10.1145/3690624.3709308) <br> Zhangtao Cheng, Jian Lang, Ting Zhong, Fan Zhou <br> 2025-07-20 <br> <span style="color:cyan">[multi-category：[Social Popularity Prediction](#Social-Popularity-Prediction-11-papers), [Meme and Multimodal Understanding](#Meme-and-Multimodal-Understanding-7-papers)]</span>|\[AI generated\] SCRAG is like a detective reconstructing a crime scene by cross-referencing clues from similar past cases to fill in missing evidence, thereby accurately predicting micro-video popularity. \[翻译\] SCRAG 如同侦探破案，通过交叉参考类似历史案件的线索来填…|<img width="1200" alt="pipeline" src="assets/5d5f3d79/3.png">|
@@ -368,7 +368,7 @@ This repository accompanies our paper:
 
 ##### Social Popularity Prediction (11 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-c6c3317c03f5"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[In-context Prompt-augmented Micro-video Popularity Prediction](https://ojs.aaai.org/index.php/AAAI/article/view/33254) <br> Zhangtao Cheng, Jiao Li, Jian Lang, Ting Zhong, Fan Zhou <br> 2025-04-11|\[AI generated\] In-context Prompt-augmented Micro-video Popularity Prediction: Enhancing video popularity forecasting by retrieving similar content as contextual prompts, akin to providing reference examples to improve a model's judgment ac…|<img width="1200" alt="pipeline" src="assets/c0c06fba/1.png">|
 |<a id="paper-entry-9e720fbe118c"></a> [![Publish](https://img.shields.io/badge/Conference-2025%20IEEE%2FCVF%20Conference%20on%20Computer%20Vision%20and%20Pattern%20Recognition%20%28CVPR%29-blue)]()<br>[SMTPD: A New Benchmark for Temporal Prediction of Social Media Popularity](https://ieeexplore.ieee.org/document/11092659/) <br> Yijie Xu, Bolun Zheng, Wei Zhu, Hangjia Pan, Yuchen Yao, Ning Xu, Anan Liu, Quan Zhang, Chenggang Yan <br> 2025-06-10|\[AI generated\] Predicting social media popularity is like forecasting weather patterns: both require analyzing dynamic temporal data to anticipate future trends. \[翻译\] 预测社交媒体热度如同预报天气：两者都需分析动态时序数据以预判未来趋势。|<img width="1200" alt="pipeline" src="assets/ded4f1c5/2.png">|
@@ -384,7 +384,7 @@ This repository accompanies our paper:
 
 ##### Information Diffusion Analysis (17 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-3cdc8bc8eb27"></a> [![Publish](https://img.shields.io/badge/Conference-IEEE%20Trans.%20Netw.%20Sci.%20Eng.-blue)]()<br>[Predicting Participation Shift of Users at the Next Stage in Social Networks](https://ieeexplore.ieee.org/document/10829773/) <br> Yichao Zhang, Zejian Wang, Huangxin Zhuang, Lei Song, Guanghui Wen, Jihong Guan, Shuigeng Zhou <br> 2025-05 <br> <span style="color:cyan">[multi-category：[User Behavior Prediction](#User-Behavior-Prediction-1-papers), [Information Diffusion Analysis](#Information-Diffusion-Analysis-17-papers)]</span>|一个参与可能性排序算法，综合曝光时间排名、社会引力排名（借用万有引力思想）、级联相似度排名（与历史级联中的其他用户特征对比）|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/17bcd1a9/TR-1.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/17bcd1a9/TR-2.png"></div>|
 |<a id="paper-entry-c19d64d6bb69"></a> [![Publish](https://img.shields.io/badge/Conference-AAAI-blue)]()<br>[Temporal Triadic Closure: Finding Dense Substructures in Social Networks That Evolve over Time](https://ojs.aaai.org/index.php/AAAI/article/view/34899) <br> Tom Davot, Jessica Enright, Jayakrishnan Madathil, Kitty Meeks <br> 2025-04-11|\[AI generated\] This method tracks evolving social clusters like watching shifting constellations in a night sky. \[翻译\]该方法追踪演化的社交集群，如同观测夜空中移动的星群。|<img width="1200" alt="pipeline" src="assets/fe66f0a8/Temporal Triadic Closure.png">|
@@ -406,13 +406,13 @@ This repository accompanies our paper:
 
 #### User-Level Understanding (6 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-de3965136f81"></a>[![Star](https://img.shields.io/github/stars/Liskie/cognitive-fixation-evaluation.svg?style=social&label=Star)](https://github.com/Liskie/cognitive-fixation-evaluation) [![Publish](https://img.shields.io/badge/Conference-EMNLP%202025%EF%BC%88arxiv%E7%89%88%E6%9C%AC%EF%BC%89-blue)]()<br>[Evaluating cognitive-behavioral fixation via multimodal user viewing patterns on social media](http://arxiv.org/abs/2509.04823) <br> Yujie Wang, Yunwei Zhao, Jing Yang, Han Han, Shiguang Shan, Jie Zhang <br> 2025-09-05|固化检测，评估用户注意力是否集中于狭窄领域，因此主要先对用户关注历史主题建模，然后聚类|<img width="1200" alt="pipeline" src="assets/ee9219d2/CBF-Eval.png">|
 
 ##### User Profiling (3 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-45bc7ea84c1c"></a> [![Publish](https://img.shields.io/badge/Conference-LREC--COLING%202024-blue)]()<br>[PASUM: A pre-training architecture for social media user modeling based on text graph](https://aclanthology.org/2024.lrec-main.1107/) <br> Kun Wu, Xinyi Mou, Lanqing Xue, Zhenzhe Ying, Weiqiang Wang, Qi Zhang, Xuanjing Huang, Zhongyu Wei <br> 2024-05|利用关注图网络的结构进行自监督训练（不同用户间对比学习，同用户不同社群间对比学习），使用词图结构聚合为用户表征，尝试解决长文本问题|<img width="1200" alt="pipeline" src="assets/b53d0cd2/PASUM.png">|
 |<a id="paper-entry-390d2d89cf50"></a> [![Publish](https://img.shields.io/badge/Conference-Sn%20Comput.%20Sci.-blue)]()<br>[Behavior Based Group Recommendation from Social Media Dataset by Using Deep Learning and Topic Mo...](https://link.springer.com/10.1007/s42979-024-03055-1) <br> Md. Saddam Hossain Mukta, Jubaer Ahmed, Mohaimenul Azam Khan Raiaan, Nur Mohammad Fahad, Muhammad Nazrul Islam, Nafiz Imtiaz, ... <br> 2024-07-16 <br> <span style="color:cyan">[multi-category：[Community Detection and Analysis](#Community-Detection-and-Analysis-2-papers), [User Profiling](#User-Profiling-3-papers)]</span>|TLDR: A graph dataset is compiled using the strongest correlation among the features and then a graph clustering technique is applied to identify a suitable hedonist group \(i.e., one dimension of values\) for users’ recommendations, which i…|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/4840d94e/BBGR.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/4840d94e/BBGR-GHV.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/4840d94e/BBGR-CPHV.png"></div>|
@@ -420,13 +420,13 @@ This repository accompanies our paper:
 
 ##### User Behavior Prediction (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Predicting Participation Shift of Users at the Next Stage in Social Networks](#paper-entry-3cdc8bc8eb27) <sub>Full entry</sub>|||
 
 ##### Community Detection and Analysis (2 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Susceptibility of Communities Against Low-Credibility Content in Social News Websites](#paper-entry-4813cdbbfce0) <sub>Full entry</sub>|||
 |[↪ Behavior Based Group Recommendation from Social Media Dataset by Using Deep Learning and Topic Mo...](#paper-entry-390d2d89cf50) <sub>Full entry</sub>|||
@@ -439,7 +439,7 @@ This repository accompanies our paper:
 
 ##### Comment Generation (4 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-fc09f9a23dd6"></a>[![Star](https://img.shields.io/github/stars/ErxinYu/PopALM.svg?style=social&label=Star)](https://github.com/ErxinYu/PopALM) [![Publish](https://img.shields.io/badge/Conference-LREC--COLING%202024-blue)]()<br>[PopALM: Popularity-aligned language models for social media trendy response prediction](https://aclanthology.org/2024.lrec-main.1127/) <br> Erxin Yu1,Jing Li1?,Chunpu Xu <br> 2024-05|先练“选手”（SFT），再练“裁判”（RM），最后让“裁判”指导“选手”训练（RL）|<img width="1200" alt="pipeline" src="assets/c47914f5/PopALM.png">|
 |<a id="paper-entry-52b1dd7c26d6"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%206th%20ACM%20International%20Conference%20on%20Multimedia%20in%20Asia-blue)]()<br>[ViCo: Engaging video comment generation with human preference rewards](https://dl.acm.org/doi/full/10.1145/3696409.3700260) <br> Yuchong Sun, Bei Liu, Xu Chen, Ruihua Song, Jianlong Fu <br> 2024-12-03|||
@@ -448,7 +448,7 @@ This repository accompanies our paper:
 
 ##### Hashtag and Caption Generation (3 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Generating user-engaging news headlines](#paper-entry-74e5459fc952) <sub>Full entry</sub>|||
 |<a id="paper-entry-3f14a8a6593b"></a> [![Publish](https://img.shields.io/badge/Conference-ACL%202023-blue)]()<br>[Generating hashtags for short-form videos with guided signals](https://aclanthology.org/2023.acl-long.527/) <br> Tiezheng Yu, Hanchao Yu, Davis Liang, Yuning Mao, Shaoliang Nie, Po-Yao Huang, Madian Khabsa, Pascale Fung, Yi-Chia Wang <br> 2023-07|||
@@ -459,7 +459,7 @@ This repository accompanies our paper:
 
 ###### Humor Generation (4 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ MemeCraft: Contextual and stance-driven multimodal meme generation](#paper-entry-92319aefeca9) <sub>Full entry</sub>|||
 |<a id="paper-entry-750504a94b67"></a> [![Publish](https://img.shields.io/badge/Conference-2024%20IEEE%2FCVF%20Conference%20on%20Computer%20Vision%20and%20Pattern%20Recognition%20%28CVPR%29-blue)]()<br>[Let's Think Outside the Box: Exploring Leap-of-Thought in Large Language Models with Creative Hum...](https://ieeexplore.ieee.org/document/10656187/) <br> Shanshan Zhong, Zhongzhan Huang, Shanghua Gao, Wushao Wen, Liang Lin, Marinka Zitnik, Pan Zhou <br> 2024-06-16|TLDR: A creative Leap-of-Thought \(CLoT\) paradigm is introduced to improve LLM's LoT ability and boosts creative abilities in various tasks like “cloud guessing game” and “divergent association task”.||
@@ -468,7 +468,7 @@ This repository accompanies our paper:
 
 ###### Story Generation (3 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-2acceb4f327b"></a> [![Publish](https://img.shields.io/badge/Conference-EMNLP%202024-blue)]()<br>[HEART-felt narratives: Tracing empathy and narrative style in personal stories with LLMs](https://aclanthology.org/2024.emnlp-main.59/) <br> Jocelyn Shen, Joel Mire, Hae Won Park, Cynthia Breazeal, Maarten Sap <br> 2024-11|||
 |<a id="paper-entry-d9fe21ac8c2c"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%20AAAI%20Conference%20on%20Artificial%20Intelligence-blue)]()<br>[SS-GEN: A social story generation framework with large language models](https://ojs.aaai.org/index.php/AAAI/article/view/32119) <br> Yi Feng, Mingyang Song, Jiaqi Wang, Zhuang Chen, Guanqun Bi, Minlie Huang, Liping Jing, Jian Yu <br> 2025-04-11|TLDR: This work develops a constraint-driven sophisticated strategy named StarSow to hierarchically prompt LLMs to generate Social Stories at scale, followed by rigorous human filtering to build a high-quality dataset, and introduces quali…||
@@ -479,26 +479,26 @@ This repository accompanies our paper:
 
 ##### Misinformation Generation (2 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ A symbolic adversarial learning framework for evolving fake news generation and detection](#paper-entry-ff4e4476e3a6) <sub>Full entry</sub>|||
 |<a id="paper-entry-150437620d27"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%202025%20Conference%20on%20Empirical%20Methods%20in%20Natural%20Language%20Processing-blue)]()<br>[The stepwise deception: Simulating the evolution from true news to fake news with LLM agents](http://arxiv.org/abs/2410.19064) <br> Yuhan Liu, Zirui Song, Juntian Zhang, Xiaoqing Zhang, Xiuying Chen, Rui Yan <br> 2025 <br> <span style="color:cyan">[multi-category：[Agent-Based Social Simulation](#Agent-Based-Social-Simulation-18-papers), [Dynamic Social Simulation](#Dynamic-Social-Simulation-27-papers), [Individual-Oriented Social Simulation](#Individual-Oriented-Social-Simulation-16-papers), [Micro Social Simulation](#Micro-Social-Simulation-20-papers), [Social Simulation for Social Media](#Social-Simulation-for-Social-Media-24-papers), [Misinformation Generation](#Misinformation-Generation-2-papers)]</span>|TLDR: A novel Large Language Model-based simulation approach explicitly focusing on fake news evolution from real news, which effectively captures fake news evolution patterns and accurately reproduces known fake news, aligning closely wit…|<img width="1200" alt="pipeline" src="assets/67ebdd0a/FUSE.png">|
 
 ##### Counter-Hate Speech Generation (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-b5ead522720b"></a> [![Publish](https://img.shields.io/badge/Conference-EMNLP%202024-blue)]()<br>[Outcome-Constrained Large Language Models for Countering Hate Speech](https://aclanthology.org/2024.emnlp-main.260) <br> Lingzi Hong, Pengcheng Luo, Eduardo Blanco, Xiaoying Song <br> 2024|\[AI generated\] Outcome-Constrained LLMs for Counterspeech: Steering generation toward desired conversation outcomes like reduced incivility. \[翻译\] 面向结果的约束性大语言模型用于反仇恨言论生成：引导生成朝向降低对话不文明度等期望的对话结果。|<img width="1200" alt="pipeline" src="assets/4ffaaf71/Outcome-Constrained.png">|
 
 ##### Evidence-Grounded Rumor Refutation (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Harnessing Network Effect for Fake News Mitigation: Selecting Debunkers via Self-Imitation Learning](#paper-entry-387b59452ed7) <sub>Full entry</sub>|||
 
 ##### Text Detoxification and Moderation (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Silencing empowerment, allowing bigotry: Auditing the moderation of hate speech on twitch](#paper-entry-72032c0a7499) <sub>Full entry</sub>|||
 
@@ -507,7 +507,7 @@ This repository accompanies our paper:
 
 #### Social Simulation (37 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-0fe8867868bb"></a> [![Publish](https://img.shields.io/badge/Conference-ICWSM-blue)]()<br>[The persuasive power of large language models](https://ojs.aaai.org/index.php/ICWSM/article/view/31304) <br> Simon Martin Breum, Daniel V?dele Egdal, Victor Gram Mortensen, Anders Giovanni M?ller, Luca Maria Aiello <br> 2024-05-28 <br> <span style="color:cyan">[multi-category：[Social Simulation](#Social-Simulation-37-papers), [Agent-Based Social Simulation](#Agent-Based-Social-Simulation-18-papers), [Micro Social Simulation](#Micro-Social-Simulation-20-papers)]</span>|TLDR: 显示了SIRS过程在具有大型扩展子图的图（例如社交网络模型）上的生存时间的阈值行为，显示了随机图的严格阈值。|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/49d2b462/Persuasive-Power1.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/49d2b462/Persuasive-Power2.png"></div>|
 |<a id="paper-entry-f40c9553e647"></a>[![Star](https://img.shields.io/github/stars/FudanDISC/SocioVerse.svg?style=social&label=Star)](https://github.com/FudanDISC/SocioVerse)<br>[SocioVerse: A world model for social simulation powered by LLM agents and a pool of 10 million re...](http://arxiv.org/abs/2504.10157) <br> Xinnong Zhang, Jiayu Lin, Xinyi Mou, Shiyue Yang, Xiawei Liu, Libo Sun, Hanjia Lyu, Yihang Yang, Weihong Qi, Yue Chen, Guanying Li, ... <br> 2025-07-15|TLDR: SocioVerse is introduced, an LLM-agent-driven world model for social simulation that can reflect large-scale population dynamics while ensuring diversity, credibility, and representativeness through standardized procedures and minima…|<img width="1200" alt="pipeline" src="assets/8761c859/SocioVerse.png">|
@@ -517,7 +517,7 @@ This repository accompanies our paper:
 
 ##### Micro Social Simulation (20 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ The persuasive power of large language models](#paper-entry-0fe8867868bb) <sub>Full entry</sub>|||
 |<a id="paper-entry-40e6f7abfba7"></a> [![Publish](https://img.shields.io/badge/Conference-The%20Fourteenth%20International%20Conference%20on%20Learning%20Representations-blue)]()<br>[Social agents: Collective intelligence improves LLM predictions](https://openreview.net/forum?id=73J3hsato3) <br> Aanisha Bhattacharyya, Abhilekh Borah, Yaman Kumar Singla, Rajiv Ratn Shah, Changyou Chen, Balaji Krishnamurthy <br> 2025-10-08 <br> <span style="color:cyan">[multi-category：[Agent-Based Social Simulation](#Agent-Based-Social-Simulation-18-papers), [Dynamic Social Simulation](#Dynamic-Social-Simulation-27-papers), [Individual-Oriented Social Simulation](#Individual-Oriented-Social-Simulation-16-papers), [Micro Social Simulation](#Micro-Social-Simulation-20-papers), [Social Simulation for Social Media](#Social-Simulation-for-Social-Media-24-papers)]</span>|\[AI generated\] Social Agents: Simulating a diverse synthetic society to aggregate opinions, improving LLM predictions via collective intelligence. \[翻译\] 社会智能体：通过模拟多样化的合成社会来聚合观点，借助集体智慧提升大语言模型的预测能力。|<img width="1200" alt="pipeline" src="assets/7d44cfb3/COLLECTIVE INTELLIGENCE.png">|
@@ -542,7 +542,7 @@ This repository accompanies our paper:
 
 ##### Macro Social Simulation (7 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Understanding Online Polarization Through Human-Agent Interaction in a Synthetic LLM-Based Social...](#paper-entry-80bb35a3eec3) <sub>Full entry</sub>|||
 |<a id="paper-entry-e0a1fb648242"></a> [![Publish](https://img.shields.io/badge/Conference-Proceedings%20of%20the%2033rd%20ACM%20International%20Conference%20on%20Multimedia-blue)]()<br>[From individuals to crowds: Dual-level public response prediction in social media](https://dl.acm.org/doi/10.1145/3746027.3754828) <br> Jinghui Zhang, Kaiyang Wan, Longwei Xu, Ao Li, Zongfang Liu, Xiuying Chen <br> 2025-10-27 <br> <span style="color:cyan">[multi-category：[Dynamic Social Simulation](#Dynamic-Social-Simulation-27-papers), [Empirical-and-Statistical-Model-Based Social Simulation](#Empirical-and-Statistical-Model-Based-Social-Simulation-10-papers), [Macro Social Simulation](#Macro-Social-Simulation-7-papers), [Social Simulation for Social Media](#Social-Simulation-for-Social-Media-24-papers)]</span>|TLDR: Experimental results on SentiWeibo and related LaMP benchmark demonstrate that SocialAlign surpasses strong baselines, showing improved accuracy, interpretability, and generalization in public response prediction.|<img width="1200" alt="pipeline" src="assets/9e6ef8d8/SocialAlign.png">|
@@ -554,7 +554,7 @@ This repository accompanies our paper:
 
 ##### Dynamic Social Simulation (27 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ From individuals to crowds: Dual-level public response prediction in social media](#paper-entry-e0a1fb648242) <sub>Full entry</sub>|||
 |[↪ OASIS: Open agent social interaction simulations with one million agents](#paper-entry-78f60a088bd1) <sub>Full entry</sub>|||
@@ -586,7 +586,7 @@ This repository accompanies our paper:
 
 ##### Mechanistic-Model-Based Social Simulation (3 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ The Irrelevance of Influencers: Information Diffusion with Re-Activation and Immunity Lasts Expon...](#paper-entry-9e4cd5dd9b1a) <sub>Full entry</sub>|||
 |[↪ A thorough comparison between independent cascade and susceptible-infected-recovered models](#paper-entry-5cbf8162838a) <sub>Full entry</sub>|||
@@ -594,7 +594,7 @@ This repository accompanies our paper:
 
 ##### Empirical-and-Statistical-Model-Based Social Simulation (10 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ From individuals to crowds: Dual-level public response prediction in social media](#paper-entry-e0a1fb648242) <sub>Full entry</sub>|||
 |[↪ Casual insights into parler's content moderation shift: Effects on toxicity and factuality](#paper-entry-761e2ad90a96) <sub>Full entry</sub>|||
@@ -609,7 +609,7 @@ This repository accompanies our paper:
 
 ##### Agent-Based Social Simulation (18 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ The persuasive power of large language models](#paper-entry-0fe8867868bb) <sub>Full entry</sub>|||
 |[↪ OASIS: Open agent social interaction simulations with one million agents](#paper-entry-78f60a088bd1) <sub>Full entry</sub>|||
@@ -632,7 +632,7 @@ This repository accompanies our paper:
 
 ##### Individual-Oriented Social Simulation (16 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Social agents: Collective intelligence improves LLM predictions](#paper-entry-40e6f7abfba7) <sub>Full entry</sub>|||
 |[↪ Social interactions as recursive MDPs](#paper-entry-9ad15987dced) <sub>Full entry</sub>|||
@@ -653,7 +653,7 @@ This repository accompanies our paper:
 
 ##### Group-Oriented Social Simulation (8 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ OASIS: Open agent social interaction simulations with one million agents](#paper-entry-78f60a088bd1) <sub>Full entry</sub>|||
 |[↪ GA-S^3: Comprehensive social network simulation with group agents](#paper-entry-532ab872af79) <sub>Full entry</sub>|||
@@ -666,7 +666,7 @@ This repository accompanies our paper:
 
 ##### Social Simulation for Sociology (3 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Out of one, many: Using language models to simulate human samples](#paper-entry-d27876a15c99) <sub>Full entry</sub>|||
 |[↪ Are Large Language Models \(LLMs\) Good Social Predictors?](#paper-entry-49750ee06e38) <sub>Full entry</sub>|||
@@ -674,7 +674,7 @@ This repository accompanies our paper:
 
 ##### Social Simulation for Social Media (24 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ BotSim: LLM-Powered Malicious Social Botnet Simulation](#paper-entry-faa265c47879) <sub>Full entry</sub>|||
 |[↪ From individuals to crowds: Dual-level public response prediction in social media](#paper-entry-e0a1fb648242) <sub>Full entry</sub>|||
@@ -703,13 +703,13 @@ This repository accompanies our paper:
 
 ##### Social Simulation for Other Fields (1 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |[↪ Large language models empowered agent-based modeling and simulation: a survey and perspectives](#paper-entry-f823e49de90d) <sub>Full entry</sub>|||
 
 ### | Other (7 papers)
 
-| Title & Info | Analogy Summary | Pipeline |
+| <img src="assets/table-column-spacer.svg" width="560" height="1" alt=""><br>Title & Info | <img src="assets/table-column-spacer.svg" width="140" height="1" alt=""><br>Analogy Summary | <img src="assets/table-column-spacer.svg" width="300" height="1" alt=""><br>Pipeline |
 |:--| :---: | :----: |
 |<a id="paper-entry-3c8e3f307cc9"></a> [![Publish](https://img.shields.io/badge/Conference-AAAI-blue)]()<br>[Backdoor Attack on Propagation-based Rumor Detectors](https://ojs.aaai.org/index.php/AAAI/article/view/33944) <br> Di Jin, Yujun Zhang, Bingdao Feng, Xiaobao Wang, Dongxiao He, Zhen Wang <br> 2025-04-11|\[AI generated\] Backdoor Attack on Propagation-based Rumor Detectors: Like a sleeper agent in a social network, it lies dormant until triggered to manipulate rumor detection outcomes. \[翻译\] 基于传播的谣言检测器后门攻击：如同潜伏在社交网络中的休眠特工，平时隐蔽，一旦触发即可操控谣言判定结果。|<img width="1200" alt="pipeline" src="assets/f3d65574/IBAttack.png">|
 |<a id="paper-entry-106c3abafd43"></a> [![Publish](https://img.shields.io/badge/Conference-IEEE%20Trans.%20Inf.%20Forensics%20Security-blue)]()<br>[A<sup>2</sup> S<sup>2</sup> -GNN: Rigging GNN-based social status by adversarial attacks in signe...](https://ieeexplore.ieee.org/document/9936655/) <br> Xiaoyan Yin, Wanyu Lin, Kexin Sun, Chun Wei, Yanjiao Chen <br> 2023|方法研究社交网络图中的地位关系（由有向边决定方向），尝试找出使目标用户节点地位提升最多或下降最多的边增删策略。不研究任何社交内容|<div style="display:flex;flex-direction:column;gap:6px;align-items:center"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/0c551ac4/A2S2-GNN-1.png"><img width="1000" style="display:block;margin:6px auto" alt="pipeline" src="assets/0c551ac4/A2S2-GNN-2.png"></div>|
