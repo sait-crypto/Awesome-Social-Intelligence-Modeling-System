@@ -9,10 +9,6 @@ class ReadmeCompactionTests(unittest.TestCase):
         self.generator = ReadmeGenerator()
         self.generator.enable_markdown = True
         self.generator.show_summary_column = True
-        self.generator.title_info_column_width = 560
-        self.generator.analogy_summary_column_width = 140
-        self.generator.pipeline_column_width = 300
-        self.generator.summary_column_width = 240
 
     def test_long_readme_fields_use_independent_limits_without_tooltips(self):
         self.generator.max_analogy_summary_length = 5
@@ -35,7 +31,10 @@ class ReadmeCompactionTests(unittest.TestCase):
             notes='123456789',
         )
 
-        self.assertEqual(self.generator._generate_analogy_cell(paper), '1234…')
+        analogy = self.generator._generate_analogy_cell(paper)
+        self.assertIn('<summary>**[analogy]**</summary>', analogy)
+        self.assertIn('1234…', analogy)
+        self.assertNotIn('<summary title=', analogy)
         summary = self.generator._generate_summary_cell(paper)
         self.assertIn('ABCDEFG…', summary)
         self.assertIn('ABCDEFGH…', summary)
@@ -88,9 +87,7 @@ class ReadmeCompactionTests(unittest.TestCase):
 
         table = self.generator._generate_category_table([paper])
 
-        self.assertIn('width="560" height="1" alt=""><br>Title & Info', table)
-        self.assertIn('width="140" height="1" alt=""><br>Analogy Summary', table)
-        self.assertIn('width="300" height="1" alt=""><br>Pipeline', table)
+        self.assertIn('| Title & Info | Analogy Summary | Pipeline |', table)
         self.assertNotIn('| Summary |', table)
         self.assertNotIn('Stored motivation', table)
         self.assertNotIn('Stored notes', table)
@@ -106,14 +103,6 @@ class ReadmeCompactionTests(unittest.TestCase):
 
         self.assertEqual(reference_row.count('|'), 4)
         self.assertIn('<sub>Full entry</sub>', reference_row)
-
-    def test_zero_column_width_uses_plain_header(self):
-        self.generator.title_info_column_width = 0
-
-        header = self.generator._generate_width_header('Title & Info', 0)
-
-        self.assertEqual(header, 'Title & Info')
-
 
 if __name__ == '__main__':
     unittest.main()
