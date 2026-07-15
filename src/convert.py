@@ -58,6 +58,10 @@ class ReadmeGenerator:
             str(self.settings['readme'].get('show_summary_column', 'true')).strip().lower()
             == 'true'
         )
+        self.title_info_column_width = self._read_length_setting('title_info_column_width', 440)
+        self.analogy_summary_column_width = self._read_length_setting('analogy_summary_column_width', 140)
+        self.pipeline_column_width = self._read_length_setting('pipeline_column_width', 260)
+        self.summary_column_width = self._read_length_setting('summary_column_width', 260)
         self.translation_separator = self.settings['database'].get('translation_separator', '[翻译]')
         
         # ===== 恢复：配置项兼容逻辑 =====
@@ -393,14 +397,27 @@ class ReadmeGenerator:
 
     def _generate_category_table(self, papers: List[Paper]) -> str:
         if not papers: return ""
+        title_header = self._generate_width_header('Title & Info', self.title_info_column_width)
+        analogy_header = self._generate_width_header('Analogy Summary', self.analogy_summary_column_width)
+        pipeline_header = self._generate_width_header('Pipeline', self.pipeline_column_width)
         if self.show_summary_column:
-            header = "| Title & Info | Analogy Summary | Pipeline | Summary |\n"
+            summary_header = self._generate_width_header('Summary', self.summary_column_width)
+            header = f"| {title_header} | {analogy_header} | {pipeline_header} | {summary_header} |\n"
             sep = "|:--| :---: | :----: | :---: |\n"
         else:
-            header = "| Title & Info | Analogy Summary | Pipeline |\n"
+            header = f"| {title_header} | {analogy_header} | {pipeline_header} |\n"
             sep = "|:--| :---: | :----: |\n"
         rows = "".join(self._generate_paper_or_reference_row(p) for p in papers)
         return header + sep + rows
+
+    def _generate_width_header(self, label: str, width: int) -> str:
+        if width <= 0:
+            return label
+        spacer_path = f'{self.assets_dir}/table-column-spacer.svg'
+        return (
+            f'<img src="{spacer_path}" width="{width}" height="1" alt="">'
+            f'<br>{label}'
+        )
 
     @staticmethod
     def _paper_identity(paper: Paper) -> Tuple[str, str]:
