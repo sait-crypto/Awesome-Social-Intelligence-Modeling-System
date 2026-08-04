@@ -18,7 +18,6 @@ repository/
 │   ├── tests/                  # Automated tests
 │   ├── paper_database_for_survey.csv
 │   └── paper_database_complete_list.csv
-├── figures/                    # Legacy-compatible figures
 ├── COMPLETE_LIST.md            # Compact complete paper list
 ├── README.md                   # Main curated paper list
 ├── submit.py                   # Submission GUI entry point

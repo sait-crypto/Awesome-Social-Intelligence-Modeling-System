@@ -479,7 +479,10 @@ Constraint:
 """
         # 针对特定字段优化 Prompt
         if field == 'title_translation':
-            prompt = f"Translate title '{paper.title}' to Chinese. Output ONLY the Chinese translation."
+            prompt = (
+                f"Translate title '{paper.title}' to Chinese. Output exactly: "
+                f"{paper.title} {self.translation_separator} <Chinese translation>."
+            )
         elif field == 'analogy_summary':
             prompt = f"""{base_prompt}\nProvide a one-sentence analogy summary (TL;DR). 
             E.g., Speculative decision-making: Guess while waiting, great gain if correct, no loss if wrong {self.translation_separator} 推测决策：边等边猜，猜对血赚，猜错不亏
@@ -507,9 +510,8 @@ If one element is missing from the paper, mention uncertainty briefly instead of
 
         resp = self._call_api(prompt, max_tokens=200)
         if resp:
-            # 特殊处理 title_translation 不需要标记
-            if field == 'title_translation':
-                 return f"{self.ai_generate_mark} {resp.strip()}"
+            if field == 'title_translation' and self.translation_separator not in resp:
+                resp = f"{paper.title} {self.translation_separator} {resp.strip()}"
             return f"{self.ai_generate_mark} {resp.strip()}"
         return ""
 

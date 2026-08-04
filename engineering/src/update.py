@@ -59,6 +59,8 @@ class UpdateProcessor:
         # 兼容配置项为 bool 或 str
         remove_val = self.settings['database'].get('remove_added_paper_in_template', 'false')
         self.is_remove_added_paper = str(remove_val).lower() == 'true'
+        allow_invalid_val = self.settings['database'].get('allow_invalid_entries_on_update', 'false')
+        self.allow_invalid_entries = str(allow_invalid_val).strip().lower() in ('1', 'true', 'yes', 'on')
 
         # 这里的 enable_ai_generation 控制自动流程
         self.enable_ai = configured_ai_enabled
@@ -68,6 +70,28 @@ class UpdateProcessor:
         if os.path.isabs(db_path):
             return db_path
         return os.path.abspath(os.path.join(str(self.config.project_root), db_path))
+
+    def _resolve_project_path(self, configured_path: str) -> str:
+        """按项目根目录解析配置路径，避免依赖启动脚本时的 cwd。"""
+        raw = str(configured_path or '').strip()
+        if not raw:
+            return ''
+        if not os.path.isabs(raw):
+            raw = os.path.join(str(self.config.project_root), raw)
+        return os.path.normpath(os.path.abspath(raw))
+
+    def backup_configured_assets(self):
+        """使用 [paths] 中的实际目录备份资源，不使用旧版 assets/backups 相对路径。"""
+        paths = self.settings.get('paths', {}) or {}
+        assets_path = self._resolve_project_path(paths.get('assets_dir', 'engineering/assets'))
+        backup_dir = self._resolve_project_path(paths.get('backup_dir', 'engineering/backups'))
+        if not assets_path:
+            print("[WARN] 未配置 assets_dir，跳过资源目录备份")
+            return None
+        if not backup_dir:
+            print("[WARN] 未配置 backup_dir，跳过资源目录备份")
+            return None
+        return backup_file(assets_path, backup_dir)
 
     def _get_database_fingerprint(self, manager: DatabaseManager = None) -> str:
         db_path = self._get_database_abs_path(manager)
@@ -175,10 +199,14 @@ class UpdateProcessor:
                 
                 if not valid:
                     error_msg = f"[{os.path.basename(file_path)}] 验证失败: {paper.title[:30]}... - {', '.join(errors[:2])}"
-                    result['errors'].append(error_msg)
-                    # 即使验证失败，如果是配置为不跳过，或者为了保留数据，这里我们先不添加
-                    # 策略：只有验证通过的才自动入库
-                    print(f"警告: {error_msg} (已跳过入库)")
+                    if self.allow_invalid_entries:
+                        warning_msg = f"{error_msg} (配置允许入库，仅警告)"
+                        result['invalid_msg'].append(warning_msg)
+                        valid_papers.append(paper)
+                        print(f"警告: {warning_msg}")
+                    else:
+                        result['errors'].append(error_msg)
+                        print(f"警告: {error_msg} (已跳过入库)")
                 else:
                     valid_papers.append(paper)
             
@@ -398,7 +426,7 @@ def main(update_mode: str = 'normal'):
     result = processor.process_updates(conflict_resolution='mark', update_mode=update_mode)
     processor.print_result(result)
     print(f"UPDATE_RESULT_JSON::{json.dumps(result, ensure_ascii=False)}")
-    backup_file("assets", "backups")
+    processor.backup_configured_assets()
     if result['success']:
         print("\n正在重新生成 README...")
         try:
@@ -408,8 +436,12 @@ def main(update_mode: str = 'normal'):
                 print("[OK] README 更新成功")
             else:
                 print("[ERROR] README 更新失败")
+                result['errors'].append("README generation failed")
         except Exception as e:
             print(f"[ERROR] README 生成出错: {e}")
+            result['errors'].append(f"README generation failed: {e}")
+
+    return result
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="处理更新文件并更新数据库")
@@ -420,4 +452,6 @@ if __name__ == "__main__":
         help='更新模式：normal=正常更新；database-only=只重写database',
     )
     args = parser.parse_args()
-    main(update_mode=args.mode)
+    result = main(update_mode=args.mode)
+    if result.get('errors'):
+        sys.exit(1)

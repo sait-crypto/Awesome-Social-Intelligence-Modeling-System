@@ -217,6 +217,25 @@ def validate_date(date_str: Any) -> Tuple[bool, str]:
     # 捕获原始值，防止后续split空格时截断非标准日期（如 "Oct 27, 2025"）
     original_val = s_val
 
+    # Zotero 在中文界面中可能导出“四月 17, 2026”形式的日期。
+    # 必须在按空格去除时间部分之前处理，否则月份会被单独截出。
+    chinese_months = (
+        "一月", "二月", "三月", "四月", "五月", "六月",
+        "七月", "八月", "九月", "十月", "十一月", "十二月",
+    )
+    localized_match = re.fullmatch(
+        r"(十一月|十二月|一月|二月|三月|四月|五月|六月|七月|八月|九月|十月)\s+(\d{1,2})\s*,\s*(\d{4})",
+        s_val,
+    )
+    if localized_match:
+        month_text, day_text, year_text = localized_match.groups()
+        month = chinese_months.index(month_text) + 1
+        try:
+            datetime(int(year_text), month, int(day_text))
+        except ValueError:
+            return (False, original_val)
+        return (True, f"{year_text}-{month:02d}-{int(day_text):02d}")
+
     # 2. 去除时间部分
     if ' ' in s_val:
         s_val = s_val.split(' ')[0]

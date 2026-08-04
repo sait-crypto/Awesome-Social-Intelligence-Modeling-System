@@ -3,231 +3,279 @@ name: Process Paper Submission
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled]
-    branches:
-      - main
+    branches: [main]
+
+concurrency:
+  group: paper-submission-main-update
+  cancel-in-progress: false
 
 jobs:
   process-submission:
+    if: >-
+      vars.AUTO_PROCESS_SUBMISSIONS == 'true' ||
+      contains(github.event.pull_request.labels.*.name, 'Action: Process')
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    
-    # 只有当变量 AUTO_PROCESS_SUBMISSIONS 为 true 或者 PR 被打上 'Action: Process' 标签时才运行
-    if: >
-      (vars.AUTO_PROCESS_SUBMISSIONS == 'true' || 
-       contains(github.event.pull_request.labels.*.name, 'Action: Process')) 
+    env:
+      PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace_assets
+      PR_FIGURES_DIR: ${{ github.workspace }}/pr_workspace_figures
 
     steps:
-      # --- 步骤 0: 代码检出 ---
-      - name: Checkout Main (Trusted Logic & Base Data)
-        uses: actions/checkout@v4
+      # All executable code and both databases come from the trusted main branch.
+      - name: Check out trusted main branch
+        uses: actions/checkout@v6
         with:
           ref: main
           path: main_workspace
           fetch-depth: 0
 
-      - name: Checkout PR (Untrusted Data)
-        uses: actions/checkout@v4
+      # The contributor checkout is treated as untrusted data only.
+      - name: Check out pull request data
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           path: pr_workspace
-          fetch-depth: 0
+          fetch-depth: 1
+          persist-credentials: false
 
-      # --- 步骤 1: 构造混合安全环境 ---
-      - name: Setup Hybrid Environment
+      - name: Build isolated processing workspace
+        shell: bash
         run: |
-          # 1. 基础环境全是 Main 的 (包含脚本、Core CSV、README、现有的 Assets 和 Backups)
-          cp -r main_workspace/* .
-          cp -r main_workspace/.git .
-          
-          # [安全加固] 清理 PR 空间中的潜在恶意符号链接
+          set -euo pipefail
+          echo "BASE_MAIN_SHA=$(git -C main_workspace rev-parse HEAD)" >> "$GITHUB_ENV"
+
           find pr_workspace -type l -delete
-          
-          # 2. 只从 PR workspace 拿特定的数据文件 (Templates - CSV/JSON)
-          # 注意：现在支持 CSV 和 JSON
+
           if [ -f pr_workspace/submit_template.csv ]; then
-            cp pr_workspace/submit_template.csv .
+            cp pr_workspace/submit_template.csv main_workspace/
           fi
           if [ -f pr_workspace/submit_template.json ]; then
-            cp pr_workspace/submit_template.json .
+            cp pr_workspace/submit_template.json main_workspace/
           fi
-          
-          # 3. Assets 暂存 (供脚本读取，稍后智能合并)
-          # 新逻辑：支持 assets/ 目录结构
+
           if [ -d pr_workspace/engineering/assets ]; then
             mkdir -p pr_workspace_assets
-            cp -r pr_workspace/engineering/assets/* pr_workspace_assets/ || true
+            cp -a pr_workspace/engineering/assets/. pr_workspace_assets/
           fi
-          # Accept submissions created before the engineering/ migration.
           if [ -d pr_workspace/assets ]; then
             mkdir -p pr_workspace_assets
-            cp -r pr_workspace/assets/* pr_workspace_assets/ || true
+            cp -a pr_workspace/assets/. pr_workspace_assets/
           fi
-          # 兼容旧逻辑 figures/
           if [ -d pr_workspace/figures ]; then
             mkdir -p pr_workspace_figures
-            cp -r pr_workspace/figures/* pr_workspace_figures/ || true
+            cp -a pr_workspace/figures/. pr_workspace_figures/
           fi
-          
-          echo "Secure Hybrid Environment Ready."
 
-      # --- 步骤 2: 安装依赖 ---
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          version: "latest"
+          version: "0.11.12"
+          python-version: "3.13"
+          working-directory: main_workspace
 
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install Dependencies
+      - name: Install locked dependencies
+        working-directory: main_workspace
         run: uv sync --frozen
 
-      # --- 步骤 3: 基础完整性检查 ---
-      - name: Validate File Integrity
-        run: |
-          # 检查 CSV 大小
-          if [ -f pr_workspace/submit_template.csv ]; then
-            file_size=$(stat -c%s "pr_workspace/submit_template.csv")
-            if [ $file_size -gt 5242880 ]; then
-              echo "Error: CSV file too large ($file_size bytes)" && exit 1
-            fi
-          fi
-          # 检查 JSON 大小
-          if [ -f pr_workspace/submit_template.json ]; then
-             file_size=$(stat -c%s "pr_workspace/submit_template.json")
-             if [ $file_size -gt 5242880 ]; then
-               echo "Error: JSON file too large ($file_size bytes)" && exit 1
-             fi
-          fi
-
-      # --- 步骤 4: 业务逻辑验证 ---
-      - name: Validate Submission
-        id: validate
+      - name: Snapshot databases for integrity checks
+        working-directory: main_workspace
         env:
           PYTHONPATH: engineering
-          # 传递暂存的资产目录给脚本
-          PR_ASSETS_DIR: pr_workspace_assets
-          PR_FIGURES_DIR: pr_workspace_figures
+        shell: bash
+        run: |
+          set -euo pipefail
+          CORE_DB_PATH=$(uv run --frozen python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['database'])")
+          COMPLETE_DB_PATH=$(uv run --frozen python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['complete_list_database'])")
+          echo "CORE_DB_PATH=$CORE_DB_PATH" >> "$GITHUB_ENV"
+          echo "COMPLETE_DB_PATH=$COMPLETE_DB_PATH" >> "$GITHUB_ENV"
+          cp "$CORE_DB_PATH" "$RUNNER_TEMP/core-database-before.csv"
+          cp "$COMPLETE_DB_PATH" "$RUNNER_TEMP/complete-database-before.csv"
+
+      - name: Validate submission file boundaries
+        working-directory: main_workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          found_submission=false
+
+          for file in submit_template.csv submit_template.json; do
+            if [ -s "$file" ]; then
+              found_submission=true
+              file_size=$(stat -c%s "$file")
+              if [ "$file_size" -gt 5242880 ]; then
+                echo "Error: $file exceeds the 5 MiB submission limit."
+                exit 1
+              fi
+            fi
+          done
+
+          if [ "$found_submission" != true ]; then
+            echo "Error: no non-empty submit_template.csv or submit_template.json was supplied."
+            exit 1
+          fi
+
+          for asset_dir in "$PR_ASSETS_DIR" "$PR_FIGURES_DIR"; do
+            if [ -d "$asset_dir" ]; then
+              asset_count=$(find "$asset_dir" -type f | wc -l)
+              if [ "$asset_count" -gt 25 ]; then
+                echo "Error: the submission contains more than 25 asset files."
+                exit 1
+              fi
+              if find "$asset_dir" -type f -size +10M -print -quit | grep -q .; then
+                echo "Error: each submitted asset must be no larger than 10 MiB."
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Validate paper metadata
+        id: validate
+        working-directory: main_workspace
+        env:
+          PYTHONPATH: engineering
         shell: bash
         run: |
           set -o pipefail
-          # 使用 scripts 验证入口
-          uv run engineering/scripts/validate_submission.py 2>&1 | tee validation_log.txt
+          uv run --frozen engineering/scripts/validate_submission.py 2>&1 | tee validation_log.txt
 
-      - name: Comment on Validation Failure
+      - name: Comment on validation failure
         if: failure() && steps.validate.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            let logContent = '';
-            try { logContent = fs.readFileSync('validation_log.txt', 'utf8'); } catch(e) { logContent = 'Log missing'; }
-            const author = context.payload.pull_request.user.login;
-            const body = `### ❌ Validation Failed\nHi! @${author}, issues found:\n<details><summary>Log</summary>\n\n\`\`\`text\n${logContent}\n\`\`\`\n</details>`;
+            let logContent = 'Validation log is unavailable.';
+            try {
+              logContent = fs.readFileSync('main_workspace/validation_log.txt', 'utf8');
+            } catch (error) {
+              core.warning(String(error));
+            }
+            const body = [
+              '### Validation failed',
+              `Hi @${process.env.PR_AUTHOR}, the automated checks found problems with this submission.`,
+              '<details><summary>Validation log</summary>',
+              '',
+              '```text',
+              logContent,
+              '```',
+              '</details>',
+            ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: body
+              body,
             });
 
-      # --- 步骤 5: 处理图片/资产 ---
-      # 注意：需要在新的 update_submission_figures.py 或类似脚本中处理 assets 移动逻辑
-      - name: Update Assets
-        if: success()
+      - name: Normalize submitted assets
+        working-directory: main_workspace
         env:
           PYTHONPATH: engineering
-          PR_ASSETS_DIR: pr_workspace_assets
-          PR_FIGURES_DIR: pr_workspace_figures
-        run: uv run engineering/scripts/update_submission_figures.py
+        run: uv run --frozen engineering/scripts/update_submission_figures.py
 
-      # --- 步骤 6: 核心更新 (生成新备份) ---
-      - name: Run Core Update
+      - name: Update databases and generated lists
         id: core_update
-        if: success()
+        working-directory: main_workspace
         env:
           PYTHONPATH: engineering
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          # 移除 EXCEL_KEY，改用数据库密码（如果需要）
+        shell: bash
         run: |
           set -o pipefail
-          # update.py 运行成功后，会在 backups/ 目录生成新的备份文件
-          uv run engineering/src/update.py 2>&1 | tee update_log.txt
+          uv run --frozen engineering/src/update.py 2>&1 | tee update_log.txt
 
-      - name: Comment Update Log
-        if: steps.core_update.conclusion != 'skipped'
-        uses: actions/github-script@v7
+      - name: Comment with update result
+        if: always() && steps.core_update.conclusion != 'skipped'
+        uses: actions/github-script@v9
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          UPDATE_OUTCOME: ${{ steps.core_update.outcome }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            let logContent = '';
-            try { logContent = fs.readFileSync('update_log.txt', 'utf8'); } catch(e) { logContent = 'Log missing.'; }
-            const author = context.payload.pull_request.user.login;
-            const statusIcon = '${{ steps.core_update.outcome }}' === 'success' ? '✅' : '⚠️';
-            const body = `### ${statusIcon} Core Update Log\nHi! @${author}, update executed.\n<details><summary>Full Log</summary>\n\n\`\`\`text\n${logContent}\n\`\`\`\n</details>`;
+            let logContent = 'Update log is unavailable.';
+            try {
+              logContent = fs.readFileSync('main_workspace/update_log.txt', 'utf8');
+            } catch (error) {
+              core.warning(String(error));
+            }
+            const heading = process.env.UPDATE_OUTCOME === 'success'
+              ? '### Core update completed'
+              : '### Core update failed';
+            const body = [
+              heading,
+              `Hi @${process.env.PR_AUTHOR}, the trusted main-branch update script has finished.`,
+              '<details><summary>Update log</summary>',
+              '',
+              '```text',
+              logContent,
+              '```',
+              '</details>',
+            ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: body
+              body,
             });
 
-      # --- 步骤 7: 提交 (双向同步) ---
-      - name: Commit and Push
-        if: success()
+      - name: Verify database integrity
+        working-directory: main_workspace
+        env:
+          PYTHONPATH: engineering
+        run: >-
+          uv run --frozen engineering/scripts/verify_database_integrity.py
+          --before "$RUNNER_TEMP/core-database-before.csv"
+          --after "$CORE_DB_PATH"
+          --before "$RUNNER_TEMP/complete-database-before.csv"
+          --after "$COMPLETE_DB_PATH"
+
+      - name: Commit and push generated changes to main
+        working-directory: main_workspace
         env:
           PYTHONPATH: engineering
           PR_USER: ${{ github.event.pull_request.user.login }}
-          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 获取核心数据库路径 (CSV)
-          CORE_DB_PATH=$(uv run python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['database'])")
-          COMPLETE_DB_PATH=$(uv run python -c "from src.core.config_loader import get_config_instance; print(get_config_instance().settings['paths']['complete_list_database'])")
-          
-          # 强制添加文件
-          # git add backups/ 会添加 Main 原有的备份 + 本次 update.py 新生成的备份
-          # assets/ 也会被添加
-          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md engineering/assets/ engineering/backups/
-          
-          commit_msg=$(printf "@%s,Thank for Contribution--Auto-process papers submission [skip ci]" "$PR_USER")
-          
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "$commit_msg"
-            # 推送到 main
-            git push origin HEAD:main
-            echo "✅ Pushed to main"
-          fi
-          
-          # 同步回 Fork
-          echo "Attempting to push back to PR branch..."
-          git remote add fork_repo "https://x-access-token:$GITHUB_TOKEN@github.com/$PR_HEAD_REPO.git"
-          git push fork_repo HEAD:$PR_HEAD_REF || echo "⚠️ Could not push to fork. This is normal if maintainer edits are disabled or token lacks permission."
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # --- 步骤 8: 通知 ---
-      - name: Send Notification
+          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md engineering/assets/
+
+          if git diff --staged --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Process paper submission from @$PR_USER [skip ci]"
+
+          git fetch origin main
+          CURRENT_MAIN_SHA=$(git rev-parse origin/main)
+          if [ "$CURRENT_MAIN_SHA" != "$BASE_MAIN_SHA" ]; then
+            echo "Error: main changed during processing; refusing a non-fast-forward or stale update."
+            echo "Re-run the workflow against the current main branch."
+            exit 1
+          fi
+
+          git push origin HEAD:main
+
+      - name: Send optional email notification
         if: always()
+        working-directory: main_workspace
         env:
           PYTHONPATH: engineering
           NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
-          # 修改点：从 vars 获取 Server, Port, User
           SMTP_SERVER: ${{ vars.SMTP_SERVER }}
           SMTP_PORT: ${{ vars.SMTP_PORT }}
           SMTP_USER: ${{ vars.SMTP_USER }}
-          # 密码保持在 secrets 中
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           workflow_status: ${{ job.status }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_USER: ${{ github.event.pull_request.user.login }}
-        run: uv run engineering/scripts/send_notification.py
+        run: uv run --frozen engineering/scripts/send_notification.py

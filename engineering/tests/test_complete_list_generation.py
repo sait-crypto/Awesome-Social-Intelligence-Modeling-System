@@ -116,6 +116,7 @@ class CompleteListGenerationTests(unittest.TestCase):
         readme_path.write_text(
             "<!-- PAPER_BADGES_START -->\nold badges\n<!-- PAPER_BADGES_END -->\n"
             "<!-- PAPER_INTRO_START -->\nold intro\n<!-- PAPER_INTRO_END -->\n"
+            "<!-- PAPER_NEWS_START -->\nold news\n<!-- PAPER_NEWS_END -->\n"
             "<!-- PAPER_CITATION_TOP_START -->\nold top citation\n<!-- PAPER_CITATION_TOP_END -->\n"
             "[Complete paper list →](./COMPLETE_LIST.md)\n\n"
             "## Selected paper list (old)\nold table\n=====List End====="

@@ -9,10 +9,62 @@ from tkinter import messagebox
 
 class ConfigManager:
     """配置管理器"""
+
+    APP_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    @staticmethod
+    def _load_local_env():
+        """Load simple KEY=VALUE entries from the tool-local .env file."""
+        env_path = os.path.join(ConfigManager.APP_ROOT, '.env')
+        if not os.path.isfile(env_path):
+            return
+        try:
+            with open(env_path, 'r', encoding='utf-8') as env_file:
+                for raw_line in env_file:
+                    line = raw_line.strip()
+                    if not line or line.startswith('#') or '=' not in line:
+                        continue
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key:
+                        os.environ.setdefault(key, value)
+        except OSError as exc:
+            print(f"Unable to load local environment file: {exc}")
+
+    @staticmethod
+    def _translation_credentials_from_env():
+        ConfigManager._load_local_env()
+        return {
+            'mymemory': {
+                'email': os.getenv('MYMEMORY_EMAIL', ''),
+                'key': os.getenv('MYMEMORY_API_KEY', ''),
+            },
+            'baidu': {
+                'appid': os.getenv('BAIDU_TRANSLATE_APP_ID', ''),
+                'key': os.getenv('BAIDU_TRANSLATE_API_KEY', ''),
+            },
+            'youdao': {
+                'appKey': os.getenv('YOUDAO_TRANSLATE_APP_KEY', ''),
+                'key': os.getenv('YOUDAO_TRANSLATE_API_KEY', ''),
+            },
+            'tencent': {
+                'secretId': os.getenv('TENCENT_TRANSLATE_SECRET_ID', ''),
+                'secretKey': os.getenv('TENCENT_TRANSLATE_SECRET_KEY', ''),
+            },
+        }
+
+    @staticmethod
+    def _resolve_app_path(path_value, default_name):
+        raw = str(path_value or default_name).strip()
+        if os.path.isabs(raw):
+            return os.path.normpath(raw)
+        return os.path.normpath(os.path.join(ConfigManager.APP_ROOT, raw))
     
     @staticmethod
     def get_default_config():
         """获取默认配置"""
+        translation_credentials = ConfigManager._translation_credentials_from_env()
         return {
             'llm_tldr_soft_limit': 300,
             'llm_tldr_hard_limit': 500,
@@ -33,24 +85,7 @@ class ConfigManager:
                 'window_height': 900
             },
             'translation_services': ['mymemory', 'google', 'baidu', 'youdao', 'libre', 'tencent'],
-            'translation_service_params': {
-                'mymemory': {
-                    'email': '',
-                    'key': ''
-                },
-                'baidu': {
-                    'appid': '',
-                    'key': ''
-                },
-                'youdao': {
-                    'appKey': '',
-                    'key': ''
-                },
-                'tencent': {
-                    'secretId': '',
-                    'secretKey': ''
-                }
-            }
+            'translation_service_params': translation_credentials,
         }
     
     @staticmethod
@@ -59,14 +94,17 @@ class ConfigManager:
         default_config = ConfigManager.get_default_config()
         
         # 确保默认目录存在
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        if not os.path.exists("./saves"):
-            os.makedirs("./saves", exist_ok=True)
-        if not os.path.exists("./sources"):
-            os.makedirs("./sources", exist_ok=True)
+        os.makedirs(os.path.join(ConfigManager.APP_ROOT, "saves"), exist_ok=True)
+        os.makedirs(os.path.join(ConfigManager.APP_ROOT, "sources"), exist_ok=True)
 
         # 优先尝试加载 config.ini
-        ini_file_path = "config.ini"
+        requested_path = ConfigManager._resolve_app_path(config_file_path, "config.ini")
+        requested_dir = os.path.dirname(requested_path)
+        ini_file_path = (
+            requested_path
+            if requested_path.lower().endswith('.ini')
+            else os.path.join(requested_dir, "config.ini")
+        )
         try:
             if os.path.exists(ini_file_path):
                 config = ConfigManager.load_config_from_ini(ini_file_path, default_config)
@@ -75,7 +113,11 @@ class ConfigManager:
             print(f"加载 config.ini 失败: {e}，尝试加载 config.json")
         
         # 如果 config.ini 不存在或加载失败，尝试从 config.json 加载（向后兼容）
-        json_file_path = config_file_path if config_file_path.endswith('.json') else "config.json"
+        json_file_path = (
+            requested_path
+            if requested_path.lower().endswith('.json')
+            else os.path.join(requested_dir, "config.json")
+        )
         try:
             if os.path.exists(json_file_path):
                 with open(json_file_path, 'r', encoding='utf-8') as f:
@@ -144,6 +186,12 @@ class ConfigManager:
                 'secretId': config_parser.get('Translation.Tencent', 'secretId', fallback=''),
                 'secretKey': config_parser.get('Translation.Tencent', 'secretKey', fallback='')
             }
+
+        # Local environment values take precedence over tracked INI settings.
+        for service, credentials in ConfigManager._translation_credentials_from_env().items():
+            for name, value in credentials.items():
+                if value:
+                    config['translation_service_params'][service][name] = value
         
         # 加载缓存配置
         if config_parser.has_section('Cache'):
@@ -171,6 +219,7 @@ class ConfigManager:
     def save_config(config, config_file_path="config.ini", max_retries=3):
         """保存配置文件到 INI 格式"""
         retry_delay = 1
+        config_file_path = ConfigManager._resolve_app_path(config_file_path, "config.ini")
         
         for attempt in range(max_retries):
             try:
@@ -197,15 +246,11 @@ class ConfigManager:
                 }
                 
                 # 翻译服务参数
-                translation_params = config.get('translation_service_params', {})
-                if 'mymemory' in translation_params:
-                    config_parser['Translation.MyMemory'] = translation_params['mymemory']
-                if 'baidu' in translation_params:
-                    config_parser['Translation.Baidu'] = translation_params['baidu']
-                if 'youdao' in translation_params:
-                    config_parser['Translation.Youdao'] = translation_params['youdao']
-                if 'tencent' in translation_params:
-                    config_parser['Translation.Tencent'] = translation_params['tencent']
+                # Credentials live only in .env and must never be written to INI.
+                config_parser['Translation.MyMemory'] = {'email': '', 'key': ''}
+                config_parser['Translation.Baidu'] = {'appid': '', 'key': ''}
+                config_parser['Translation.Youdao'] = {'appKey': '', 'key': ''}
+                config_parser['Translation.Tencent'] = {'secretId': '', 'secretKey': ''}
                 
                 # 缓存配置
                 config_parser['Cache'] = {

@@ -103,7 +103,7 @@ class Validator:
                 asset_root = self.settings['paths'].get('assets_dir', 'engineering/assets')
                 asset_dir = os.path.join(asset_root, p.uid)
                 if not os.path.exists(asset_dir) and (p.pipeline_image or p.paper_file):
-                    print(f"  #{i+1} [Asset Error] UID文件夹缺失: assets/{p.uid}")
+                    print(f"  #{i+1} [Asset Error] UID文件夹缺失: {asset_dir}")
                     assets_issues += 1
             elif p.pipeline_image or p.paper_file:
                 print(f"  #{i+1} [Asset Error] 有资源引用但缺失UID (需运行更新以自动修复)")

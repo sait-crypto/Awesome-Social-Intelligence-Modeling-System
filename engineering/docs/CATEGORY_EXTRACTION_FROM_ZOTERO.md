@@ -93,21 +93,30 @@ cat <unique_name>
 请参考 `config/categories_config.py` 中的分类配置。当前主要分类包括：
 
 ### 一级分类
-- Base Techniques
-- Perception and Classification
+- Perception
 - Understanding
 - Generation
-- Simulation and Deduction
-- Social Media Security
+- Simulation
 - Other
 
 ### 二级分类（示例）
-- Hate Speech Analysis
-- Misinformation Analysis
-- Sentiment Analysis
-- Comment Generation
-- Social Bots
-- User Behavior Prediction
+- Content-Level Perception
+- User-Level Perception
+- Structural and Discourse Modeling
+- Network and Propagation Understanding
+- User-Level Understanding
+- Social Content Generation
+- Socially-Aware Dialogue Generation
+- Social Intervention
+- Modeling Method
+- Simulation Scale
+  - Micro-Level Social Simulation
+    - Individual-Oriented Simulation
+    - Group-Oriented Simulation
+  - Macro-Level Social Simulation
+    - Macro Social Alignment
+    - Macro Social Phenomena Analysis
+- Application Domain
 等...
 
 完整列表请查看配置文件。

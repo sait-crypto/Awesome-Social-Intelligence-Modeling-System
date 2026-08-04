@@ -110,6 +110,31 @@ class ReadmeGenerator:
             return '…'
         return value[:max_length - 1].rstrip() + '…'
 
+    @staticmethod
+    def _repair_gbk_mojibake(value: str) -> str:
+        """Repair UTF-8 fragments that were accidentally decoded as GBK."""
+        text = str(value or '')
+
+        def repair(match: re.Match) -> str:
+            fragment = match.group(0)
+            try:
+                return fragment.encode('gbk').decode('utf-8')
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                return fragment
+
+        return re.sub(r'[^\x00-\x7f]+', repair, text)
+
+    def _public_english_text(self, value: str) -> str:
+        """Return stable English-only text for generated public Markdown files."""
+        text = self._repair_gbk_mojibake(value)
+        for marker in ('[翻译]', '[Translation]'):
+            if marker in text:
+                text = text.split(marker, 1)[0].rstrip()
+        text = re.sub(r'[\u3400-\u9fff\uf900-\ufaff]+', '', text)
+        text = re.sub(r'[，。；：！？【】（）《》、]+', ' ', text)
+        text = re.sub(r'[ \t]+', ' ', text)
+        return text.strip()
+
     def _load_paper_metadata(self) -> Tuple[bool, Dict[str, str]]:
         """Load the single source of truth for README paper information."""
         try:
@@ -129,6 +154,9 @@ class ReadmeGenerator:
             'year': 'TODO',
             'arxiv_id': '',
             'paper_url': '',
+            'doi': '',
+            'announcement_date': '',
+            'announcement_text': '',
             'bibtex_type': 'misc',
             'bibtex_key': 'todo_social_intelligence',
             'bibtex_author': 'TODO: Authors',
@@ -155,7 +183,7 @@ class ReadmeGenerator:
             f'> {authors} \\\n'
             f'> {affiliations} \\\n'
             f'> **Venue:** {venue} &nbsp;|&nbsp; **Year:** {year}\n\n'
-            '> 🌟 If this resource helps your research, please star the repository and cite our paper.'
+            '> If this resource helps your research, please star the repository and cite our paper.'
         )
 
     def _generate_paper_badges_content(self, metadata: Dict[str, str]) -> str:
@@ -165,10 +193,21 @@ class ReadmeGenerator:
         badge_value = quote(arxiv_id or 'TBD', safe='.')
         paper_url = self._single_line(metadata.get('paper_url'))
         arxiv_url = paper_url or (f'https://arxiv.org/abs/{arxiv_id}' if arxiv_id else 'https://arxiv.org/')
-        return (
-            '![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) '
-            f'[![arXiv](https://img.shields.io/badge/arXiv-{badge_value}-009688.svg)]({arxiv_url})'
-        )
+        paper_badge = f'[![arXiv](https://img.shields.io/badge/arXiv-{badge_value}-009688.svg)]({arxiv_url})'
+        doi = self._single_line(metadata.get('doi'))
+        if not arxiv_id and doi:
+            doi_badge = quote(doi, safe='')
+            paper_badge = f'[![DOI](https://img.shields.io/badge/DOI-{doi_badge}-blue.svg)](https://doi.org/{doi})'
+        return '![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) ' + paper_badge
+
+    def _generate_news_content(self, metadata: Dict[str, str]) -> str:
+        date = self._single_line(metadata.get('announcement_date'))
+        text = self._single_line(metadata.get('announcement_text'))
+        paper_url = self._single_line(metadata.get('paper_url'))
+        if not date or not text:
+            return ''
+        linked_text = f'{text}: [{paper_url}]({paper_url})' if paper_url else text
+        return f'## News\n\n- **{date}:** {linked_text}.'
 
     def _generate_citation_content(self, metadata: Dict[str, str]) -> str:
         entry_type = re.sub(r'[^A-Za-z]', '', metadata.get('bibtex_type', 'misc')) or 'misc'
@@ -179,6 +218,7 @@ class ReadmeGenerator:
         year = self._single_line(metadata.get('year')) or 'TODO'
         note = self._single_line(metadata.get('bibtex_note'))
         url = self._single_line(metadata.get('paper_url') or metadata.get('repository_url'))
+        doi = self._single_line(metadata.get('doi'))
 
         fields = [
             ('title', title),
@@ -188,6 +228,8 @@ class ReadmeGenerator:
         ]
         if note:
             fields.append(('note', note))
+        if doi:
+            fields.append(('doi', doi))
         if url:
             fields.append(('url', url))
 
@@ -216,6 +258,7 @@ class ReadmeGenerator:
         blocks = [
             ('<!-- PAPER_BADGES_START -->', '<!-- PAPER_BADGES_END -->', self._generate_paper_badges_content(metadata)),
             ('<!-- PAPER_INTRO_START -->', '<!-- PAPER_INTRO_END -->', self._generate_paper_intro_content(metadata)),
+            ('<!-- PAPER_NEWS_START -->', '<!-- PAPER_NEWS_END -->', self._generate_news_content(metadata)),
             ('<!-- PAPER_CITATION_TOP_START -->', '<!-- PAPER_CITATION_TOP_END -->', self._generate_citation_content(metadata)),
             ('<!-- PAPER_CITATION_BOTTOM_START -->', '<!-- PAPER_CITATION_BOTTOM_END -->', self._generate_citation_content(metadata)),
         ]
@@ -241,6 +284,10 @@ class ReadmeGenerator:
             paper.category = self.update_utils.normalize_category_value(paper.category, self.config)
             if self.is_truncate_translation:
                 self._truncate_translation_in_paper(paper)
+            for field in paper.__dataclass_fields__:
+                value = getattr(paper, field)
+                if isinstance(value, str):
+                    setattr(paper, field, self._public_english_text(value))
             display_papers.append(paper)
         return True, display_papers
 
@@ -278,14 +325,14 @@ class ReadmeGenerator:
 
     def _generate_complete_list_row(self, paper: Paper) -> str:
         title = (
-            str(paper.title or '')
+            self._public_english_text(paper.title)
             .strip()
             .replace('\r\n', ' ')
             .replace('\r', ' ')
             .replace('\n', ' ')
         )
         title_cell = create_hyperlink(title, str(paper.paper_url or '').strip()).replace('|', '\\|')
-        venue = self._sanitize_complete_list_cell(paper.conference) or '—'
+        venue = self._sanitize_complete_list_cell(self._public_english_text(paper.conference)) or '—'
 
         links = []
         seen_urls = set()
@@ -517,14 +564,14 @@ class ReadmeGenerator:
                     _, anchor = self._get_category_paper_count_and_anchor(uname, self._current_display_papers)
                     links.append(f"[{display}](#{anchor})")
                 links_str = ", ".join(links)
-                multi_line = f" <br> <span style=\"color:cyan\">[multi-category：{links_str}]</span>"
+                multi_line = f" <br> <span style=\"color:cyan\">[multi-category: {links_str}]</span>"
         except Exception:
             multi_line = ""
 
         return f"{badges}{title_with_link} <br> {authors} <br> {date}{multi_line}"
 
     def _generate_pipeline_cell(self, paper: Paper) -> str:
-        """生成Pipeline图单元格（支持最多3张图片，显示在同一格内）"""
+        """Render up to three pipeline images in one table cell."""
         if not paper.pipeline_image:
             return ""
 
@@ -547,7 +594,7 @@ class ReadmeGenerator:
                     rel_path = normalized
                 existing_imgs.append(rel_path)
             else:
-                print(f"警告: pipeline图片不存在: {raw_path}")
+                print(f"Warning: pipeline image does not exist: {raw_path}")
 
         if not existing_imgs:
             return ""
@@ -560,7 +607,7 @@ class ReadmeGenerator:
             return f'<div style="display:flex;flex-direction:column;gap:6px;align-items:center">{imgs_html}</div>'
 
     def _generate_summary_cell(self, paper: Paper) -> str:
-        # 复用原有逻辑
+        # Reuse the configured summary fields.
         fields = []
         tags_map = {
             'summary_motivation': 'motivation',
@@ -574,7 +621,7 @@ class ReadmeGenerator:
             val = getattr(paper, k, "")
             if val:
                 disp = self.config.get_tag_field(k, 'display_name') or name
-                disp = str(disp).replace('\r', '').replace('\n', '')
+                disp = self._public_english_text(disp).replace('\r', '').replace('\n', '') or name
                 val = self._truncate_field(val, self.summary_field_limits.get(k, 0))
                 fields.append(f"**[{disp}]** {self._sanitize_field(val)}")
         

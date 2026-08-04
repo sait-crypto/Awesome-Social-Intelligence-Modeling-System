@@ -15,6 +15,7 @@ import json
 import glob
 import sqlite3
 import tempfile
+from urllib.parse import unquote, urlparse
 from typing import Dict, List, Any, Optional, Tuple, Set
 import re
 import copy # 新增
@@ -89,12 +90,8 @@ class SubmitLogic:
         if '--no-pr' in sys.argv or os.environ.get('NO_PR', '').lower() in ('1', 'true'):
             self.pr_enabled = False
 
-        # 管理员相关（当前没有实现自选位置吗）
+        # 管理员模式仅作为本地高级编辑开关，不构成安全边界。
         self.is_admin = False
-        self.admin_password_path = self.settings['database'].get('administer_password_path', '')
-        if not self.admin_password_path:
-             # 默认位置
-             self.admin_password_path = os.path.join(BASE_DIR, 'admin_key.txt')
 
         self.update_json_path = self.settings['paths'].get('update_json', 'submit_template.json')
         self.backup_dir = self.settings['paths'].get('backup_dir', 'backups')
@@ -121,14 +118,24 @@ class SubmitLogic:
         ui_cfg = self.settings.get('ui', {}) or {}
         return self._normalize_save_mode(ui_cfg.get('save_mode', 'incremental'))
 
-    def _persist_ui_setting(self, key: str, value: str):
+    def get_zotero_build_mode(self) -> bool:
+        ui_cfg = self.settings.get('ui', {}) or {}
+        value = ui_cfg.get('zotero_build_mode', 'false')
+        return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def get_allow_invalid_entries_on_update(self) -> bool:
+        database_cfg = self.settings.get('database', {}) or {}
+        value = database_cfg.get('allow_invalid_entries_on_update', 'false')
+        return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+    def _persist_setting(self, section: str, key: str, value: str):
         cfg = configparser.ConfigParser(inline_comment_prefixes=('#', ';', '//'))
         cfg_path = os.path.join(str(self.config.config_path), 'config.ini')
         if os.path.exists(cfg_path):
             cfg.read(cfg_path, encoding='utf-8')
-        if 'ui' not in cfg:
-            cfg['ui'] = {}
-        cfg['ui'][key] = str(value)
+        if section not in cfg:
+            cfg[section] = {}
+        cfg[section][key] = str(value)
 
         if os.path.exists(cfg_path):
             backup_file(cfg_path, self.backup_dir)
@@ -139,6 +146,9 @@ class SubmitLogic:
         # 刷新配置快照，确保后续读取立即生效
         self.config.settings = self.config._load_settings()
         self.settings = self.config.settings
+
+    def _persist_ui_setting(self, key: str, value: str):
+        self._persist_setting('ui', key, value)
 
     def set_save_validation_strategy(self, strategy: str, require_admin: bool = True) -> str:
         if require_admin and not self.is_admin:
@@ -152,6 +162,22 @@ class SubmitLogic:
             raise PermissionError("仅管理员可修改保存模式")
         normalized = self._normalize_save_mode(mode)
         self._persist_ui_setting('save_mode', normalized)
+        return normalized
+
+    def set_zotero_build_mode(self, enabled: bool) -> bool:
+        normalized = bool(enabled)
+        self._persist_ui_setting('zotero_build_mode', 'true' if normalized else 'false')
+        return normalized
+
+    def set_allow_invalid_entries_on_update(self, enabled: bool, require_admin: bool = True) -> bool:
+        if require_admin and not self.is_admin:
+            raise PermissionError("仅管理员可修改更新验证策略")
+        normalized = bool(enabled)
+        self._persist_setting(
+            'database',
+            'allow_invalid_entries_on_update',
+            'true' if normalized else 'false',
+        )
         return normalized
 
     def _build_default_workspace_layout_profile(self) -> Dict[str, Any]:
@@ -933,26 +959,6 @@ class SubmitLogic:
     
     # ================= 管理员权限 =================
 
-    def check_admin_password_configured(self) -> bool:
-        return os.path.exists(self.admin_password_path)
-
-    def verify_admin_password(self, password: str) -> bool:
-        if not self.check_admin_password_configured(): return False
-        try:
-            with open(self.admin_password_path, 'r', encoding='utf-8') as f:
-                stored = f.read().strip()
-            return stored == password
-        except: return False
-
-    def set_admin_password(self, password: str):
-        ensure_directory(os.path.dirname(self.admin_password_path))
-
-        if os.path.exists(self.admin_password_path):
-            backup_file(self.admin_password_path, self.backup_dir)
-
-        with open(self.admin_password_path, 'w', encoding='utf-8') as f:
-            f.write(password)
-
     def set_admin_mode(self, enabled: bool):
         self.is_admin = enabled
 
@@ -969,6 +975,87 @@ class SubmitLogic:
             self.ensure_paper_uid(p)
         self.papers.extend(papers)
         return len(papers)
+
+    def _zotero_build_ignored_fields(self) -> Set[str]:
+        """返回构建模式中属于条目实例、而非论文本身的字段。"""
+        ignored = {
+            'category', 'uid', 'pipeline_image', 'paper_file',
+            self.ZOTERO_REF_FIELD, 'citation_key', 'analogy_summary',
+            'contributor', 'related_papers',
+        }
+        ignored.update(
+            field_name
+            for field_name in Paper.__dataclass_fields__
+            if field_name.startswith('summary_')
+        )
+        for tag in self.config.get_system_tags():
+            variable = str(tag.get('variable', '') or '').strip()
+            if variable:
+                ignored.add(variable)
+        return ignored
+
+    def _zotero_build_metadata_equal(self, left: Paper, right: Paper) -> bool:
+        """比较可跨分类复用的论文级 Zotero 元数据。"""
+        ignored = self._zotero_build_ignored_fields()
+        for field_name in left.__dataclass_fields__:
+            if field_name in ignored:
+                continue
+            left_value = getattr(left, field_name, '')
+            right_value = getattr(right, field_name, '')
+            if isinstance(left_value, bool) or isinstance(right_value, bool):
+                if bool(left_value) != bool(right_value):
+                    return False
+            elif str(left_value or '').strip() != str(right_value or '').strip():
+                return False
+        return True
+
+    def find_reusable_zotero_build_paper(self, source_paper: Paper) -> int:
+        """查找 identity 相同且论文级元数据完全一致的已有条目。"""
+        for index, existing in enumerate(self.papers):
+            if is_same_identity(existing, source_paper) and self._zotero_build_metadata_equal(existing, source_paper):
+                return index
+        return -1
+
+    def add_zotero_papers_in_build_mode(self, papers: List[Paper], selected_category: str) -> Dict[str, Any]:
+        """
+        使用 Hierarchy 分类构建 Zotero 条目；完全相同的论文仅追加分类。
+
+        返回的 indices 与输入 papers 一一对应，便于 GUI 定位到复用或新建的条目。
+        """
+        category = str(selected_category or '').strip()
+        _, _, categories_by_unique_name = self.build_category_hierarchy()
+        if not category or category not in categories_by_unique_name:
+            raise ValueError("构建模式需要在 Hierarchy 中选择一个具体分类")
+
+        result: Dict[str, Any] = {
+            'created': 0,
+            'categorized': 0,
+            'unchanged': 0,
+            'category_limit': 0,
+            'indices': [],
+        }
+        for paper in papers:
+            reusable_index = self.find_reusable_zotero_build_paper(paper)
+            if reusable_index >= 0:
+                changed, reason, _ = self.add_category_to_paper(reusable_index, category)
+                if changed:
+                    result['categorized'] += 1
+                elif reason == 'limit':
+                    result['category_limit'] += 1
+                else:
+                    result['unchanged'] += 1
+                result['indices'].append(reusable_index)
+                continue
+
+            # 构建模式始终以 Hierarchy 当前分类覆盖 Zotero 标签分类。
+            paper.category = category
+            paper.contributor = 'me'
+            self.ensure_paper_uid(paper)
+            self.papers.append(paper)
+            result['created'] += 1
+            result['indices'].append(len(self.papers) - 1)
+
+        return result
 
     def _normalize_doi_for_zotero_lookup(self, doi_text: str) -> str:
         text = str(doi_text or '').strip().lower()
@@ -1111,7 +1198,7 @@ class SubmitLogic:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT i.key, i.libraryID
+            SELECT i.itemID, i.key, i.libraryID
             FROM items i
             LEFT JOIN deletedItems d ON d.itemID = i.itemID
             LEFT JOIN itemAttachments ia ON ia.itemID = i.itemID
@@ -1129,8 +1216,9 @@ class SubmitLogic:
         if not row:
             return None
 
-        found_key, found_library_id = row
+        found_item_id, found_key, found_library_id = row
         return {
+            'item_id': int(found_item_id),
             'uri': self._build_zotero_select_uri(conn, found_key, int(found_library_id or 1)),
             'ref': self._compose_zotero_ref(int(found_library_id or 1), str(found_key or '')),
         }
@@ -1146,7 +1234,7 @@ class SubmitLogic:
         if doi_norm:
             cur.execute(
                 """
-                SELECT i.key, i.libraryID, v.value
+                SELECT i.itemID, i.key, i.libraryID, v.value
                 FROM items i
                 JOIN itemData id ON id.itemID = i.itemID
                 JOIN fields f ON f.fieldID = id.fieldID
@@ -1160,11 +1248,12 @@ class SubmitLogic:
                   AND f.fieldName = 'DOI'
                 """
             )
-            for key, library_id, raw_doi in cur.fetchall():
+            for item_id, key, library_id, raw_doi in cur.fetchall():
                 if self._normalize_doi_for_zotero_lookup(raw_doi) == doi_norm:
                     lid = int(library_id or 1)
                     key_text = str(key or '').strip()
                     doi_matches.append({
+                        'item_id': int(item_id),
                         'uri': self._build_zotero_select_uri(conn, key_text, lid),
                         'ref': self._compose_zotero_ref(lid, key_text),
                     })
@@ -1172,7 +1261,7 @@ class SubmitLogic:
         if title_norm:
             cur.execute(
                 """
-                SELECT i.key, i.libraryID, v.value
+                SELECT i.itemID, i.key, i.libraryID, v.value
                 FROM items i
                 JOIN itemData id ON id.itemID = i.itemID
                 JOIN fields f ON f.fieldID = id.fieldID
@@ -1186,11 +1275,12 @@ class SubmitLogic:
                   AND f.fieldName = 'title'
                 """
             )
-            for key, library_id, raw_title in cur.fetchall():
+            for item_id, key, library_id, raw_title in cur.fetchall():
                 if self._normalize_title_for_zotero_lookup(raw_title) == title_norm:
                     lid = int(library_id or 1)
                     key_text = str(key or '').strip()
                     title_matches.append({
+                        'item_id': int(item_id),
                         'uri': self._build_zotero_select_uri(conn, key_text, lid),
                         'ref': self._compose_zotero_ref(lid, key_text),
                     })
@@ -1214,6 +1304,145 @@ class SubmitLogic:
             return doi_matches[0]
 
         return None
+
+    def _zotero_linked_attachment_base_dir(self) -> str:
+        """返回 Zotero 链接附件的可选基准目录。"""
+        zotero_cfg = self.settings.get('zotero', {}) or {}
+        raw = str(zotero_cfg.get('linked_attachment_base_dir', '') or '').strip()
+        if not raw:
+            return ''
+        return os.path.normpath(raw if os.path.isabs(raw) else os.path.join(BASE_DIR, raw))
+
+    def _resolve_zotero_attachment_path(
+        self,
+        db_path: str,
+        attachment_key: str,
+        stored_path: str,
+    ) -> Tuple[Optional[str], str]:
+        """将 Zotero 的 storage:/绝对路径/attachments: 引用解析为本地文件。"""
+        raw = str(stored_path or '').strip()
+        if not raw:
+            return None, "附件路径为空"
+
+        db_dir = os.path.dirname(os.path.abspath(db_path))
+        if raw.lower().startswith('storage:'):
+            relative_name = raw[len('storage:'):].lstrip('/\\')
+            candidate = os.path.join(db_dir, 'storage', str(attachment_key or '').strip(), relative_name)
+        elif raw.lower().startswith('attachments:'):
+            base_dir = self._zotero_linked_attachment_base_dir()
+            if not base_dir:
+                return None, "相对链接附件未配置 linked_attachment_base_dir"
+            candidate = os.path.join(base_dir, raw[len('attachments:'):].lstrip('/\\'))
+        elif raw.lower().startswith('file:'):
+            parsed = urlparse(raw)
+            file_path = unquote(parsed.path or '')
+            if parsed.netloc:
+                file_path = f"//{parsed.netloc}{file_path}"
+            if re.match(r'^/[A-Za-z]:/', file_path):
+                file_path = file_path[1:]
+            candidate = file_path
+        elif os.path.isabs(raw):
+            candidate = raw
+        else:
+            # 少数旧版数据库保存普通相对路径；仅在数据库目录下确实存在时采用。
+            candidate = os.path.join(db_dir, raw)
+
+        resolved = os.path.normpath(os.path.abspath(candidate))
+        if not os.path.isfile(resolved):
+            return None, f"文件不存在: {resolved}"
+        if os.path.splitext(resolved)[1].lower() != '.pdf':
+            return None, f"不是 PDF 文件: {resolved}"
+        return resolved, ''
+
+    def _query_zotero_pdf_attachments(
+        self,
+        conn: sqlite3.Connection,
+        parent_item_id: int,
+        original_db_path: str,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT child.key, ia.path, ia.linkMode, ia.contentType
+            FROM itemAttachments ia
+            JOIN items child ON child.itemID = ia.itemID
+            LEFT JOIN deletedItems d ON d.itemID = child.itemID
+            WHERE ia.parentItemID = ?
+              AND d.itemID IS NULL
+              AND (
+                    lower(COALESCE(ia.contentType, '')) = 'application/pdf'
+                    OR lower(COALESCE(ia.path, '')) LIKE '%.pdf'
+                  )
+            ORDER BY child.itemID
+            """,
+            (int(parent_item_id),),
+        )
+
+        available: List[Dict[str, Any]] = []
+        unavailable: List[Dict[str, Any]] = []
+        for key, stored_path, link_mode, content_type in cur.fetchall():
+            resolved_path, error = self._resolve_zotero_attachment_path(
+                original_db_path,
+                str(key or ''),
+                str(stored_path or ''),
+            )
+            item = {
+                'key': str(key or ''),
+                'stored_path': str(stored_path or ''),
+                'path': resolved_path or '',
+                'filename': os.path.basename(resolved_path or str(stored_path or '')),
+                'link_mode': int(link_mode) if link_mode is not None else None,
+                'content_type': str(content_type or ''),
+                'error': error,
+            }
+            (available if resolved_path else unavailable).append(item)
+        return available, unavailable
+
+    def get_zotero_pdf_attachments(self, paper: Paper) -> Dict[str, Any]:
+        """按 zotero_item_ref，失败时按 DOI/标题，查找当前论文的本地 PDF 附件。"""
+        db_path = self._pick_available_zotero_db_path()
+        if not db_path:
+            return {'status': 'no_db', 'db_path': None, 'attachments': [], 'unavailable': []}
+
+        copied_db_path: Optional[str] = None
+        conn: Optional[sqlite3.Connection] = None
+        try:
+            copied_db_path = self._copy_zotero_db_for_query(db_path)
+            conn = self._connect_zotero_db_readonly(copied_db_path)
+            stored_ref = str(getattr(paper, self.ZOTERO_REF_FIELD, '') or '').strip()
+            matched = self._query_zotero_item_by_ref(conn, stored_ref) if stored_ref else None
+            if not matched:
+                matched = self._query_zotero_item_by_doi_or_title(
+                    conn,
+                    str(getattr(paper, 'doi', '') or ''),
+                    str(getattr(paper, 'title', '') or ''),
+                )
+            if not matched or matched.get('item_id') is None:
+                return {'status': 'not_found', 'db_path': db_path, 'attachments': [], 'unavailable': []}
+
+            attachments, unavailable = self._query_zotero_pdf_attachments(
+                conn,
+                int(matched['item_id']),
+                db_path,
+            )
+            return {
+                'status': 'matched' if attachments else 'no_pdf',
+                'db_path': db_path,
+                'matched_ref': matched.get('ref'),
+                'attachments': attachments,
+                'unavailable': unavailable,
+            }
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            if copied_db_path and os.path.isfile(copied_db_path):
+                try:
+                    os.remove(copied_db_path)
+                except Exception:
+                    pass
 
     def locate_paper_in_zotero(self, paper: Paper) -> Dict[str, Any]:
         db_path = self._pick_available_zotero_db_path()
@@ -1323,7 +1552,12 @@ class SubmitLogic:
         except Exception as e:
             return False, str(e)
 
-    def get_zotero_fill_updates(self, source_paper: Paper, target_index: int) -> Tuple[List[str], List[Tuple[str, Any]]]:
+    def get_zotero_fill_updates(
+        self,
+        source_paper: Paper,
+        target_index: int,
+        category_override: Optional[str] = None,
+    ) -> Tuple[List[str], List[Tuple[str, Any]]]:
         """计算Zotero填充的更新内容"""
         if not (0 <= target_index < len(self.papers)):
             return [], []
@@ -1342,16 +1576,30 @@ class SubmitLogic:
         for field in source_paper.__dataclass_fields__:
             if field in ['invalid_fields', 'is_placeholder', 'uid']:
                 continue
+            if category_override and field in {'category', 'contributor'}:
+                continue
             if field in system_fields and field not in allowed_system_fill_fields:
                 continue
             
             val = getattr(source_paper, field)
             if val:
                 target_val = getattr(target_paper, field)
+                if category_override and str(target_val or '').strip() == str(val or '').strip():
+                    continue
                 fields_to_update.append((field, val))
                 # 冲突检测
                 if target_val and str(target_val).strip() and str(target_val).strip() != self.PLACEHOLDER:
                     conflicts.append(field)
+
+        if category_override:
+            categories = self._paper_category_list(target_paper)
+            if category_override not in categories:
+                category_limit = self.get_max_categories_per_paper()
+                if len(categories) < category_limit:
+                    categories.append(category_override)
+                    fields_to_update.append(('category', '|'.join(categories)))
+            if not str(getattr(target_paper, 'contributor', '') or '').strip():
+                fields_to_update.append(('contributor', 'me'))
                     
         return conflicts, fields_to_update
 

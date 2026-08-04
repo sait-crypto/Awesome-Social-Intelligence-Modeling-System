@@ -124,7 +124,7 @@ python scripts/integration_test_changes.py
     "unique_name": "Sentiment Understanding",  # ← 改这里
     "order": 2,
     "name": "Sentiment Understanding",
-    "primary_category": "Perception and Classification",
+    "predecessor_category": "Content-Level Perception",
     "enabled": True,
 }
 

@@ -3,7 +3,11 @@ import os
 import requests
 import json
 import re
+from pathlib import Path
+from dotenv import load_dotenv
 
+# 加载.env文件
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 class LLMService:
     """LLM服务类"""

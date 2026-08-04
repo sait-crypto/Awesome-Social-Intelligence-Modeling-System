@@ -17,6 +17,8 @@ import threading
 import subprocess
 import time
 import traceback
+import webbrowser
+from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -104,6 +106,10 @@ class PaperSubmissionGUI:
         self._search_field_vars: Dict[str, tk.BooleanVar] = {}
         self._selected_category_filter = ""
         self._category_sidebar_visible = False
+        self.zotero_build_mode_var = tk.BooleanVar(value=self.logic.get_zotero_build_mode())
+        self.allow_invalid_update_var = tk.BooleanVar(
+            value=self.logic.get_allow_invalid_entries_on_update()
+        )
         default_layout = self.logic.get_default_workspace_layout_payload()
         self._default_main_pane_ratio = float(default_layout.get('main_pane_ratio', 0.47))
         self._default_category_sidebar_ratio = float(default_layout.get('category_sidebar_ratio', 0.40))
@@ -1018,6 +1024,7 @@ class PaperSubmissionGUI:
         self.paper_tree.bind("<Button-1>", self._on_tree_left_button)
         self.paper_tree.bind("<B1-Motion>", self._on_drag_motion)
         self.paper_tree.bind("<ButtonRelease-1>", self._on_drag_release)
+        self._bind_conflict_shortcuts_to_widget(self.paper_tree)
 
         self.list_content_paned.add(self.category_filter_panel, minsize=160, stretch="never")
         self.list_content_paned.add(list_frame, minsize=220, stretch="always")
@@ -1205,6 +1212,10 @@ class PaperSubmissionGUI:
             elif variable == 'paper_file':
                 self._create_file_field_ui(row, variable)
 
+            # === 2.25 URL Fields ===
+            elif variable in {'paper_url', 'project_url'}:
+                self._create_url_field_ui(row, variable)
+
             # === 2.5 Related Papers (paper[]) ===
             elif field_type == 'paper[]':
                 self._create_related_papers_field_ui(row, variable)
@@ -1274,6 +1285,59 @@ class PaperSubmissionGUI:
             row += 1
         
         self.form_frame.columnconfigure(1, weight=1)
+
+    def _create_url_field_ui(self, row: int, variable: str):
+        """创建带默认浏览器打开按钮的网址输入字段。"""
+        frame = ttk.Frame(self.form_frame)
+        frame.grid(row=row, column=1, sticky="we", pady=(2, 2), padx=(5, 0))
+
+        entry = tk.Entry(frame, width=60, relief=tk.GROOVE, borderwidth=2)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        sv = tk.StringVar()
+        sv.trace_add("write", lambda *args, v=variable, w=entry: self._on_field_change(v, w))
+        entry.config(textvariable=sv)
+        entry.bind("<KeyRelease>", lambda e, v=variable, w=entry: self._on_field_change(v, w))
+        entry.bind("<FocusOut>", lambda e, v=variable, w=entry: self._on_field_change(v, w))
+        entry.bind("<Enter>", lambda e: self._bind_global_scroll(self.form_canvas.yview_scroll))
+
+        open_btn = ttk.Button(
+            frame,
+            text="🌐",
+            width=3,
+            command=lambda value=sv: self._open_url_in_browser(value.get()),
+        )
+        open_btn.pack(side=tk.LEFT, padx=(4, 0))
+        self.create_tooltip(open_btn, "使用默认浏览器打开当前网址")
+
+        self._field_vars[variable] = sv
+        self.form_fields[variable] = entry
+        self.field_widgets[variable] = entry
+
+    def _open_url_in_browser(self, raw_url: str) -> bool:
+        """校验网址后通过系统默认浏览器打开。"""
+        url = str(raw_url or '').strip()
+        if not url:
+            messagebox.showwarning("提示", "网址为空，无法打开")
+            return False
+
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.scheme.lower() not in {'http', 'https'} or not parsed.netloc:
+            messagebox.showwarning("网址格式错误", "只能打开有效的 http:// 或 https:// 网址")
+            return False
+
+        try:
+            opened = webbrowser.open(url, new=2)
+        except Exception as ex:
+            messagebox.showerror("打开网址失败", str(ex))
+            return False
+        if not opened:
+            messagebox.showerror("打开网址失败", "系统未能调用默认浏览器")
+            return False
+        return True
 
     def _get_current_real_index(self) -> int:
         if self.current_paper_index < 0:
@@ -1600,6 +1664,15 @@ class PaperSubmissionGUI:
         btn_paste = ttk.Button(btn_frame, text="📋", width=3, command=paste_file)
         btn_paste.pack(side=tk.LEFT, padx=1)
         self.create_tooltip(btn_paste, "从剪贴板导入文件（与 Ctrl+V 相同）")
+
+        btn_zotero = ttk.Button(
+            btn_frame,
+            text="Z",
+            width=3,
+            command=self.import_current_paper_pdf_from_zotero,
+        )
+        btn_zotero.pack(side=tk.LEFT, padx=1)
+        self.create_tooltip(btn_zotero, "从匹配的 Zotero 条目导入论文 PDF")
 
         def open_file():
             path = sv.get().strip()
@@ -2477,8 +2550,7 @@ class PaperSubmissionGUI:
         if not self._is_packaged_exe:
             self.update_btn.pack(side=tk.LEFT, padx=5, pady=5)
         self.update_menu = tk.Menu(self.root, tearoff=0)
-        self.update_menu.add_command(label="🔄 正常更新", command=lambda: self.run_update_script(update_mode='normal'))
-        self.update_menu.add_command(label="🗂️ 只更新 database", command=lambda: self.run_update_script(update_mode='database-only'))
+        self._refresh_update_menu()
         if not self._is_packaged_exe:
             self.update_btn.bind("<ButtonPress-1>", self._on_update_menu_button_press)
             ttk.Button(script_frame, text="✅ 运行验证", command=self.run_validate_script, width=12).pack(side=tk.LEFT, padx=5, pady=5)
@@ -2549,6 +2621,7 @@ class PaperSubmissionGUI:
         return "break"
 
     def _on_update_menu_button_press(self, event):
+        self._refresh_update_menu()
         self._post_menu_above_button(self.update_menu, self.update_btn)
         self.root.focus_force()
         return "break"
@@ -2574,30 +2647,21 @@ class PaperSubmissionGUI:
             self._update_admin_ui_state()
             self._refresh_ui_fields()
         else:
-            # 进入管理员模式
-            # 检查是否有密码配置
-            if not self.logic.check_admin_password_configured():
-                # 首次设置
-                pwd = simpledialog.askstring("设置管理员密码", "首次进入管理员模式，请设置密码:", show='*')
-                if pwd:
-                    self.logic.set_admin_password(pwd)
-                    self.logic.set_admin_mode(True)
-                    self._update_admin_ui_state()
-                    self._refresh_ui_fields()
-            else:
-                # 验证密码
-                pwd = simpledialog.askstring("管理员验证", "请输入管理员密码:", show='*')
-                if pwd:
-                    if self.logic.verify_admin_password(pwd):
-                        self.logic.set_admin_mode(True)
-                        self._update_admin_ui_state()
-                        self._refresh_ui_fields()
-                    else:
-                        messagebox.showerror("错误", "密码错误")
+            confirmed = messagebox.askyesno(
+                "进入管理员模式",
+                "管理员模式会显示系统字段，并允许执行数据库及高级配置操作。\n\n"
+                "该模式仅用于防止误操作，不提供安全隔离。是否继续？",
+            )
+            if not confirmed:
+                return
+            self.logic.set_admin_mode(True)
+            self._update_admin_ui_state()
+            self._refresh_ui_fields()
 
     def _update_admin_ui_state(self):
         """更新UI以反映管理员状态"""
         self._refresh_save_config_menu()
+        self._refresh_update_menu()
 
         if self.logic.is_admin:
             self.admin_btn.config(text="🔓 管理员: ON")
@@ -2611,6 +2675,49 @@ class PaperSubmissionGUI:
 
     def _get_save_mode(self) -> str:
         return self.logic.get_save_mode()
+
+    def _refresh_update_menu(self):
+        if not hasattr(self, 'update_menu'):
+            return
+        self.update_menu.delete(0, tk.END)
+        self.update_menu.add_command(
+            label="🔄 正常更新",
+            command=lambda: self.run_update_script(update_mode='normal'),
+        )
+        self.update_menu.add_command(
+            label="🗂️ 只更新 database",
+            command=lambda: self.run_update_script(update_mode='database-only'),
+        )
+        if self.logic.is_admin:
+            self.update_menu.add_separator()
+            self.update_menu.add_checkbutton(
+                label="⚠️ 字段错误条目仍更新（仅警告）",
+                variable=self.allow_invalid_update_var,
+                command=self._on_allow_invalid_update_toggle,
+            )
+
+    def _on_allow_invalid_update_toggle(self):
+        enabled = bool(self.allow_invalid_update_var.get())
+        if enabled:
+            confirmed = messagebox.askyesno(
+                "更新验证策略",
+                "开启后，字段格式错误或必填字段缺失的条目也会写入数据库，"
+                "并通过 invalid_fields 和更新日志保留警告。\n\n是否继续开启？",
+            )
+            if not confirmed:
+                self.allow_invalid_update_var.set(False)
+                return
+        try:
+            self.logic.set_allow_invalid_entries_on_update(enabled, require_admin=True)
+            self.settings = self.logic.settings
+            self.update_status(
+                "更新验证策略：字段错误条目仅警告并继续入库"
+                if enabled else
+                "更新验证策略：字段错误条目跳过入库"
+            )
+        except Exception as ex:
+            self.allow_invalid_update_var.set(not enabled)
+            messagebox.showerror("设置失败", f"无法保存更新验证策略：{ex}")
 
     def _refresh_save_policy_button_text(self):
         if not hasattr(self, 'save_config_menu'):
@@ -3724,6 +3831,58 @@ class PaperSubmissionGUI:
         if not ok:
             messagebox.showerror("错误", f"无法打开: {err}")
 
+    @staticmethod
+    def _reveal_windows_file(abs_path: str):
+        """通过 Windows Shell API 打开父目录并选中文件，避开 explorer.exe 参数解析差异。"""
+        import ctypes
+        from ctypes import wintypes
+
+        ole32 = ctypes.OleDLL('ole32')
+        shell32 = ctypes.WinDLL('shell32')
+        ole32.CoInitializeEx.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+        ole32.CoInitializeEx.restype = ctypes.c_long
+        ole32.CoUninitialize.argtypes = []
+        ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+        shell32.SHParseDisplayName.argtypes = [
+            wintypes.LPCWSTR,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_void_p),
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        shell32.SHParseDisplayName.restype = ctypes.c_long
+        shell32.SHOpenFolderAndSelectItems.argtypes = [
+            ctypes.c_void_p,
+            wintypes.UINT,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+        ]
+        shell32.SHOpenFolderAndSelectItems.restype = ctypes.c_long
+
+        # COINIT_APARTMENTTHREADED。若线程已用另一模型初始化，Shell API 仍可使用，
+        # 但不能为这次调用执行 CoUninitialize。
+        init_hr = int(ole32.CoInitializeEx(None, 0x2))
+        initialized_here = init_hr in (0, 1)  # S_OK / S_FALSE
+        changed_mode = ctypes.c_long(0x80010106).value  # RPC_E_CHANGED_MODE
+        if init_hr not in (0, 1, changed_mode):
+            raise OSError(f"COM 初始化失败: HRESULT 0x{init_hr & 0xFFFFFFFF:08X}")
+
+        pidl = ctypes.c_void_p()
+        attributes = wintypes.DWORD()
+        try:
+            parse_hr = int(shell32.SHParseDisplayName(abs_path, None, ctypes.byref(pidl), 0, ctypes.byref(attributes)))
+            if parse_hr != 0 or not pidl.value:
+                raise OSError(f"无法解析文件路径: HRESULT 0x{parse_hr & 0xFFFFFFFF:08X}")
+
+            select_hr = int(shell32.SHOpenFolderAndSelectItems(pidl, 0, None, 0))
+            if select_hr != 0:
+                raise OSError(f"Windows Shell 无法定位文件: HRESULT 0x{select_hr & 0xFFFFFFFF:08X}")
+        finally:
+            if pidl.value:
+                ole32.CoTaskMemFree(pidl)
+            if initialized_here:
+                ole32.CoUninitialize()
+
     def _reveal_in_file_manager(self, path: str, select_file: bool = True):
         abs_path = self._resolve_existing_path(path)
         if not abs_path:
@@ -3731,7 +3890,8 @@ class PaperSubmissionGUI:
         try:
             if sys.platform == 'win32':
                 if select_file and os.path.isfile(abs_path):
-                    subprocess.Popen(['explorer.exe', '/select,', abs_path])
+                    normalized_path = os.path.normpath(os.path.abspath(abs_path))
+                    self._reveal_windows_file(normalized_path)
                 else:
                     target_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path)
                     os.startfile(os.path.normpath(target_dir))
@@ -4049,9 +4209,15 @@ class PaperSubmissionGUI:
             status_running = "正在运行 database 空更新..."
         else:
             title = "运行更新"
+            validation_policy = (
+                "字段错误条目：仅警告并继续入库"
+                if self.logic.get_allow_invalid_entries_on_update()
+                else "字段错误条目：跳过入库"
+            )
             content = (
                 "该按钮会执行更新流程：将更新文件合并到数据库，并尝试生成 README。\n"
                 "这会修改核心数据库文件。\n\n"
+                f"当前更新验证策略：{validation_policy}\n\n"
                 "运行后会在文本日志窗口中显示详细结果与错误信息。\n\n"
                 "是否继续？"
             )
@@ -4205,24 +4371,141 @@ class PaperSubmissionGUI:
             text.configure(state='disabled')
 
         return log_win, status_var, append_log
+    def _choose_zotero_pdf_attachment(self, attachments: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not attachments:
+            return None
+        if len(attachments) == 1:
+            return attachments[0]
 
+        win = tk.Toplevel(self.root)
+        win.title("选择 Zotero PDF")
+        win.geometry("720x330")
+        win.transient(self.root)
+        ttk.Label(win, text="该条目有多个 PDF，请选择要导入的文件：", padding=10).pack(anchor='w')
+        listbox = tk.Listbox(win, exportselection=False)
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 8))
+        for attachment in attachments:
+            filename = attachment.get('filename') or attachment.get('key') or '未命名 PDF'
+            listbox.insert(tk.END, f"{filename}    {attachment.get('path', '')}")
+        listbox.selection_set(0)
+        listbox.activate(0)
 
+        result: Dict[str, Optional[Dict[str, Any]]] = {'attachment': None}
 
+        def confirm_selection(event=None):
+            selected = listbox.curselection()
+            if not selected:
+                return messagebox.showwarning("提示", "请选择一个 PDF", parent=win)
+            result['attachment'] = attachments[int(selected[0])]
+            win.destroy()
+
+        button_frame = ttk.Frame(win)
+        button_frame.pack(pady=(0, 10))
+        ttk.Button(button_frame, text="导入", command=confirm_selection).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="取消", command=win.destroy).pack(side=tk.LEFT, padx=5)
+        listbox.bind('<Double-Button-1>', confirm_selection)
+        win.protocol('WM_DELETE_WINDOW', win.destroy)
+        win.grab_set()
+        self.root.wait_window(win)
+        return result['attachment']
+
+    def _import_zotero_pdf_for_paper(self, paper: Paper, ask_overwrite: bool = True) -> bool:
+        current_value = str(getattr(paper, 'paper_file', '') or '').strip()
+        try:
+            result = self.logic.get_zotero_pdf_attachments(paper)
+        except Exception as ex:
+            messagebox.showerror("Zotero PDF 导入失败", f"查询 Zotero 附件时出错：\n{ex}", parent=self.root)
+            return False
+
+        status = result.get('status')
+        if status == 'no_db':
+            messagebox.showwarning("未找到 Zotero 数据库", "未检测到可用的 zotero.sqlite。", parent=self.root)
+            return False
+        if status == 'not_found':
+            messagebox.showinfo(
+                "未匹配到 Zotero 条目",
+                "无法按 zotero_item_ref、DOI 或标题匹配当前论文。",
+                parent=self.root,
+            )
+            return False
+
+        attachments = list(result.get('attachments') or [])
+        if not attachments:
+            unavailable = list(result.get('unavailable') or [])
+            detail = ''
+            if unavailable:
+                reasons = [str(item.get('error') or item.get('stored_path') or '') for item in unavailable[:3]]
+                detail = "\n\n检测到但无法读取：\n" + "\n".join(reasons)
+            messagebox.showinfo("未找到可导入的 PDF", "匹配的 Zotero 条目没有可读取的本地 PDF。" + detail, parent=self.root)
+            return False
+
+        selected = self._choose_zotero_pdf_attachment(attachments)
+        if not selected:
+            return False
+        if current_value and ask_overwrite:
+            if not messagebox.askyesno(
+                "覆盖论文文件",
+                "paper_file 已有内容。是否改为从 Zotero 导入的 PDF？",
+                parent=self.root,
+            ):
+                return False
+
+        uid = self.logic.ensure_paper_uid(paper)
+        ok, rel_path, error = self.logic.import_file_asset(selected.get('path', ''), 'paper', uid)
+        if not ok:
+            messagebox.showerror("Zotero PDF 导入失败", error or "复制 PDF 失败", parent=self.root)
+            return False
+
+        paper.paper_file = rel_path
+        matched_ref = str(result.get('matched_ref') or '').strip()
+        if matched_ref and not str(getattr(paper, self.logic.ZOTERO_REF_FIELD, '') or '').strip():
+            setattr(paper, self.logic.ZOTERO_REF_FIELD, matched_ref)
+        self._imported_files['paper_file'] = (str(selected.get('path') or ''), rel_path)
+        return True
+
+    def import_current_paper_pdf_from_zotero(self):
+        paper = self._get_current_paper()
+        if paper is None:
+            return messagebox.showwarning("提示", "请先选择论文")
+        if self._import_zotero_pdf_for_paper(paper, ask_overwrite=True):
+            self.load_paper_to_form(paper)
+            self.update_status("已从 Zotero 导入论文 PDF；保存时会规范化到论文资源目录")
 
     def fill_from_zotero_meta(self):
         if not self._require_selected_paper("提示", "请先选择论文"):
             return
-        s = self._show_zotero_input_dialog("填充表单")
-        if not s: return
+        dialog_result = self._show_zotero_input_dialog("填充表单")
+        if not dialog_result: return
+        s = dialog_result['json']
+        import_pdf = bool(dialog_result.get('import_pdf'))
+
+        build_category = ''
+        if self.zotero_build_mode_var.get():
+            build_category = self._get_category_filter_value()
+            if not build_category:
+                return messagebox.showwarning("构建模式", "请先在 Hierarchy 中选择一个具体分类（不能选择 All Categories）")
         new_p = self.logic.process_zotero_json(s)
         if not new_p: return messagebox.showwarning("提示", "无有效数据")
 
         real_idx = self._get_current_real_index()
         if real_idx < 0:
             return
-        conflicts, updates = self.logic.get_zotero_fill_updates(new_p[0], real_idx)
+        if build_category:
+            current_categories = self.logic._paper_category_list(self.logic.papers[real_idx])
+            if (
+                build_category not in current_categories
+                and len(current_categories) >= self.logic.get_max_categories_per_paper()
+            ):
+                return messagebox.showwarning("构建模式", "当前条目的分类数量已达到上限，无法追加所选 Hierarchy 分类")
+
+        conflicts, updates = self.logic.get_zotero_fill_updates(
+            new_p[0],
+            real_idx,
+            category_override=build_category or None,
+        )
         
-        if not updates: return messagebox.showinfo("提示", "Zotero数据中没有有效内容可填充")
+        if not updates and not import_pdf:
+            return messagebox.showinfo("提示", "Zotero数据中没有有效内容可填充")
         
         overwrite = True
         if conflicts:
@@ -4231,9 +4514,27 @@ class PaperSubmissionGUI:
             if res is None: return
             overwrite = res
         
-        cnt = self.logic.apply_paper_updates(real_idx, updates, overwrite)
+        cnt = self.logic.apply_paper_updates(real_idx, updates, overwrite) if updates else 0
+        pdf_imported = False
+        if import_pdf:
+            pdf_imported = self._import_zotero_pdf_for_paper(
+                self.logic.papers[real_idx],
+                ask_overwrite=True,
+            )
         self.load_paper_to_form(self.logic.papers[real_idx])
-        self.update_status(f"已从Zotero数据更新 {cnt} 个字段")
+        self._rebuild_category_filter_tree(select_current=True)
+        suffix = "，并导入 PDF" if pdf_imported else ""
+        self.update_status(f"已从Zotero数据更新 {cnt} 个字段{suffix}")
+
+    def _on_zotero_build_mode_toggle(self):
+        enabled = bool(self.zotero_build_mode_var.get())
+        try:
+            self.logic.set_zotero_build_mode(enabled)
+            self.settings = self.logic.settings
+            self.update_status(f"Zotero 构建模式已{'开启' if enabled else '关闭'}")
+        except Exception as ex:
+            self.zotero_build_mode_var.set(not enabled)
+            messagebox.showerror("设置失败", f"无法保存 Zotero 构建模式设置：{ex}")
 
     def locate_current_paper_in_zotero(self):
         if not self._require_selected_paper("提示", "请先选择论文"):
@@ -4350,14 +4651,35 @@ class PaperSubmissionGUI:
         self.update_status(f"已清空 zotero_item_ref：{changed} 条")
 
     def _show_zotero_input_dialog(self, title):
-        d = tk.Toplevel(self.root); d.title(title); d.geometry("600x400")
+        d = tk.Toplevel(self.root); d.title(title); d.geometry("600x490")
         ttk.Label(d, text="请粘贴Zotero导出的元数据JSON (支持单个对象或列表):", padding=10).pack()
         t = scrolledtext.ScrolledText(d, height=15); t.pack(fill=tk.BOTH, expand=True, padx=10)
+        build_frame = ttk.Frame(d, padding=(10, 6, 10, 0))
+        build_frame.pack(fill=tk.X)
+        build_check = ttk.Checkbutton(
+            build_frame,
+            text="构建模式（忽略 Zotero 分类，使用 Hierarchy 当前分类并复用相同条目）",
+            variable=self.zotero_build_mode_var,
+            command=self._on_zotero_build_mode_toggle,
+        )
+        build_check.pack(anchor='w')
+        selected_category = self._get_category_filter_value()
+        ttk.Label(
+            build_frame,
+            text=f"Hierarchy 当前分类：{selected_category or 'All Categories（构建模式不可用）'}",
+            foreground='gray',
+        ).pack(anchor='w', padx=(20, 0), pady=(2, 0))
+        import_pdf_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            build_frame,
+            text="同时从匹配的 Zotero 条目导入论文 PDF",
+            variable=import_pdf_var,
+        ).pack(anchor='w', pady=(6, 0))
         res = {"d":None}
         def ok(): 
             val = t.get("1.0", tk.END).strip()
             if not val: return messagebox.showwarning("提示", "输入内容为空", parent=d)
-            res['d'] = val; d.destroy()
+            res['d'] = {'json': val, 'import_pdf': bool(import_pdf_var.get())}; d.destroy()
         
         btn_frame = ttk.Frame(d)
         btn_frame.pack(pady=10)
@@ -6050,6 +6372,24 @@ class PaperSubmissionGUI:
     def _bind_shortcuts(self):
         for sequence, handler in self._get_global_shortcut_bindings():
             self.root.bind(sequence, handler)
+        # 同时使用控件级和应用级绑定：列表有焦点时优先由控件收到按键，
+        # 焦点位于详情表单时则由应用级绑定接收。Ctrl+R 是 Windows 下的稳定主快捷键，
+        # Alt+R 作为兼容快捷键继续保留。
+        for sequence in self._get_conflict_shortcut_sequences():
+            self.root.bind_all(sequence, self._resolve_selected_conflict_shortcut, add="+")
+
+    @staticmethod
+    def _get_conflict_shortcut_sequences() -> Tuple[str, ...]:
+        return (
+            "<Control-KeyPress-r>",
+            "<Control-KeyPress-R>",
+            "<Alt-KeyPress-r>",
+            "<Alt-KeyPress-R>",
+        )
+
+    def _bind_conflict_shortcuts_to_widget(self, widget):
+        for sequence in self._get_conflict_shortcut_sequences():
+            widget.bind(sequence, self._resolve_selected_conflict_shortcut, add="+")
 
     def _get_global_shortcut_bindings(self):
         return [
@@ -6059,7 +6399,34 @@ class PaperSubmissionGUI:
             ("<Control-Shift-S>", self.save_all_papers),
             ("<Alt-c>", self.copy_current_paper_title),
             ("<Alt-C>", self.copy_current_paper_title),
+            ("<Delete>", self._delete_selected_paper_shortcut),
         ]
+
+    def _resolve_selected_conflict_shortcut(self, event=None):
+        """仅在当前选中论文是冲突条目时打开冲突处理窗口。"""
+        paper_tree = getattr(self, 'paper_tree', None)
+        selection = paper_tree.selection() if paper_tree is not None else ()
+        if not selection:
+            return None
+
+        # 以 Treeview 的真实选中项为准。不能使用 current_paper_index：
+        # Tk 的 <<TreeviewSelect>> 事件可能尚未完成，右键选择也可能只更新树选择。
+        _, real_idx = self._resolve_tree_target_indices(selection[0])
+        if not (0 <= real_idx < len(self.logic.papers)):
+            return None
+        if not bool(getattr(self.logic.papers[real_idx], 'conflict_marker', False)):
+            return None
+        self.update_status("正在打开冲突处理窗口...")
+        self._open_conflict_resolution_dialog(real_idx)
+        return "break"
+
+    def _delete_selected_paper_shortcut(self, event=None):
+        """仅在论文列表获得焦点时响应 Delete，避免影响表单文字编辑。"""
+        paper_tree = getattr(self, 'paper_tree', None)
+        if paper_tree is None or self.root.focus_get() is not paper_tree:
+            return None
+        self.delete_paper()
+        return "break"
 
     def _get_text_widget_shortcut_bindings(self):
         return [
@@ -6093,6 +6460,16 @@ class PaperSubmissionGUI:
                 'combo': 'Alt+C',
                 'action': '复制当前论文标题字段内容到剪贴板',
                 'available': '全局可用，但需要当前选中论文且标题非空',
+            },
+            {
+                'combo': 'Delete',
+                'action': '删除当前选中的论文条目（仍会弹出删除确认）',
+                'available': '仅当焦点在论文列表时可用，避免影响文本编辑',
+            },
+            {
+                'combo': 'Ctrl+R（Alt+R 兼容）',
+                'action': '处理当前选中的冲突条目',
+                'available': '仅当当前选中论文带有冲突标记时响应',
             },
             {
                 'combo': 'Ctrl+Z',
@@ -6182,20 +6559,58 @@ class PaperSubmissionGUI:
         return self.copy_field_value_by_label('title', 'title', event=event)
 
     def add_from_zotero_meta(self):
-        s = self._show_zotero_input_dialog("从Zotero Meta新建论文")
-        if not s: return
+        dialog_result = self._show_zotero_input_dialog("从Zotero Meta新建论文")
+        if not dialog_result: return
+        s = dialog_result['json']
+        import_pdf = bool(dialog_result.get('import_pdf'))
+
+        build_category = ''
+        if self.zotero_build_mode_var.get():
+            build_category = self._get_category_filter_value()
+            if not build_category:
+                return messagebox.showwarning("构建模式", "请先在 Hierarchy 中选择一个具体分类（不能选择 All Categories）")
         new_p = self.logic.process_zotero_json(s)
         if not new_p: return messagebox.showwarning("提示", "未解析到有效的Zotero数据")
-        self.logic.add_zotero_papers(new_p)
+
+        if build_category:
+            result = self.logic.add_zotero_papers_in_build_mode(new_p, build_category)
+            target_indices = result['indices']
+        else:
+            self.logic.add_zotero_papers(new_p)
+            target_indices = list(range(len(self.logic.papers) - len(new_p), len(self.logic.papers)))
+
+        imported_pdf_count = 0
+        if import_pdf:
+            seen_indices = set()
+            for target_index in target_indices:
+                if target_index in seen_indices or not (0 <= target_index < len(self.logic.papers)):
+                    continue
+                seen_indices.add(target_index)
+                if self._import_zotero_pdf_for_paper(self.logic.papers[target_index], ask_overwrite=True):
+                    imported_pdf_count += 1
+
         self.update_paper_list()
-        idx = len(self.logic.papers) - 1
+        idx = target_indices[-1] if target_indices else -1
         if idx in self.filtered_indices:
             self._suppress_select_event = True
             try:
                 self._activate_paper_by_real_index(idx)
             finally:
                 self._suppress_select_event = False
-        messagebox.showinfo("成功", f"已添加 {len(new_p)} 篇论文")
+
+        if build_category:
+            summary = (
+                f"新建 {result['created']} 篇，追加分类 {result['categorized']} 篇，"
+                f"无需变更 {result['unchanged']} 篇"
+            )
+            if result['category_limit']:
+                summary += f"，{result['category_limit']} 篇达到分类上限"
+            if import_pdf:
+                summary += f"，导入 PDF {imported_pdf_count} 篇"
+            messagebox.showinfo("构建完成", summary)
+        else:
+            pdf_summary = f"，导入 PDF {imported_pdf_count} 篇" if import_pdf else ""
+            messagebox.showinfo("成功", f"已添加 {len(new_p)} 篇论文{pdf_summary}")
 
 
 

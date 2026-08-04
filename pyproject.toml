@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 
-# 这里只放 GitHub Action 运行脚本必须的包
+# Runtime dependencies required by the GitHub Actions workflows.
 dependencies = [
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",
@@ -14,14 +14,15 @@ dependencies = [
 
 ]
 
-# 这里放开发、打包工具，或者本地调试用的包
+# Development, packaging, and local debugging dependencies.
 [dependency-groups]
 dev = [
     "requests>=2.32.5",
     "pyinstaller>=6.18.0",
+    "pytest>=8.4.2",
     "tkinterdnd2>=0.4.3",
 ]
 
-# 全部安装命令：
+# Install all dependency groups with either command below:
 # uv install --all-groups
 # uv sync --all-groups

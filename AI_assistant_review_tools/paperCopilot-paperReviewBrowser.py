@@ -27,9 +27,9 @@ class PaperReviewBrowser:
         self.ensure_directories()
 
         # 文件路径
-        self.config_file_path = "config.ini"
-        self.session_file_path = "session.pkl"
-        self.cache_file_path = "cache.pkl"
+        self.config_file_path = os.path.join(self.base_dir, "config.ini")
+        self.session_file_path = os.path.join(self.base_dir, "session.pkl")
+        self.cache_file_path = os.path.join(self.base_dir, "cache.pkl")
         
         # 绑定事件
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)

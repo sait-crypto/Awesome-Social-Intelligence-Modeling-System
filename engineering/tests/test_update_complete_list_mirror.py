@@ -11,6 +11,27 @@ from src.update import UpdateProcessor
 
 
 class CompleteListMirrorTests(unittest.TestCase):
+    def test_asset_backup_uses_configured_paths_anchored_to_project_root(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            processor = UpdateProcessor.__new__(UpdateProcessor)
+            processor.config = SimpleNamespace(project_root=root)
+            processor.settings = {
+                "paths": {
+                    "assets_dir": "engineering/assets",
+                    "backup_dir": "engineering/backups",
+                }
+            }
+
+            with patch("src.update.backup_file", return_value="backup") as backup:
+                result = processor.backup_configured_assets()
+
+            self.assertEqual(result, "backup")
+            backup.assert_called_once_with(
+                str((root / "engineering" / "assets").resolve()),
+                str((root / "engineering" / "backups").resolve()),
+            )
+
     def test_submission_is_mirrored_before_ai_then_written_to_core(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

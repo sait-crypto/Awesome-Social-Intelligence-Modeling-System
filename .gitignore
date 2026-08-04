@@ -1,5 +1,9 @@
 # Python
 __pycache__/
+.pytest_cache/
+.venv/
+.agents/
+.codex/
 *.py[cod]
 *$py.class
 *.so
@@ -27,29 +31,42 @@ wheels/
 *.swp
 *.swo
 
-# 数据库和备份
+# Local databases, submissions, and backups
 my_submit.xlsx
 my_submit.json
 **/*my_submit*
 engineering/figures_temp/
+engineering/backups/
 from_others/
-数据库相关文件备份/
+engineering/docs/*.mp4
+engineering/src/*_[!_a-zA-Z0-9]*.py
+engineering/config/* - [!a-zA-Z0-9]*.py
+engineering/* - ??*.csv
+* - Copy.*
+* - Copy (*).*
+**/*_copy*
+**/*_duplicate*
+**/*backup*
+**/*old*
 
-# 配置文件中的敏感信息
+# Local paper manuscripts and Zotero attachments
+/paper.pdf
+/paper_old.pdf
+engineering/assets/**/*.pdf
 
+# Local credentials for the review tool; its research data remains tracked.
+AI_assistant_review_tools/.env
 
-# 临时文件
+# Temporary files
 *.tmp
 *.temp
-
-**/*副本*
-**/*冲突*
+*.bak
 **/*~$*
 **/*baiduyun*
+**/*conflict*
 
-
-# 日志文件
+# Logs
 *.log
 
-# 私密文件
+# Private notes
 todo_list.md

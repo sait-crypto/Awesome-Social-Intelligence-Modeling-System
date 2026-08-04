@@ -113,7 +113,7 @@ def normalize_category_value(self, raw_val, config_instance) -> str:
     "unique_name": "Sentiment Understanding",  # 改为新名称
     "order": 2,
     "name": "Sentiment Understanding",
-    "primary_category": "Perception and Classification",
+    "predecessor_category": "Content-Level Perception",
     "enabled": True,
 }
 ```

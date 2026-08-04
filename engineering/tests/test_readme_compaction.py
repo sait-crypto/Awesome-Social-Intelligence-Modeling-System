@@ -49,6 +49,18 @@ class ReadmeCompactionTests(unittest.TestCase):
     def test_zero_limit_keeps_full_value(self):
         self.assertEqual(self.generator._truncate_field('unchanged', 0), 'unchanged')
 
+    def test_translation_separator_hides_chinese_public_copy(self):
+        self.generator.translation_separator = '[翻译]'
+        paper = Paper(
+            title='English title [翻译] 中文标题',
+            notes='English note [翻译] 中文备注',
+        )
+
+        self.generator._truncate_translation_in_paper(paper)
+
+        self.assertEqual(paper.title, 'English title')
+        self.assertEqual(paper.notes, 'English note')
+
     def test_duplicate_paper_is_a_single_table_reference_row(self):
         paper = Paper(
             doi='10.1000/example',
