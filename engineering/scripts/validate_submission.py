@@ -83,7 +83,7 @@ def validate_papers(papers: List[Paper], original_papers: List[Paper], source_na
 
     return valid_count
 
-def validate_figures(figure_dir: str):
+def validate_figures(figure_dir: str, allowed_exts=None):
     """
     验证图片目录下的文件格式
     """
@@ -92,7 +92,7 @@ def validate_figures(figure_dir: str):
         print(f"Info: {figure_dir} does not exist, skipping.")
         return
 
-    valid_exts = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'}
+    valid_exts = allowed_exts or {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'}
     has_error = False
 
     for root, dirs, files in os.walk(figure_dir):
@@ -188,7 +188,10 @@ def main():
     # ==================== 3. 验证图片/资源 ====================
     validate_figures(figure_dir)
     if assets_dir and assets_dir != figure_dir:
-        validate_figures(assets_dir)
+        validate_figures(
+            assets_dir,
+            {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'},
+        )
 
     # ==================== 4. 最终判定 ====================
     print("-" * 50)

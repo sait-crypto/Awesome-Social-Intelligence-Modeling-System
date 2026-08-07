@@ -8,7 +8,7 @@ import json
 import hashlib
 import tempfile
 from typing import Dict, List, Tuple
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -20,6 +20,8 @@ from src.utils import truncate_text, format_authors, create_hyperlink, escape_ma
 
 class ReadmeGenerator:
     """README生成器"""
+
+    NO_PIPELINE_PLACEHOLDER = 'no pipeline'
     
     def __init__(self):
         self.config = get_config_instance()
@@ -84,6 +86,31 @@ class ReadmeGenerator:
             return default
 
     @staticmethod
+    def _is_arxiv_paper_url(value: str) -> bool:
+        """Return whether a paper URL points to an arXiv paper page or PDF."""
+        raw_url = str(value or '').strip()
+        if not raw_url:
+            return False
+        candidate = raw_url if '://' in raw_url else f'https://{raw_url.lstrip("/")}'
+        try:
+            parsed = urlparse(candidate)
+        except ValueError:
+            return False
+        hostname = str(parsed.hostname or '').lower().rstrip('.')
+        if hostname != 'arxiv.org' and not hostname.endswith('.arxiv.org'):
+            return False
+        return bool(re.match(r'^/(?:abs|pdf|html)/[^/]+', parsed.path or '', flags=re.I))
+
+    def _display_conference(self, paper: Paper) -> str:
+        """Infer arXiv only when the stored conference/venue is empty."""
+        conference = str(paper.conference or '').strip()
+        if conference:
+            return conference
+        if self._is_arxiv_paper_url(paper.paper_url):
+            return 'arXiv'
+        return ''
+
+    @staticmethod
     def _write_text_atomic(path: str, content: str) -> None:
         """Replace generated files atomically, including cloud-synced placeholders."""
         output_dir = os.path.dirname(path) or '.'
@@ -109,31 +136,6 @@ class ReadmeGenerator:
         if max_length == 1:
             return '…'
         return value[:max_length - 1].rstrip() + '…'
-
-    @staticmethod
-    def _repair_gbk_mojibake(value: str) -> str:
-        """Repair UTF-8 fragments that were accidentally decoded as GBK."""
-        text = str(value or '')
-
-        def repair(match: re.Match) -> str:
-            fragment = match.group(0)
-            try:
-                return fragment.encode('gbk').decode('utf-8')
-            except (UnicodeEncodeError, UnicodeDecodeError):
-                return fragment
-
-        return re.sub(r'[^\x00-\x7f]+', repair, text)
-
-    def _public_english_text(self, value: str) -> str:
-        """Return stable English-only text for generated public Markdown files."""
-        text = self._repair_gbk_mojibake(value)
-        for marker in ('[翻译]', '[Translation]'):
-            if marker in text:
-                text = text.split(marker, 1)[0].rstrip()
-        text = re.sub(r'[\u3400-\u9fff\uf900-\ufaff]+', '', text)
-        text = re.sub(r'[，。；：！？【】（）《》、]+', ' ', text)
-        text = re.sub(r'[ \t]+', ' ', text)
-        return text.strip()
 
     def _load_paper_metadata(self) -> Tuple[bool, Dict[str, str]]:
         """Load the single source of truth for README paper information."""
@@ -284,10 +286,6 @@ class ReadmeGenerator:
             paper.category = self.update_utils.normalize_category_value(paper.category, self.config)
             if self.is_truncate_translation:
                 self._truncate_translation_in_paper(paper)
-            for field in paper.__dataclass_fields__:
-                value = getattr(paper, field)
-                if isinstance(value, str):
-                    setattr(paper, field, self._public_english_text(value))
             display_papers.append(paper)
         return True, display_papers
 
@@ -325,14 +323,14 @@ class ReadmeGenerator:
 
     def _generate_complete_list_row(self, paper: Paper) -> str:
         title = (
-            self._public_english_text(paper.title)
+            str(paper.title or '')
             .strip()
             .replace('\r\n', ' ')
             .replace('\r', ' ')
             .replace('\n', ' ')
         )
         title_cell = create_hyperlink(title, str(paper.paper_url or '').strip()).replace('|', '\\|')
-        venue = self._sanitize_complete_list_cell(self._public_english_text(paper.conference)) or '—'
+        venue = self._sanitize_complete_list_cell(self._display_conference(paper)) or '—'
 
         links = []
         seen_urls = set()
@@ -531,8 +529,9 @@ class ReadmeGenerator:
         date = paper.date if paper.date else ""
 
         conference_badge = ""
-        if paper.conference:
-            conference_encoded = quote(paper.conference, safe='').replace('-', '--')
+        display_conference = self._display_conference(paper)
+        if display_conference:
+            conference_encoded = quote(display_conference, safe='').replace('-', '--')
             conference_badge = f" [![Publish](https://img.shields.io/badge/Conference-{conference_encoded}-blue)]()"
 
         project_badge = ""
@@ -573,11 +572,11 @@ class ReadmeGenerator:
     def _generate_pipeline_cell(self, paper: Paper) -> str:
         """Render up to three pipeline images in one table cell."""
         if not paper.pipeline_image:
-            return ""
+            return self.NO_PIPELINE_PLACEHOLDER
 
         parts = [p.strip() for p in str(paper.pipeline_image).split('|') if p.strip()]
         if not parts:
-            return ""
+            return self.NO_PIPELINE_PLACEHOLDER
 
         existing_imgs = []
         for raw_path in parts[:3]:
@@ -597,7 +596,7 @@ class ReadmeGenerator:
                 print(f"Warning: pipeline image does not exist: {raw_path}")
 
         if not existing_imgs:
-            return ""
+            return self.NO_PIPELINE_PLACEHOLDER
 
         n = len(existing_imgs)
         if n == 1:
@@ -621,7 +620,7 @@ class ReadmeGenerator:
             val = getattr(paper, k, "")
             if val:
                 disp = self.config.get_tag_field(k, 'display_name') or name
-                disp = self._public_english_text(disp).replace('\r', '').replace('\n', '') or name
+                disp = str(disp).replace('\r', '').replace('\n', '') or name
                 val = self._truncate_field(val, self.summary_field_limits.get(k, 0))
                 fields.append(f"**[{disp}]** {self._sanitize_field(val)}")
         
@@ -766,8 +765,8 @@ class ReadmeGenerator:
             'CATEGORY_ARCHITECTURE_END -->'
         )
 
-    def update_readme_file(self) -> bool:
-        """Update README.md and the independently generated complete list."""
+    def update_readme_file(self, include_complete_list: bool = True) -> bool:
+        """Update README.md and optionally the independently generated complete list."""
         readme_path = os.path.join(self.config.project_root, 'README.md')
 
         if not os.path.exists(readme_path):
@@ -823,7 +822,10 @@ class ReadmeGenerator:
         try:
             self._write_text_atomic(readme_path, new_content)
             print(f"README文件已更新: {readme_path}")
-            return self.update_complete_list_file()
+            if include_complete_list:
+                return self.update_complete_list_file()
+            print("Complete List generation skipped by request")
+            return True
         except Exception as e:
             print(f"写入README文件失败: {e}")
             return False

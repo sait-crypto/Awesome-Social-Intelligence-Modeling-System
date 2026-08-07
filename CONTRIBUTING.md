@@ -1,5 +1,7 @@
 # Contributing
 
+[← Back to main README](./README.md)
+
 Thank you for helping maintain the Social Intelligence Modeling paper collection.
 
 ## Before submitting
@@ -11,15 +13,19 @@ Thank you for helping maintain the Social Intelligence Modeling paper collection
 
 ## Recommended workflow
 
-1. Install the project environment with `uv sync`.
-2. Run `uv run submit.py` to open the submission interface.
-3. Add or edit paper metadata. Fields marked with `*` are required.
-4. If a pipeline image is needed, import it through the interface. It will be stored under `engineering/assets/<paper-uid>/`.
-5. Save the update as `submit_template.json` or `submit_template.csv`.
-6. Validate the submission with `uv run engineering/scripts/validate_submission.py`.
-7. Open a pull request containing the update file and any referenced images.
+1. Install the project environment with `uv sync`, then run `uv run submit.py`, or double-click the root `Submit.exe` when available, to open the submission interface.
+2. Add or edit paper metadata. Fields marked with `*` are required.
+3. If a pipeline image is needed, import it through the interface. It will be stored under `engineering/assets/<paper-uid>/`.
+4. Save the update as `submit_template.json` or `submit_template.csv`.
+5. Validate the submission with `uv run engineering/scripts/validate_submission.py`.
+6. Submit the update using either of these routes:
+   - **Pull request:** Open a PR containing the update file and any referenced images. The repository Action can validate and process the submission automatically after permission from maintainer.
+   - **Email:** [Email me](mailto:lixiajie2182712226@gmail.com) with the completed `submit_template.json` or `submit_template.csv` file and any referenced files.
 
-## Manual submissions
+> [!IMPORTANT]
+> Pull requests must come from a non-`main` branch; submissions made directly from `main` do not trigger automatic processing.
+
+## Manual submissions  (not recommended)
 
 You may edit `submit_template.json` directly. Keep array-valued fields in the documented format, use taxonomy `unique_name` values for categories, and do not include local absolute paths, credentials, cache files, database backups, or paper PDFs.
 
@@ -29,7 +35,6 @@ You may edit `submit_template.json` directly. Keep array-valued fields in the do
 - The paper is in scope for Social Intelligence Modeling.
 - Paper and project URLs resolve correctly.
 - Categories are supported by the paper's actual task and contribution.
-- Referenced images exist under `engineering/assets/<paper-uid>/`.
 - Generated files and tests pass.
 
-For help, email [lixiajie2182712226@gmail.com](mailto:lixiajie2182712226@gmail.com).
+For help, [email me](mailto:lixiajie2182712226@gmail.com).

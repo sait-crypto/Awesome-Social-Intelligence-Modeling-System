@@ -485,6 +485,50 @@ TAGS_CONFIG = {
     ]
 }
 
+TAG_LOCALIZATION_EN = {
+    "doi": ("DOI", "The paper's DOI. If no DOI exists, use a unique placeholder such as 10.0000/placeholder-PASUM."),
+    "title": ("Title", "The complete paper title."),
+    "citation_key": ("Citation Key", "A citation key, such as a Zotero citationKey, for references and reference-manager integration."),
+    "title_translation": ("Title Translation", "Optional translated title."),
+    "authors": ("Authors", "Comma-separated author names."),
+    "date": ("Publication Date", "Publication date in YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, or compact YYYYMMDD form; month and day may be omitted."),
+    "category": ("Categories", "One or more leaf categories separated by semicolons. Select the deepest applicable categories."),
+    "summary_motivation": ("Motivation", "A concise summary of the research goal or motivation."),
+    "summary_innovation": ("Innovation", "A concise summary of the main innovation and why the paper belongs in the survey."),
+    "summary_method": ("Method", "A concise summary of the core method."),
+    "summary_conclusion": ("Conclusion / Contribution", "A concise summary of the main conclusion or contribution."),
+    "summary_limitation": ("Limitation / Future Work", "A concise summary of limitations or future work."),
+    "summary_citable_paragraph": ("Citable Paragraph", "A citation-ready paragraph combining motivation, innovation, method, conclusion, and limitations."),
+    "paper_url": ("Paper URL", "The arXiv page or another public paper URL."),
+    "project_url": ("Project URL", "The project website or source-code URL."),
+    "conference": ("Venue", "The conference or journal name."),
+    "analogy_summary": ("Analogy Summary", "A one-sentence analogy or plain-language summary."),
+    "pipeline_image": ("Pipeline Figures", "Drop, paste, select, or enter referenced image files. Multiple files are stored as an ordered list."),
+    "paper_file": ("Paper File", "Drop, select, or enter the local paper PDF used as optional AI context."),
+    "abstract": ("Abstract", "Paste the paper abstract here."),
+    "contributor": ("Contributor", "Your consistent name or identifier for contribution statistics."),
+    "related_papers": ("Related Papers", "Related paper titles. The system maintains bidirectional references and stores them with | separators."),
+    "notes": ("Notes", "Additional research notes."),
+    "status": ("Reading Status", "The paper's reading status."),
+    "is_placeholder": ("Placeholder", "Whether this is a temporary or test placeholder paper."),
+    "show_in_readme": ("Show in README", "Whether the paper appears in the generated README."),
+    "submission_time": ("Submission Time", "The paper submission timestamp."),
+    "conflict_marker": ("Conflict", "Whether the entry has an unresolved conflict."),
+    "invalid_fields": ("Invalid Fields", "Fields requiring manual review; stored as | in CSV and as an array in JSON."),
+    "uid": ("UID", "System-generated unique ID used to associate asset files."),
+    "zotero_item_ref": ("Zotero Item Reference", "Stable Zotero locator in libraryID:key format."),
+}
+
+for _tag in TAGS_CONFIG["tags"]:
+    _variable = _tag.get("variable")
+    _english = TAG_LOCALIZATION_EN.get(_variable)
+    if _english:
+        _tag.setdefault("display_name_zh", _tag.get("display_name", _variable))
+        _tag.setdefault("description_zh", _tag.get("description", ""))
+        _tag["display_name_en"] = _english[0]
+        _tag["description_en"] = _english[1]
+
+
 required_variables = ['doi', 'title', 'authors', 'category', 'paper_url', 'abstract', 'date']
 # 验证函数
 def validate_tags_config():
@@ -546,6 +590,9 @@ def validate_tags_config():
     for tag in TAGS_CONFIG["tags"]:
         if tag.get("immutable", False) and not tag.get("enabled", True):
             errors.append(f"不可变标签 {tag['variable']} 不能设置 enabled=false")
+        for field_name in ("display_name_en", "display_name_zh", "description_en", "description_zh"):
+            if not str(tag.get(field_name, "") or "").strip():
+                errors.append(f"标签 {tag.get('variable')} 缺少双语字段 {field_name}")
     
     # 检查required字段一致性
     required_count = 0

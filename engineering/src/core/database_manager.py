@@ -41,12 +41,13 @@ class DatabaseManager:
             return False, []
         return self.update_utils.read_data(self.database_path)
 
-    def save_database(self, papers: List[Paper]) -> bool:
-        """保存数据库 (带备份 & 资源规范化)"""
+    def save_database(self, papers: List[Paper], database_path: Optional[str] = None) -> bool:
+        """保存到指定数据库；未指定时使用该管理器绑定的默认数据库。"""
+        target_path = database_path if database_path is not None else self.database_path
         try:
             # 1. 备份
-            if os.path.exists(self.database_path):
-                backup_file(self.database_path, self.backup_dir)
+            if os.path.exists(target_path):
+                backup_file(target_path, self.backup_dir)
             
             # 2. 规范化 Assets (确保所有资源的 UID 对应且文件在 assets/{uid} 下)
             # 这一步会移动文件，副作用
@@ -56,7 +57,7 @@ class DatabaseManager:
                 normalized_papers.append(p)
 
             # 3. 写入
-            return self.update_utils.write_data(self.database_path, normalized_papers)
+            return self.update_utils.write_data(target_path, normalized_papers)
             
         except Exception as e:
             print(f"保存数据库失败: {e}")
@@ -190,6 +191,11 @@ class DatabaseManager:
         if promoted_conflicts:
             print(f"规范化：将 {len(promoted_conflicts)} 条同 identity 基论文转为冲突论文")
             conflict_papers.extend(promoted_conflicts)
+            promoted_ids = {id(paper) for paper in promoted_conflicts}
+            added_papers = [
+                paper for paper in added_papers
+                if id(paper) not in promoted_ids
+            ]
         
         # 5. 排序与展平
         # 按category分组
@@ -257,7 +263,14 @@ class DatabaseManager:
         3) 其余同 identity 条目均标记为冲突论文（conflict_marker=True）。
         """
         flat_papers: List[Paper] = []
-        for main_paper, conflict_list in groups:
+        # Preserve the role carried by the input structure.  In add_papers(),
+        # an established database entry is the tuple's main_paper while a new
+        # conflicting submission is appended to conflict_list.  Flattening
+        # without retaining this role makes list position an unsafe proxy for
+        # provenance and can incorrectly promote the new submission.
+        main_paper_rank: Dict[int, int] = {}
+        for group_rank, (main_paper, conflict_list) in enumerate(groups):
+            main_paper_rank.setdefault(id(main_paper), group_rank)
             flat_papers.append(main_paper)
             flat_papers.extend(conflict_list)
 
@@ -291,11 +304,27 @@ class DatabaseManager:
             if not identity_group:
                 continue
 
-            # 基论文统一规则：序号越靠后代表越早提交，选组内序号最靠后的作为最终基论文。
-            base_idx = max(
-                range(len(identity_group)),
-                key=lambda i: paper_position_map.get(id(identity_group[i]), -1)
-            )
+            # Keep the earliest established group main as the canonical base.
+            # Conflict-list entries are never eligible merely because they
+            # occur later in the flattened sequence.  When transitive identity
+            # matching merges multiple groups, the earlier group wins, which
+            # preserves the pre-update database entry over a later submission.
+            base_candidates = [
+                i for i, paper in enumerate(identity_group)
+                if id(paper) in main_paper_rank
+            ]
+            if base_candidates:
+                base_idx = min(
+                    base_candidates,
+                    key=lambda i: (
+                        main_paper_rank[id(identity_group[i])],
+                        paper_position_map.get(id(identity_group[i]), -1),
+                    ),
+                )
+            else:
+                # Defensive fallback for malformed callers that supply no
+                # designated main paper.
+                base_idx = 0
 
             base_paper = identity_group[base_idx]
             base_paper.conflict_marker = False

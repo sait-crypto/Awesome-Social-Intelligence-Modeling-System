@@ -75,15 +75,27 @@ CATEGORIES_CHANGE_LIST = [
 ]
 
 
-def _category(unique_name, order, predecessor_category, description, *, name=None):
+def _category(unique_name, order, predecessor_category, description, *, name=None, description_en=None):
     """构造结构一致的分类记录，减少配置字段漂移。"""
+    display_name = name or unique_name
+    level = next(
+        (english for chinese, english in (("一级", "Level 1"), ("二级", "Level 2"), ("三级", "Level 3")) if chinese in description),
+        "Category",
+    )
+    hierarchy = f" ({predecessor_category})" if predecessor_category else ""
+    label = f"{level} Category" if level != "Category" else level
+    english_description = description_en or f"[{label}]{hierarchy} - {unique_name}"
     return {
         "unique_name": unique_name,
         "order": order,
-        "name": name or unique_name,
+        "name": display_name,
+        "name_zh": display_name,
+        "name_en": unique_name,
         "predecessor_category": predecessor_category,
         "enabled": True,
         "description": description,
+        "description_zh": description,
+        "description_en": english_description,
     }
 
 
@@ -117,7 +129,7 @@ CATEGORIES_CONFIG = {
         _category("Event Extraction", 10, "Structural and Discourse Modeling", "[三级分类]（Structural and Discourse Modeling）- 事件抽取"),
         _category("Topic Modeling", 20, "Structural and Discourse Modeling", "[三级分类]（Structural and Discourse Modeling）- 主题建模"),
         _category("Network and Propagation Understanding", 20, "Understanding", "[二级分类]（Understanding）- 网络与传播理解"),
-        _category("Meme and Multimodal Understanding", 10, "Network and Propagation Understanding", "[三级分类]（Network and Propagation Understanding）- 模因与多模态理解"),
+        _category("Meme and Multimodal Understanding", 30, "Structural and Discourse Modeling", "[三级分类]（Structural and Discourse Modeling）- 模因与多模态理解"),
         _category("Social Popularity Prediction", 20, "Network and Propagation Understanding", "[三级分类]（Network and Propagation Understanding）- 社交流行度预测"),
         _category("Information Diffusion Analysis", 30, "Network and Propagation Understanding", "[三级分类]（Network and Propagation Understanding）- 信息扩散分析"),
         _category("User-Level Understanding", 30, "Understanding", "[二级分类]（Understanding）- 用户与社区层级理解"),
@@ -179,6 +191,9 @@ def validate_categories_config():
             errors.append(f"分类 {unique_name} 的 order 必须是数字")
         if not str(category.get("name", "")).strip():
             errors.append(f"分类 {unique_name} 的 name 不能为空")
+        for field_name in ("name_en", "name_zh", "description_en", "description_zh"):
+            if not str(category.get(field_name, "") or "").strip():
+                errors.append(f"分类 {unique_name} 缺少双语字段 {field_name}")
 
     for unique_name, category in categories_by_unique.items():
         predecessor = category.get("predecessor_category")

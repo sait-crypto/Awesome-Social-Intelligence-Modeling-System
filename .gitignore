@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 .agents/
 .codex/
+/engineering/tests/
+/.env
+/.env.tmp
 *.py[cod]
 *$py.class
 *.so
@@ -32,6 +35,9 @@ wheels/
 *.swo
 
 # Local databases, submissions, and backups
+/engineering/*.json
+/engineering/*.csv
+/engineering/*.xlsx
 my_submit.xlsx
 my_submit.json
 **/*my_submit*
@@ -53,6 +59,8 @@ engineering/* - ??*.csv
 /paper.pdf
 /paper_old.pdf
 engineering/assets/**/*.pdf
+SURVEY_UPDATE.md
+.gitattributes
 
 # Local credentials for the review tool; its research data remains tracked.
 AI_assistant_review_tools/.env
@@ -68,5 +76,11 @@ AI_assistant_review_tools/.env
 # Logs
 *.log
 
-# Private notes
-todo_list.md
+
+# Local WeChat publicity materials
+/community/wechat-article.md
+/community/wechat-publicity-case-report.md
+/community/wechat-article.docx
+
+# Local document build and render artifacts
+/tmp/

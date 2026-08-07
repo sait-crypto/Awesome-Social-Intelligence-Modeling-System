@@ -36,6 +36,11 @@ class SubmitLogic:
     """提交系统的业务逻辑控制器"""
 
     ZOTERO_REF_FIELD = 'zotero_item_ref'
+    AI_GENERATED_FIELDS = (
+        'title_translation', 'analogy_summary', 'summary_motivation',
+        'summary_innovation', 'summary_method', 'summary_conclusion',
+        'summary_limitation', 'summary_citable_paragraph',
+    )
 
     VALID_SAVE_VALIDATION_STRATEGIES = {'strict', 'lenient'}
     VALID_SAVE_MODES = {'incremental', 'rewrite'}
@@ -762,7 +767,7 @@ class SubmitLogic:
         # 如果是数据库，走数据库专用逻辑
         if self._is_database_file(target_path):
             if not self.is_admin: raise PermissionError("无权限写入数据库")
-            success = self.db_manager.save_database(self.papers)
+            success = self.db_manager.save_database(self.papers, database_path=target_path)
             if not success:
                 raise IOError(self.update_utils.last_error or f"写入数据库失败: {target_path}")
         else:
@@ -911,7 +916,9 @@ class SubmitLogic:
         if self._is_database_file(target_path):
             if not self.is_admin: raise PermissionError("无权限写入数据库")
             # 数据库保存直接覆盖 (Full Save)
-            self.db_manager.save_database(self.papers)
+            success = self.db_manager.save_database(self.papers, database_path=target_path)
+            if not success:
+                raise IOError(self.update_utils.last_error or f"写入数据库失败: {target_path}")
             return self.papers
 
 
@@ -1913,6 +1920,49 @@ class SubmitLogic:
 
     # ================= PR 提交逻辑 =================
 
+    def _collect_submission_pdf_paths(self, update_files: List[str]) -> List[str]:
+        """Return ignored PDFs that must travel with this temporary PR branch."""
+        assets_root = self.assets_dir
+        if not os.path.isabs(assets_root):
+            assets_root = os.path.join(BASE_DIR, assets_root)
+        assets_root = os.path.realpath(assets_root)
+        deprecation_mark = str(
+            self.settings.get('database', {}).get('value_deprecation_mark', '[Deprecated]')
+        )
+        pdf_paths: Set[str] = set()
+
+        for update_file in update_files:
+            file_path = update_file if os.path.isabs(update_file) else os.path.join(BASE_DIR, update_file)
+            if not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:
+                continue
+            success, papers = self.update_utils.read_data(file_path)
+            if not success:
+                raise RuntimeError(f"Could not read submission file: {update_file}")
+
+            for paper in papers:
+                needs_ai = any(
+                    not str(getattr(paper, field, '') or '').strip()
+                    or deprecation_mark in str(getattr(paper, field, '') or '')
+                    for field in self.AI_GENERATED_FIELDS
+                )
+                if not needs_ai:
+                    continue
+                reference = str(getattr(paper, 'paper_file', '') or '').strip()
+                resolved = self.update_utils.resolve_asset_path(reference, 'paper_file') if reference else None
+                if not resolved or not os.path.isfile(resolved):
+                    continue
+                resolved = os.path.realpath(resolved)
+                try:
+                    if os.path.commonpath([assets_root, resolved]) != assets_root:
+                        raise ValueError
+                except ValueError:
+                    continue
+                if os.path.splitext(resolved)[1].lower() != '.pdf':
+                    continue
+                pdf_paths.add(os.path.relpath(resolved, BASE_DIR))
+
+        return sorted(pdf_paths)
+
     def execute_pr_submission(self, status_callback, result_callback, error_callback):
         """执行PR提交的线程函数"""
         def run():
@@ -1965,6 +2015,16 @@ class SubmitLogic:
                 if os.path.exists(os.path.join(BASE_DIR, self.assets_dir)):
                      subprocess.run(["git", "add", self.assets_dir], check=True, capture_output=True, cwd=BASE_DIR)
 
+                # PDFs are ignored on main. Force-add only the files needed by this
+                # submission so the Action can read and then remove them.
+                for pdf_path in self._collect_submission_pdf_paths(files_to_commit):
+                    subprocess.run(
+                        ["git", "add", "-f", "--", pdf_path],
+                        check=True,
+                        capture_output=True,
+                        cwd=BASE_DIR,
+                    )
+
                 # 提交
                 subprocess.run(["git", "commit", "-m", f"Add {len(self.papers)} papers via GUI"], 
                                check=True, capture_output=True, cwd=BASE_DIR)
@@ -1981,8 +2041,8 @@ class SubmitLogic:
                 # 创建 PR (尝试使用 gh cli)
                 pr_url = None
                 try:
-                    pr_title = f"论文提交: {len(self.papers)} 篇新论文"
-                    pr_body = f"通过GUI提交了 {len(self.papers)} 篇论文。"
+                    pr_title = f"Paper submission: {len(self.papers)} new papers"
+                    pr_body = f"Submitted {len(self.papers)} papers through the desktop interface."
                     
                     try:
                         subprocess.run(["gh", "--version"], check=True, capture_output=True)

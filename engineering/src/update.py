@@ -24,9 +24,12 @@ class UpdateProcessor:
         self.config = get_config_instance()
         self.settings = self.config.settings
         self.update_utils = get_update_file_utils()
-        configured_ai_enabled = (
-            str(self.settings['ai'].get('enable_ai_generation', 'true')).lower() == 'true'
-        )
+        configured_ai_enabled = str(
+            os.environ.get(
+                'AUTO_AI_GENERATION',
+                self.settings['ai'].get('enable_ai_generation', 'true'),
+            )
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
         
         # 获取所有可能的更新文件路径
         self.update_files = []
@@ -103,7 +106,13 @@ class UpdateProcessor:
         except Exception:
             return ""
 
-    def process_updates(self, conflict_resolution: str = 'mark', update_mode: str = 'normal') -> Dict:
+    def process_updates(
+        self,
+        conflict_resolution: str = 'mark',
+        update_mode: str = 'normal',
+        update_complete_list: bool = True,
+        update_file: str = '',
+    ) -> Dict:
         """
         处理更新文件
         conflict_resolution: 'mark', 'skip', 'replace'
@@ -128,14 +137,19 @@ class UpdateProcessor:
             'complete_list_conflicts': 0,
             'complete_list_errors': [],
             'complete_list_database_changed': False,
+            'complete_list_update_enabled': bool(update_complete_list),
+            'update_scope': 'current-file' if update_file else 'configured-files',
         }
 
         db_before = self._get_database_fingerprint()
         complete_list_db_before = self._get_database_fingerprint(self.complete_list_db_manager)
         had_db_update_attempt = False
         
-        # 过滤有效文件
-        valid_files = [f for f in self.update_files if f and os.path.exists(f)]
+        # GUI 可指定仅处理当前打开文件；未指定时保持原有行为，处理全部配置文件。
+        candidate_files = self.update_files
+        if update_file:
+            candidate_files = [self._resolve_project_path(update_file)]
+        valid_files = [f for f in candidate_files if f and os.path.exists(f)]
 
         if update_mode == 'database-only':
             print("当前模式: 只更新 database（不处理任何更新文件）")
@@ -215,24 +229,27 @@ class UpdateProcessor:
 
             # 4. 在任何 AI 自动补全之前，将原始有效条目镜像到 Complete List 数据库。
             # 使用深拷贝隔离冲突标记、资源规范化等数据库写入副作用，确保后续主流程不受影响。
-            try:
-                complete_added, complete_conflicts, complete_invalid = self.complete_list_db_manager.add_papers(
-                    copy.deepcopy(valid_papers),
-                    conflict_resolution,
-                )
-                result['complete_list_new_papers'] += len(complete_added)
-                result['complete_list_conflicts'] += len(complete_conflicts)
-                if complete_invalid:
-                    result['invalid_msg'].extend(complete_invalid)
-                print(
-                    f"Complete List 镜像完成: 新增 {len(complete_added)}，"
-                    f"冲突 {len(complete_conflicts)}"
-                )
-            except Exception as e:
-                err = f"Complete List 数据库镜像失败 ({file_path}): {e}"
-                result['complete_list_errors'].append(err)
-                result['errors'].append(err)
-                print(f"错误: {err}")
+            if update_complete_list:
+                try:
+                    complete_added, complete_conflicts, complete_invalid = self.complete_list_db_manager.add_papers(
+                        copy.deepcopy(valid_papers),
+                        conflict_resolution,
+                    )
+                    result['complete_list_new_papers'] += len(complete_added)
+                    result['complete_list_conflicts'] += len(complete_conflicts)
+                    if complete_invalid:
+                        result['invalid_msg'].extend(complete_invalid)
+                    print(
+                        f"Complete List 镜像完成: 新增 {len(complete_added)}，"
+                        f"冲突 {len(complete_conflicts)}"
+                    )
+                except Exception as e:
+                    err = f"Complete List 数据库镜像失败 ({file_path}): {e}"
+                    result['complete_list_errors'].append(err)
+                    result['errors'].append(err)
+                    print(f"错误: {err}")
+            else:
+                print("已按用户选择跳过 Complete List 数据库镜像")
 
             # 5. AI 生成缺失内容并回写到 *当前文件*
             if self.enable_ai and self.ai_generator and self.ai_generator.is_available():
@@ -420,10 +437,19 @@ class UpdateProcessor:
             for m in result['invalid_msg'][:5]: print(f"  - {m}")
             if len(result['invalid_msg']) > 5: print("  ...")
 
-def main(update_mode: str = 'normal'):
+def main(
+    update_mode: str = 'normal',
+    update_complete_list: bool = True,
+    update_file: str = '',
+):
     print("开始处理更新...")
     processor = UpdateProcessor()
-    result = processor.process_updates(conflict_resolution='mark', update_mode=update_mode)
+    result = processor.process_updates(
+        conflict_resolution='mark',
+        update_mode=update_mode,
+        update_complete_list=update_complete_list,
+        update_file=update_file,
+    )
     processor.print_result(result)
     print(f"UPDATE_RESULT_JSON::{json.dumps(result, ensure_ascii=False)}")
     processor.backup_configured_assets()
@@ -432,7 +458,7 @@ def main(update_mode: str = 'normal'):
         try:
             from src.convert import ReadmeGenerator
             gen = ReadmeGenerator()
-            if gen.update_readme_file():
+            if gen.update_readme_file(include_complete_list=update_complete_list):
                 print("[OK] README 更新成功")
             else:
                 print("[ERROR] README 更新失败")
@@ -451,7 +477,21 @@ if __name__ == "__main__":
         default='normal',
         help='更新模式：normal=正常更新；database-only=只重写database',
     )
+    parser.add_argument(
+        '--skip-complete-list',
+        action='store_true',
+        help='跳过 Complete List 数据库镜像及 COMPLETE_LIST.md 生成',
+    )
+    parser.add_argument(
+        '--update-file',
+        default='',
+        help='仅处理指定的 JSON/CSV 更新文件；未指定时处理配置中的全部更新文件',
+    )
     args = parser.parse_args()
-    result = main(update_mode=args.mode)
+    result = main(
+        update_mode=args.mode,
+        update_complete_list=not args.skip_complete_list,
+        update_file=args.update_file,
+    )
     if result.get('errors'):
         sys.exit(1)

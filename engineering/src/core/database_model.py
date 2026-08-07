@@ -22,6 +22,36 @@ from src.utils import (
 from src.core.config_loader import get_config_instance
 
 
+_TRUE_BOOLEAN_VALUES = frozenset({'true', 'yes', 'y', '1', 'on'})
+_FALSE_BOOLEAN_VALUES = frozenset({'false', 'no', 'n', '0', 'off', ''})
+
+
+def normalize_paper_field_format(field_name: str, value: Any, target_type: Any) -> Any:
+    """Normalize a value at the ``Paper`` model boundary.
+
+    Dataclasses do not enforce annotated field types at runtime. Without this
+    boundary, UI widgets, CSV rows, or merge operations can assign the string
+    ``"False"`` to a Boolean field, which later behaves as truthy in Python.
+    """
+    if target_type is not bool:
+        return value
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value in (0, 1):
+            return bool(value)
+        raise ValueError(f"Invalid Boolean value for {field_name}: {value!r}")
+
+    normalized = str(value).strip().lower()
+    if normalized in _TRUE_BOOLEAN_VALUES:
+        return True
+    if normalized in _FALSE_BOOLEAN_VALUES:
+        return False
+    raise ValueError(f"Invalid Boolean value for {field_name}: {value!r}")
+
+
 @dataclass
 class Paper:
     """论文数据模型"""
@@ -71,6 +101,13 @@ class Paper:
     # 验证相关字段：记录不规范字段的 variable 列表（| 分隔）
     invalid_fields: str = ""
     is_placeholder: bool = False  # 占位符标记，用于表示存在但填写不完整的论文条目
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Enforce declared field formats for construction and assignment."""
+        field_definition = self.__dataclass_fields__.get(name)
+        if field_definition is not None:
+            value = normalize_paper_field_format(name, value, field_definition.type)
+        object.__setattr__(self, name, value)
 
     def __post_init__(self):
         """初始化后处理"""

@@ -356,7 +356,13 @@ class UpdateFileUtils:
         """
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                raw_content = f.read()
+            # The tracked submission template may intentionally be empty until
+            # the first paper is added. Treat empty/whitespace-only JSON as an
+            # empty workspace instead of reporting a malformed-file error.
+            if not raw_content.strip():
+                return True, []
+            data = json.loads(raw_content)
             
             raw_list = []
             
@@ -483,6 +489,11 @@ class UpdateFileUtils:
             return {'.pdf'}
         return set()
 
+    def _allow_missing_paper_files(self) -> bool:
+        return str(os.environ.get('EPHEMERAL_PAPER_FILES', '')).strip().lower() in (
+            '1', 'true', 'yes', 'on'
+        )
+
     def analyze_asset_fields(self, paper: Paper, fields: List[str]) -> List[Dict[str, Any]]:
         """统一分析资源字段：解析存在性、后缀合法性、路径规范性"""
         target_fields = self._filter_asset_fields(fields)
@@ -551,7 +562,9 @@ class UpdateFileUtils:
                         nonstandard_path = not compare_ref_chk.startswith(compare_prefix_chk)
 
                 issues: List[Dict[str, str]] = []
-                if not exists:
+                if not exists and not (
+                    asset_field == 'paper_file' and self._allow_missing_paper_files()
+                ):
                     issues.append({'kind': 'missing', 'message': f"{asset_field} 文件不存在: {ref}"})
                 elif not suffix_ok:
                     if asset_field == 'pipeline_image':
@@ -678,7 +691,7 @@ class UpdateFileUtils:
                     legacy_dir_rel=self.legacy_paper_dir,
                     paper_asset_dir=paper_asset_dir,
                     uid=paper.uid,
-                    strict=strict,
+                    strict=(strict and not self._allow_missing_paper_files()),
                     missing_label='论文文件',
                 )
 

@@ -21,6 +21,8 @@ jobs:
     env:
       PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace_assets
       PR_FIGURES_DIR: ${{ github.workspace }}/pr_workspace_figures
+      AUTO_AI_GENERATION: "true"
+      EPHEMERAL_PAPER_FILES: "true"
 
     steps:
       # All executable code and both databases come from the trusted main branch.
@@ -40,6 +42,19 @@ jobs:
           path: pr_workspace
           fetch-depth: 1
           persist-credentials: false
+
+      # Preserve the contributor's source update independently of later
+      # validation, AI generation, database updates, or push failures.
+      - name: Preserve submitted update files
+        uses: actions/upload-artifact@v6
+        continue-on-error: true
+        with:
+          name: paper-submission-pr-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            pr_workspace/submit_template.json
+            pr_workspace/submit_template.csv
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Build isolated processing workspace
         shell: bash
@@ -124,12 +139,29 @@ jobs:
                 echo "Error: the submission contains more than 25 asset files."
                 exit 1
               fi
-              if find "$asset_dir" -type f -size +10M -print -quit | grep -q .; then
-                echo "Error: each submitted asset must be no larger than 10 MiB."
+              if find "$asset_dir" -type f ! -iname '*.pdf' -size +10M -print -quit | grep -q .; then
+                echo "Error: each submitted non-PDF asset must be no larger than 10 MiB."
+                exit 1
+              fi
+              if find "$asset_dir" -type f -iname '*.pdf' -size +50M -print -quit | grep -q .; then
+                echo "Error: each submitted PDF must be no larger than 50 MiB."
                 exit 1
               fi
             fi
           done
+
+      # Archive bounded resources before validation, AI generation, or database
+      # processing so they remain downloadable when a later step fails.
+      - name: Preserve submitted resources
+        uses: actions/upload-artifact@v6
+        continue-on-error: true
+        with:
+          name: paper-submission-resources-pr-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            pr_workspace_assets
+            pr_workspace_figures
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Validate paper metadata
         id: validate
@@ -172,6 +204,14 @@ jobs:
               body,
             });
 
+      - name: Stage temporary paper PDFs
+        working-directory: main_workspace
+        env:
+          PYTHONPATH: engineering
+        run: >-
+          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
+          stage --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
+
       - name: Normalize submitted assets
         working-directory: main_workspace
         env:
@@ -184,6 +224,8 @@ jobs:
         env:
           PYTHONPATH: engineering
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_API_KEYS: ${{ secrets.AI_API_KEYS }}
+          AI_AUTO_GENERATE_FIELDS: ${{ vars.AI_AUTO_GENERATE_FIELDS }}
         shell: bash
         run: |
           set -o pipefail
@@ -224,6 +266,15 @@ jobs:
               body,
             });
 
+      - name: Remove temporary paper PDFs
+        if: always()
+        working-directory: main_workspace
+        env:
+          PYTHONPATH: engineering
+        run: >-
+          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
+          cleanup --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
+
       - name: Verify database integrity
         working-directory: main_workspace
         env:
@@ -246,7 +297,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md engineering/assets/
+          if find engineering/assets -type f -iname '*.pdf' -print -quit | grep -q .; then
+            echo "Error: temporary PDFs remain in the trusted working tree."
+            exit 1
+          fi
+
+          git add -f "$CORE_DB_PATH" "$COMPLETE_DB_PATH" README.md COMPLETE_LIST.md engineering/assets/ ':!engineering/assets/**/*.pdf'
+
+          if git diff --cached --name-only | grep -Eiq '\.pdf$'; then
+            echo "Error: refusing to commit a PDF to main."
+            exit 1
+          fi
 
           if git diff --staged --quiet; then
             echo "No generated changes to commit."
@@ -279,3 +340,25 @@ jobs:
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_USER: ${{ github.event.pull_request.user.login }}
         run: uv run --frozen engineering/scripts/send_notification.py
+
+      - name: Report workflow failure
+        if: failure()
+        uses: actions/github-script@v9
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const body = [
+              '### Automatic processing failed',
+              `Hi @${process.env.PR_AUTHOR}, this submission was not applied to the database.`,
+              '',
+              `[Open the workflow run](${process.env.RUN_URL}) to inspect the failure and download the preserved submission artifacts.`,
+              'The original files also remain available from this pull request branch.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

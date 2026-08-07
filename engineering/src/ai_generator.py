@@ -1,18 +1,34 @@
 import os
 import json
+import re
 import requests
 import time
-from typing import Dict, List, Optional, Any, Tuple, Union
+from typing import Callable, Dict, List, Optional, Any, Tuple, Union
 from dataclasses import asdict
 from src.core.config_loader import get_config_instance
 from src.core.database_model import Paper
+from src.core.update_file_utils import get_update_file_utils
+
+
+AI_GENERATED_FIELDS = [
+    'title_translation',
+    'analogy_summary',
+    'summary_motivation',
+    'summary_innovation',
+    'summary_method',
+    'summary_conclusion',
+    'summary_limitation',
+    'summary_citable_paragraph',
+]
 
 # 统一的 Provider 配置数据结构
 PROVIDER_CONFIGS = [
     {
         "provider": "deepseek",
         "api_url": "https://api.deepseek.com/v1/chat/completions",
-        "models": ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"]
+        "models": ["deepseek-v4-pro", "deepseek-v4-flash"],
+        "thinking_modes": ["disabled", "enabled"],
+        "reasoning_efforts": ["high", "max"]
     },
     {
         "provider": "gemini",
@@ -40,6 +56,7 @@ class AIGenerator:
         self.settings = self.config_loader.settings
         
         self.ai_generate_mark = self.settings['ai'].get('ai_generate_mark', '[AI generated]')
+        self.auto_generate_fields = self._load_auto_generate_fields()
         self.translation_separator = self.settings['database'].get('translation_separator', '[翻译]')
         self.value_deprecation_mark = self.settings['database'].get('value_deprecation_mark', '[Deprecated]')
         
@@ -85,20 +102,27 @@ class AIGenerator:
     def get_all_profiles(self) -> List[Dict]:
         return list(self.profiles.values())
 
+    def _load_auto_generate_fields(self) -> List[str]:
+        """Return the configured field scope for automatic batch generation."""
+        configured = os.environ.get('AI_AUTO_GENERATE_FIELDS', '').strip()
+        if not configured:
+            configured = self.settings.get('ai', {}).get('auto_generate_fields', 'analogy_summary')
+        requested = [field for field in re.split(r'[\s,;|]+', str(configured)) if field]
+        valid_fields = []
+        for field in requested:
+            if field in AI_GENERATED_FIELDS and field not in valid_fields:
+                valid_fields.append(field)
+            elif field not in AI_GENERATED_FIELDS:
+                print(f"Warning: unsupported automatic AI field ignored: {field}")
+        return valid_fields or ['analogy_summary']
+
     def is_available(self) -> bool:
         """检查当前激活的 Profile 是否可用（能解析出 Key）"""
         # 注意：这里不再检查 self.enabled，因为 GUI 强制调用时忽略全局开关
         if not self.active_profile:
             return False
-        # 检查是否能解析 Key
         idx = self.get_profile_index(self.active_profile_name)
-        # 优先使用配置中直接填写的 key (api_key_source 现复用为直接 key 存储)
-        direct_key = self.active_profile.get('api_key_source')
-        if direct_key and len(direct_key) > 20 and ' ' not in direct_key:
-             return True
-        
-        # 否则尝试从全局池解析
-        return bool(self.config_loader.resolve_api_key(idx, direct_key))
+        return bool(self.config_loader.resolve_api_key(idx))
 
     def get_provider_defaults(self, provider: str) -> Dict[str, Union[str, List[str]]]:
         """UI 辅助：获取 Provider 的默认值和模型列表"""
@@ -106,13 +130,20 @@ class AIGenerator:
             if config["provider"] == provider:
                 return {
                     "api_url": config["api_url"],
-                    "models": config["models"]
+                    "models": config["models"],
+                    "thinking_modes": config.get("thinking_modes", []),
+                    "reasoning_efforts": config.get("reasoning_efforts", []),
                 }
-        return {"api_url": "", "models": []}
+        return {
+            "api_url": "",
+            "models": [],
+            "thinking_modes": [],
+            "reasoning_efforts": [],
+        }
 
-    def save_profiles(self, profiles_list: List[Dict], enable_ai: bool, active_profile_name: str, key_path: Optional[str] = None):
+    def save_profiles(self, profiles_list: List[Dict], enable_ai: bool, active_profile_name: str):
         """保存配置 (代理到 ConfigLoader)"""
-        self.config_loader.save_ai_settings(enable_ai, active_profile_name, profiles_list, key_path)
+        self.config_loader.save_ai_settings(enable_ai, active_profile_name, profiles_list)
         # 刷新自身状态
         self.__init__()
 
@@ -517,17 +548,8 @@ If one element is missing from the paper, mention uncertainty briefly instead of
 
     def _call_api(self, prompt: str, max_tokens: int = 200) -> Optional[str]:
         if not self.active_profile: return None
-        
-        # 优先使用配置中直接填写的 key (如果它是像Key的字符串)
-        source = self.active_profile.get('api_key_source', '')
         idx = self.get_profile_index(self.active_profile_name)
-        
-        # 1. 尝试通过 ConfigLoader 解析 (支持索引KeyPool, 环境变量, 路径)
-        api_key = self.config_loader.resolve_api_key(idx, source)
-        
-        # 2. 如果 ConfigLoader 没解析出来，且 source 看起来像直接的 Key (非空，无空格，不含路径符)
-        if not api_key and source and len(source) > 10 and os.sep not in source:
-            api_key = source
+        api_key = self.config_loader.resolve_api_key(idx)
 
         if not api_key:
             print(f"Error: No API Key found for profile '{self.active_profile_name}'")
@@ -538,12 +560,45 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         model = self.active_profile.get('model')
         
         if provider == 'deepseek' or provider == 'openai_compatible':
-            return self._call_openai_style(api_key, url, model, prompt, max_tokens)
+            return self._call_openai_style(
+                api_key,
+                url,
+                model,
+                prompt,
+                max_tokens,
+                provider=provider,
+                profile=self.active_profile,
+            )
         elif provider == 'gemini':
             return self._call_gemini(api_key, model, prompt, max_tokens)
         return None
 
-    def _call_openai_style(self, api_key, url, model, prompt, max_tokens):
+    @staticmethod
+    def _deepseek_thinking_options(profile: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+        profile = profile or {}
+        raw_thinking = profile.get('thinking', {'type': 'enabled'})
+        if isinstance(raw_thinking, dict):
+            thinking_type = str(raw_thinking.get('type', 'enabled')).strip().lower()
+        else:
+            thinking_type = str(raw_thinking or 'enabled').strip().lower()
+        if thinking_type not in {'enabled', 'disabled'}:
+            thinking_type = 'enabled'
+
+        reasoning_effort = str(profile.get('reasoning_effort', 'high')).strip().lower()
+        if reasoning_effort not in {'high', 'max'}:
+            reasoning_effort = 'high'
+        return thinking_type, reasoning_effort
+
+    def _call_openai_style(
+        self,
+        api_key,
+        url,
+        model,
+        prompt,
+        max_tokens,
+        provider='openai_compatible',
+        profile=None,
+    ):
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         # 在 messages 中注入系统提示（system role），再附带用户提示
         payload = {
@@ -553,13 +608,30 @@ If one element is missing from the paper, mention uncertainty briefly instead of
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": max_tokens,
-            "temperature": 0.3
         }
+
+        is_deepseek = provider == 'deepseek'
+        thinking_type = 'disabled'
+        if is_deepseek:
+            thinking_type, reasoning_effort = self._deepseek_thinking_options(profile)
+            payload['thinking'] = {'type': thinking_type}
+            if thinking_type == 'enabled':
+                payload['reasoning_effort'] = reasoning_effort
+        if not is_deepseek or thinking_type == 'disabled':
+            payload['temperature'] = 0.3
+
         try:
             # 兼容 DeepSeek 和其他 OpenAI 格式
-            resp = requests.post(url, headers=headers, json=payload, timeout=30)
+            timeout = 180 if is_deepseek and thinking_type == 'enabled' else 60
+            resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
             resp.raise_for_status()
-            return resp.json()['choices'][0]['message']['content']
+            data = resp.json()
+            choices = data.get('choices') or []
+            if not choices:
+                return None
+            message = choices[0].get('message') or {}
+            content = message.get('content')
+            return str(content) if content is not None else None
         except Exception as e:
             print(f"API Error ({model}): {e}")
             return None
@@ -594,16 +666,14 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         is_enhanced = False
         new_paper = Paper.from_dict(asdict(paper))
         
-        all_ai_fields = ['title_translation', 'analogy_summary', 'summary_motivation', 
-                  'summary_innovation', 'summary_method', 'summary_conclusion', 'summary_limitation',
-                  'summary_citable_paragraph']
-        
-        target_fields = fields_to_gen if fields_to_gen else all_ai_fields
+        automatic_scope = getattr(self, '_automatic_generation_scope', None)
+        target_fields = fields_to_gen if fields_to_gen is not None else (automatic_scope or AI_GENERATED_FIELDS)
+        force_requested_fields = fields_to_gen is not None or automatic_scope is not None
         
         for f in target_fields:
             # 如果指定了字段，强制生成；否则仅生成空的或Deprecated的
             curr = getattr(new_paper, f)
-            if fields_to_gen or (not curr or self.value_deprecation_mark in str(curr)):
+            if force_requested_fields or (not curr or self.value_deprecation_mark in str(curr)):
                 user_idea = ''
                 if isinstance(field_user_ideas, dict):
                     user_idea = str(field_user_ideas.get(f, '') or '').strip()
@@ -613,7 +683,37 @@ If one element is missing from the paper, mention uncertainty briefly instead of
                     is_enhanced = True
         return new_paper, is_enhanced
 
-    def batch_enhance_papers(self, papers: List[Paper]) -> Tuple[List[Paper],bool]:
+    def _fields_needing_generation(
+        self,
+        paper: Paper,
+        candidate_fields: Optional[List[str]] = None,
+        include_deprecated: bool = True,
+    ) -> List[str]:
+        fields = AI_GENERATED_FIELDS if candidate_fields is None else candidate_fields
+        return [
+            field
+            for field in fields
+            if not str(getattr(paper, field, '') or '').strip()
+            or (
+                include_deprecated
+                and self.value_deprecation_mark in str(getattr(paper, field, '') or '')
+            )
+        ]
+
+    def _resolve_paper_pdf(self, paper: Paper) -> str:
+        reference = str(getattr(paper, 'paper_file', '') or '').strip()
+        if not reference:
+            return ''
+        resolved = get_update_file_utils().resolve_asset_path(reference, 'paper_file')
+        return str(resolved or '')
+
+    def batch_enhance_papers(
+        self,
+        papers: List[Paper],
+        candidate_fields: Optional[List[str]] = None,
+        include_deprecated: bool = True,
+        progress_callback: Optional[Callable[[int, int, Paper], None]] = None,
+    ) -> Tuple[List[Paper],bool]:
         """批量增强论文信息 (兼容旧接口)"""
         if not self.is_available():
             return papers, False
@@ -621,7 +721,48 @@ If one element is missing from the paper, mention uncertainty briefly instead of
         enhanced_papers = []
         for i, paper in enumerate(papers):
             print(f"AI处理论文 {i+1}/{len(papers)}: {paper.title[:50]}...")
-            enhanced_paper, _is_enhanced = self.enhance_paper_with_ai(paper)
+            if progress_callback:
+                progress_callback(i + 1, len(papers), paper)
+            automatic_fields = (
+                getattr(self, 'auto_generate_fields', ['analogy_summary'])
+                if candidate_fields is None
+                else candidate_fields
+            )
+            fields_to_generate = self._fields_needing_generation(
+                paper,
+                automatic_fields,
+                include_deprecated=include_deprecated,
+            )
+            if not fields_to_generate:
+                enhanced_papers.append(paper)
+                continue
+
+            pdf_path = self._resolve_paper_pdf(paper)
+            if not pdf_path or not os.path.isfile(pdf_path):
+                print(
+                    "Warning: PDF context is unavailable for AI generation: "
+                    f"{getattr(paper, 'paper_file', '') or paper.title}. "
+                    "Continuing with metadata only."
+                )
+                paper_text = ''
+            else:
+                paper_text = self.read_paper_file(pdf_path)
+                if not paper_text.strip() or paper_text.lstrip().startswith('[Error'):
+                    print(
+                        f"Warning: could not extract usable text from PDF: {pdf_path}. "
+                        "Continuing with metadata only."
+                    )
+                    paper_text = ''
+
+            # Keep the established call surface while applying an automatic-only scope.
+            self._automatic_generation_scope = fields_to_generate
+            try:
+                enhanced_paper, _is_enhanced = self.enhance_paper_with_ai(
+                    paper,
+                    paper_text=paper_text,
+                )
+            finally:
+                self._automatic_generation_scope = None
             if _is_enhanced:
                 is_enhanced = True
             enhanced_papers.append(enhanced_paper)
