@@ -4673,14 +4673,19 @@ class PaperSubmissionGUI:
 
     def run_validate_script(self):
         if not messagebox.askyesno(
-            "运行验证",
-            "该按钮会执行统一验证流程：检查数据库和更新文件的完整性、冲突及资源引用。\n\n"
-            "运行后会在文本日志窗口中显示详细结果与错误信息。\n\n"
-            "是否继续？"
+            self.tr("validation.run_title"),
+            self.tr("validation.run_prompt"),
         ):
             return
 
         cmd = _repository_script_command('validate')
+        current_update_file = self._get_current_loaded_file().strip()
+        if (
+            current_update_file
+            and os.path.splitext(current_update_file)[1].lower() in {'.json', '.csv'}
+            and not self.logic._is_database_file(current_update_file)
+        ):
+            cmd.extend(['--submission-file', current_update_file])
         self._run_command_with_output_window(
             title_base="验证脚本输出",
             cmd=cmd,

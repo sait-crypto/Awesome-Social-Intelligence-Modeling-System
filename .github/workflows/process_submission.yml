@@ -71,18 +71,37 @@ jobs:
             cp pr_workspace/submit_template.json main_workspace/
           fi
 
-          if [ -d pr_workspace/engineering/assets ]; then
-            mkdir -p pr_workspace_assets
-            cp -a pr_workspace/engineering/assets/. pr_workspace_assets/
-          fi
-          if [ -d pr_workspace/assets ]; then
-            mkdir -p pr_workspace_assets
-            cp -a pr_workspace/assets/. pr_workspace_assets/
-          fi
-          if [ -d pr_workspace/figures ]; then
-            mkdir -p pr_workspace_figures
-            cp -a pr_workspace/figures/. pr_workspace_figures/
-          fi
+          copy_changed_resources() {
+            local source_root="$1"
+            local trusted_root="$2"
+            local staging_root="$3"
+            [ -d "$source_root" ] || return 0
+
+            while IFS= read -r -d '' source_file; do
+              relative_path="${source_file#"$source_root"/}"
+              trusted_file="$trusted_root/$relative_path"
+              if [ ! -f "$trusted_file" ] || ! cmp -s "$source_file" "$trusted_file"; then
+                mkdir -p "$staging_root/$(dirname "$relative_path")"
+                cp -- "$source_file" "$staging_root/$relative_path"
+              fi
+            done < <(find "$source_root" -type f -print0)
+          }
+
+          # Stage only resources added or changed by this pull request. Counting
+          # the contributor checkout's full tracked asset tree would apply the
+          # per-submission limit to historical repository files as well.
+          copy_changed_resources \
+            pr_workspace/engineering/assets \
+            main_workspace/engineering/assets \
+            pr_workspace_assets
+          copy_changed_resources \
+            pr_workspace/assets \
+            main_workspace/engineering/assets \
+            pr_workspace_assets
+          copy_changed_resources \
+            pr_workspace/figures \
+            main_workspace/figures \
+            pr_workspace_figures
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
