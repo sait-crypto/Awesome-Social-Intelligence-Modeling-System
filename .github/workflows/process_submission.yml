@@ -62,7 +62,9 @@ jobs:
       PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace_assets
       PR_FIGURES_DIR: ${{ github.workspace }}/pr_workspace_figures
       AUTO_AI_GENERATION: "true"
-      EPHEMERAL_PAPER_FILES: "true"
+      # A paper_file value is optional metadata; repository automation neither
+      # requires the referenced PDF nor uploads it to main.
+      IGNORE_PAPER_FILE_ASSETS: "true"
 
     steps:
       # All executable code and both databases come from the trusted main branch.
@@ -120,6 +122,10 @@ jobs:
             [ -d "$source_root" ] || return 0
 
             while IFS= read -r -d '' source_file; do
+              # Paper PDFs are local research materials, not repository assets.
+              if [[ "${source_file,,}" == *.pdf ]]; then
+                continue
+              fi
               relative_path="${source_file#"$source_root"/}"
               trusted_file="$trusted_root/$relative_path"
               if [ ! -f "$trusted_file" ] || ! cmp -s "$source_file" "$trusted_file"; then
@@ -208,12 +214,8 @@ jobs:
                 echo "Error: the submission contains more than 25 asset files."
                 exit 1
               fi
-              if find "$asset_dir" -type f ! -iname '*.pdf' -size +10M -print -quit | grep -q .; then
-                echo "Error: each submitted non-PDF asset must be no larger than 10 MiB."
-                exit 1
-              fi
-              if find "$asset_dir" -type f -iname '*.pdf' -size +50M -print -quit | grep -q .; then
-                echo "Error: each submitted PDF must be no larger than 50 MiB."
+              if find "$asset_dir" -type f -size +10M -print -quit | grep -q .; then
+                echo "Error: each submitted image or other repository asset must be no larger than 10 MiB."
                 exit 1
               fi
             fi
@@ -274,14 +276,6 @@ jobs:
               body,
             });
 
-      - name: Stage temporary paper PDFs
-        working-directory: main_workspace
-        env:
-          PYTHONPATH: engineering
-        run: >-
-          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
-          stage --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
-
       - name: Normalize submitted assets
         working-directory: main_workspace
         env:
@@ -336,15 +330,6 @@ jobs:
               issue_number: Number(process.env.PR_NUMBER),
               body,
             });
-
-      - name: Remove temporary paper PDFs
-        if: always()
-        working-directory: main_workspace
-        env:
-          PYTHONPATH: engineering
-        run: >-
-          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
-          cleanup --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
 
       - name: Verify database integrity
         working-directory: main_workspace

@@ -212,8 +212,9 @@ class ReadmeGenerator:
         linked_text = f'{text}: [{paper_url}]({paper_url})' if paper_url else text
         return (
             '## News\n\n'
-            '- **August 28, 2026:** The interactive survey homepage is complete, with '
-            'taxonomy-guided filtering and community paper submission.\n'
+            '- **August 28, 2026:** The [interactive survey homepage]('
+            'https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/) '
+            'is complete, with taxonomy-guided filtering and community paper submission.\n'
             f'- **{date}:** {linked_text}.'
         )
 

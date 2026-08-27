@@ -311,7 +311,10 @@ class UpdateFileUtils:
         array_fields = self._get_array_fields()
         try:
             with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
-                writer = csv.writer(f)
+                # Keep repository diffs stable across Windows and Linux.  The
+                # database historically uses LF record separators; csv's
+                # default CRLF would make every unchanged record appear edited.
+                writer = csv.writer(f, lineterminator='\n')
                 
                 # 1. 写入显示名称 (Row 1)
                 writer.writerow(display_names)
@@ -490,8 +493,11 @@ class UpdateFileUtils:
         return set()
 
     def _allow_missing_paper_files(self) -> bool:
-        return str(os.environ.get('EPHEMERAL_PAPER_FILES', '')).strip().lower() in (
-            '1', 'true', 'yes', 'on'
+        # IGNORE_PAPER_FILE_ASSETS is the repository-automation policy. Keep the
+        # older variable as a compatibility alias for local tooling and tests.
+        return any(
+            str(os.environ.get(name, '')).strip().lower() in ('1', 'true', 'yes', 'on')
+            for name in ('IGNORE_PAPER_FILE_ASSETS', 'EPHEMERAL_PAPER_FILES')
         )
 
     def analyze_asset_fields(self, paper: Paper, fields: List[str]) -> List[Dict[str, Any]]:

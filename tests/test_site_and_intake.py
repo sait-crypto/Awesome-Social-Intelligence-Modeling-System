@@ -65,7 +65,11 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
             self.assertEqual(complete["stats"]["paper_count"], len(complete["papers"]))
             self.assertGreater(complete["stats"]["paper_count"], data["stats"]["paper_count"])
             self.assertGreater(complete["stats"]["paper_count"], 900)
-            self.assertEqual(data["stats"]["community_count"], 0)
+            self.assertEqual(
+                data["stats"]["community_count"],
+                sum(1 for paper in data["papers"] if paper["community_contribution"]),
+            )
+            self.assertGreaterEqual(data["stats"]["community_count"], 1)
             self.assertTrue(all(len(paper["abstract"]) <= build_site.ABSTRACT_EXCERPT_LIMIT for paper in data["papers"]))
             self.assertTrue(all("AI generated" not in paper["analogy_summary"] for paper in data["papers"]))
             self.assertTrue(all("翻译" not in paper["analogy_summary"] for paper in data["papers"]))
@@ -428,6 +432,25 @@ class StableDatabaseInsertionTests(unittest.TestCase):
 
 
 class AutomationWiringTests(unittest.TestCase):
+    def test_repository_automation_treats_paper_file_as_metadata_only(self):
+        processing = (ROOT / ".github/workflows/process_submission.yml").read_text(encoding="utf-8")
+        paper = Paper(
+            uid="metadata-only",
+            title="Metadata-only paper",
+            paper_file="engineering/assets/metadata-only/local-paper.pdf",
+        )
+
+        with patch.dict(validate_submission.os.environ, {"IGNORE_PAPER_FILE_ASSETS": "true"}):
+            errors = validate_submission.validate_paper_assets(
+                paper,
+                config=validate_submission.get_config_instance(),
+            )
+
+        self.assertEqual(errors, [])
+        self.assertIn('IGNORE_PAPER_FILE_ASSETS: "true"', processing)
+        self.assertNotIn("temporary_submission_pdfs.py", processing)
+        self.assertIn('[[ "${source_file,,}" == *.pdf ]]', processing)
+
     def test_accepted_update_triggers_pages_and_failure_mail_is_visible(self):
         processing = (ROOT / ".github/workflows/process_submission.yml").read_text(encoding="utf-8")
         deployment = (ROOT / ".github/workflows/deploy_pages.yml").read_text(encoding="utf-8")
