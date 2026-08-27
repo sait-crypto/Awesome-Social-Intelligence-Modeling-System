@@ -1,0 +1,118 @@
+name: Build and Deploy Survey Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - engineering/paper_database_for_survey.csv
+      - engineering/paper_database_complete_list.csv
+      - engineering/config/categories_config.py
+      - engineering/config/paper_metadata.json
+      - engineering/assets/social-intelligence-modeling-overview.png
+      - engineering/assets/category_architecture.png
+      - engineering/scripts/build_site.py
+      - .github/workflows/deploy_pages.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - site/**
+      - engineering/paper_database_for_survey.csv
+      - engineering/paper_database_complete_list.csv
+      - engineering/config/categories_config.py
+      - engineering/config/paper_metadata.json
+      - engineering/assets/social-intelligence-modeling-overview.png
+      - engineering/assets/category_architecture.png
+      - engineering/scripts/build_site.py
+      - .github/workflows/deploy_pages.yml
+  workflow_dispatch:
+
+concurrency:
+  group: survey-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build static survey website
+        run: python engineering/scripts/build_site.py --output site-dist
+
+      - name: Verify generated website
+        run: >-
+          python -c "import json, pathlib;
+          root=pathlib.Path('site-dist');
+          data=json.loads((root/'assets/data/site-data.json').read_text(encoding='utf-8'));
+          complete=json.loads((root/'assets/data/complete-list-data.json').read_text(encoding='utf-8'));
+          assert (root/'index.html').is_file();
+          assert (root/'complete-list.html').is_file();
+          assert data['stats']['paper_count'] == len(data['papers']);
+          assert complete['stats']['paper_count'] == len(complete['papers']);
+          assert complete['stats']['paper_count'] >= data['stats']['paper_count'];
+          assert data['stats']['paper_count'] > 0;
+          print(f\"Verified {len(data['papers'])} curated and {len(complete['papers'])} complete-list paper records.\")"
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site-dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  notify-deployment-failure:
+    if: >-
+      always() &&
+      (needs.build.result == 'failure' || needs.deploy.result == 'failure')
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out notification script
+        uses: actions/checkout@v6
+
+      - name: Send visible deployment failure email
+        env:
+          NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
+          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WORKFLOW_STATUS: failure
+          AUTOMATION_KIND: Survey website build and GitHub Pages deployment
+          NOTIFICATION_HEADING: Survey website automatic update failed
+          OUTCOME_MESSAGE: The repository data may have changed, but the public GitHub Pages website was not updated by this run.
+          CONTEXT_LABEL: GitHub Pages
+          PR_USER: ${{ github.actor }}
+          PR_NUMBER: ${{ github.event.pull_request.number || 'site' }}
+          PR_TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message || 'Manual website deployment' }}
+          PR_URL: ${{ github.event.pull_request.html_url || github.server_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_BRANCH: ${{ github.ref_name }}
+        run: python engineering/scripts/send_notification.py

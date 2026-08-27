@@ -1,0 +1,163 @@
+name: Prepare Paper Submission From Issue
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: paper-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-submission-pr:
+    if: >-
+      github.event.label.name == 'Action: Process' &&
+      startsWith(github.event.issue.title, '[Paper Submission]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    env:
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_URL: ${{ github.event.issue.html_url }}
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      head_ref: ${{ steps.create_pr.outputs.head_ref }}
+      head_sha: ${{ steps.create_pr.outputs.head_sha }}
+      pr_number: ${{ steps.create_pr.outputs.pr_number }}
+      pr_url: ${{ steps.create_pr.outputs.pr_url }}
+
+    steps:
+      - name: Check out trusted main branch
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.12"
+          python-version: "3.13"
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Convert issue to trusted submission data
+        run: >-
+          uv run --frozen python engineering/scripts/issue_to_submission.py
+          --issue-body-env ISSUE_BODY
+          --submitter "$ISSUE_AUTHOR"
+          --issue-number "$ISSUE_NUMBER"
+          --issue-url "$ISSUE_URL"
+          --output submit_template.json
+
+      - name: Materialize GitHub pipeline image attachments
+        run: >-
+          uv run --frozen python engineering/scripts/download_issue_images.py
+          submit_template.json
+
+      - name: Validate generated submission
+        env:
+          PYTHONPATH: engineering
+        run: uv run --frozen python engineering/scripts/validate_submission.py
+
+      - name: Create processing pull request
+        id: create_pr
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch_name="community-paper-issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch_name"
+          git add -f submit_template.json engineering/assets
+          git commit -m "Prepare community paper submission from issue #${ISSUE_NUMBER}"
+          git push origin "$branch_name"
+          pr_url=$(gh pr create \
+            --base main \
+            --head "$branch_name" \
+            --title "Paper submission from issue #${ISSUE_NUMBER}" \
+            --body "Generated from #${ISSUE_NUMBER} after maintainer approval. Submitter: @${ISSUE_AUTHOR}. Processing results and maintainer comments on this pull request notify the submitter through GitHub.")
+          pr_number=$(gh pr view "$pr_url" --json number --jq '.number')
+          echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$branch_name" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Link the processing pull request
+        if: success()
+        run: >-
+          gh issue comment "$ISSUE_NUMBER"
+          --body "The suggestion passed intake validation and is being processed through the repository's existing paper-submission pipeline in ${{ steps.create_pr.outputs.pr_url }}. The public survey website will rebuild after the database update succeeds."
+
+      - name: Report intake failure
+        if: failure()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '### Paper intake failed',
+                'The suggestion was not added to the survey database.',
+                '',
+                `[Open the intake log](${runUrl}) and correct the structured fields before applying the processing label again.`,
+              ].join('\n'),
+            });
+
+  process-approved-submission:
+    name: Run the existing paper-processing pipeline
+    needs: prepare-submission-pr
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/process_submission.yml
+    with:
+      submission_head_sha: ${{ needs.prepare-submission-pr.outputs.head_sha }}
+      submission_head_repository: ${{ github.repository }}
+      submission_head_ref: ${{ needs.prepare-submission-pr.outputs.head_ref }}
+      submission_pr_author: ${{ github.event.issue.user.login }}
+      submission_pr_number: ${{ fromJSON(needs.prepare-submission-pr.outputs.pr_number) }}
+      submission_pr_title: "Paper submission from issue #${{ github.event.issue.number }}"
+      submission_pr_url: ${{ needs.prepare-submission-pr.outputs.pr_url }}
+    secrets: inherit
+
+  notify-intake-failure:
+    name: Notify maintainers when intake fails
+    needs: prepare-submission-pr
+    if: always() && needs.prepare-submission-pr.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted notification script
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Send visible intake failure email
+        env:
+          NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
+          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WORKFLOW_STATUS: failure
+          AUTOMATION_KIND: Community paper issue intake
+          NOTIFICATION_HEADING: Community paper intake failed
+          OUTCOME_MESSAGE: The issue was not converted into a validated processing pull request, so no paper data or website content was updated.
+          CONTEXT_LABEL: Issue #${{ github.event.issue.number }}
+          PR_USER: ${{ github.event.issue.user.login }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_TITLE: ${{ github.event.issue.title }}
+          PR_URL: ${{ github.event.issue.html_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_BRANCH: github-issue
+        run: python engineering/scripts/send_notification.py

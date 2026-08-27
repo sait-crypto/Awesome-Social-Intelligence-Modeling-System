@@ -16,6 +16,16 @@
 
 </div>
 
+<table align="center">
+  <tr>
+    <td align="center">
+      <strong>🌐 Interactive survey website</strong><br />
+      Filter the paper collection and submit new papers.<br />
+      <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/"><strong>Open the website →</strong></a>
+    </td>
+  </tr>
+</table>
+
 <!-- PAPER_INTRO_START -->
 This repository accompanies our paper:
 
@@ -34,6 +44,7 @@ This repository accompanies our paper:
 <!-- PAPER_NEWS_START -->
 ## News
 
+- **August 28, 2026:** The interactive survey homepage is complete, with taxonomy-guided filtering and community paper submission.
 - **August 4, 2026:** The survey is now available online: [https://doi.org/10.13140/RG.2.2.21157.87528](https://doi.org/10.13140/RG.2.2.21157.87528).
 <!-- PAPER_NEWS_END -->
 
@@ -58,7 +69,7 @@ This repository accompanies our paper:
 
 ## Contributions
 
-> To add a paper or update existing metadata, follow the [contribution guide](./CONTRIBUTING.md). You can also email [lixiajie2182712226@gmail.com](mailto:lixiajie2182712226@gmail.com) with links to the paper and project, or to report any errors.
+> To add a paper, use the interactive website highlighted above or follow the [contribution guide](./CONTRIBUTING.md). Website submissions and non-`main` pull requests receive explicit Community provenance in the `contributor` field. You can also email [lixiajie2182712226@gmail.com](mailto:lixiajie2182712226@gmail.com) to report errors.
 
 >[Download the recommended Zotero plugin](https://raw.githubusercontent.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/main/AI_assistant_review_tools/tools/One-Click%20Copy%20Metadata.xpi)
 <br>Developed specifically for this project, it works with the GUI to speed up paper metadata entry. See the technical documentation for details.
