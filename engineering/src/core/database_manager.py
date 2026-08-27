@@ -116,6 +116,11 @@ class DatabaseManager:
                 print(f"警告：数据库原有冲突论文 {old_conflict.title[:30]}... 未找到主论文，已转正")
                 non_conflict_papers.append((old_conflict, []))
                 old_conflict.conflict_marker = False
+
+        # These group bases came from the database before this update.  Their
+        # relative order is part of the curated collection and must remain
+        # stable when unrelated papers are added.
+        established_main_ids = {id(main_paper) for main_paper, _ in non_conflict_papers}
         
         added_papers = []
         conflict_papers = []
@@ -197,45 +202,59 @@ class DatabaseManager:
                 if id(paper) not in promoted_ids
             ]
         
-        # 5. 排序与展平
-        # 按category分组
-        category_groups = {}
-        for main_paper, conflict_list in non_conflict_papers:
-            # 取第一个分类
-            cat = str(main_paper.category).split('|')[0].strip() if main_paper.category else "Uncategorized"
-            if cat not in category_groups:
-                category_groups[cat] = []
-            category_groups[cat].append((main_paper, conflict_list))
-        
-        # 获取分类顺序
+        # 5. 稳定插入与展平
+        # 旧实现会按分类和提交时间重排整个数据库，使一次单篇更新产生
+        # 大量无关行移动。现在保留所有既有组的相对顺序，只把真正新增的
+        # 组插入其分类区段；冲突条目仍必须与其基论文相邻。
         active_cats = self.config.get_active_categories()
         cat_order_map = {c['unique_name']: (c.get('order', 999), i) for i, c in enumerate(active_cats)}
-        
+
+        def get_category(main_paper):
+            return str(main_paper.category).split('|')[0].strip() if main_paper.category else "Uncategorized"
+
         def get_cat_sort_key(cat_name):
             return cat_order_map.get(cat_name, (9999, 9999))
 
+        stable_groups = [
+            group for group in non_conflict_papers
+            if id(group[0]) in established_main_ids
+        ]
+        new_groups = [
+            group for group in non_conflict_papers
+            if id(group[0]) not in established_main_ids
+        ]
+
+        for new_group in new_groups:
+            new_category = get_category(new_group[0])
+            insertion_index = len(stable_groups)
+
+            # A newly submitted paper is the newest item in an existing
+            # category block, so it belongs immediately before that block.
+            same_category_index = next(
+                (
+                    index for index, group in enumerate(stable_groups)
+                    if get_category(group[0]) == new_category
+                ),
+                None,
+            )
+            if same_category_index is not None:
+                insertion_index = same_category_index
+            else:
+                new_key = get_cat_sort_key(new_category)
+                insertion_index = next(
+                    (
+                        index for index, group in enumerate(stable_groups)
+                        if get_cat_sort_key(get_category(group[0])) > new_key
+                    ),
+                    len(stable_groups),
+                )
+            stable_groups.insert(insertion_index, new_group)
+
         sorted_all_papers = []
-        
-        # 对 Category 排序
-        sorted_cats = sorted(category_groups.keys(), key=get_cat_sort_key)
-        
-        for category in sorted_cats:
-            papers_in_category = category_groups[category]
-            
-            # 每个 Category 内，按主论文提交时间倒序
-            papers_in_category.sort(key=lambda x: x[0].submission_time or "", reverse=True)
-            
-            for main_paper, conflict_list in papers_in_category:
-                # 先添加冲突论文（按提交时间倒序，最新的在最上面，紧随主论文之后? 原逻辑似乎是先 conflict 后 main?）
-                # 重新阅读原 database_manager.py 逻辑: 
-                # "sorted_all_papers.extend(conflict_list) ... sorted_all_papers.append(main_paper)"
-                # 是的，原逻辑是先加冲突列表，再加主论文。这样在 Excel/CSV 中，主论文在下面，冲突的在上面（堆栈式）。
-                
-                if conflict_list:
-                    conflict_list.sort(key=lambda x: x.submission_time or "", reverse=True)
-                    sorted_all_papers.extend(conflict_list)
-                
-                sorted_all_papers.append(main_paper)
+        for main_paper, conflict_list in stable_groups:
+            if conflict_list:
+                sorted_all_papers.extend(conflict_list)
+            sorted_all_papers.append(main_paper)
 
         try:
             repaired = self.update_utils.repair_related_paper_references(sorted_all_papers)

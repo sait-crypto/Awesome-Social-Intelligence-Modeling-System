@@ -22,6 +22,7 @@ class ReadmeGenerator:
     """README生成器"""
 
     NO_PIPELINE_PLACEHOLDER = 'no pipeline'
+    COMMUNITY_CONTRIBUTOR_PREFIX = 'community:'
     
     def __init__(self):
         self.config = get_config_instance()
@@ -209,7 +210,13 @@ class ReadmeGenerator:
         if not date or not text:
             return ''
         linked_text = f'{text}: [{paper_url}]({paper_url})' if paper_url else text
-        return f'## News\n\n- **{date}:** {linked_text}.'
+        return (
+            '## News\n\n'
+            '- **August 28, 2026:** The [interactive survey homepage]('
+            'https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/) '
+            'is complete, with taxonomy-guided filtering and community paper submission.\n'
+            f'- **{date}:** {linked_text}.'
+        )
 
     def _generate_citation_content(self, metadata: Dict[str, str]) -> str:
         entry_type = re.sub(r'[^A-Za-z]', '', metadata.get('bibtex_type', 'misc')) or 'misc'
@@ -546,9 +553,21 @@ class ReadmeGenerator:
             else:
                 project_badge = f'[![Project](https://img.shields.io/badge/Project-View-blue)]({paper.project_url})'
 
+        contributor = str(paper.contributor or '').strip()
+        is_community_contribution = contributor.casefold().startswith(
+            self.COMMUNITY_CONTRIBUTOR_PREFIX
+        )
+        contributor_label = (
+            contributor[len(self.COMMUNITY_CONTRIBUTOR_PREFIX):].strip()
+            if is_community_contribution else ''
+        ) or 'Community submitter'
+        community_badge = ""
+        if is_community_contribution:
+            community_badge = " [![Community](https://img.shields.io/badge/Community-Contribution-78a647)]()"
+
         badges = ""
-        if project_badge or conference_badge:
-            badges = f"{project_badge}{conference_badge}<br>"
+        if project_badge or conference_badge or community_badge:
+            badges = f"{project_badge}{conference_badge}{community_badge}<br>"
 
         title_with_link = create_hyperlink(title, paper.paper_url)
 
@@ -567,7 +586,12 @@ class ReadmeGenerator:
         except Exception:
             multi_line = ""
 
-        return f"{badges}{title_with_link} <br> {authors} <br> {date}{multi_line}"
+        contributor_line = ""
+        if is_community_contribution:
+            contributor_display = self._sanitize_field(contributor_label)
+            contributor_line = f' <br> <sub>Community contribution by {contributor_display}</sub>'
+
+        return f"{badges}{title_with_link} <br> {authors} <br> {date}{contributor_line}{multi_line}"
 
     def _generate_pipeline_cell(self, paper: Paper) -> str:
         """Render up to three pipeline images in one table cell."""

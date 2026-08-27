@@ -1,0 +1,30 @@
+.optional-image-slot {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.optional-image-slot[hidden] {
+  display: none;
+}
+
+.optional-image-slot img {
+  width: 100%;
+  max-height: 620px;
+  object-fit: cover;
+}
+
+.optional-image-slot figcaption {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.image-slot-wide {
+  width: min(100%, var(--max-width));
+  margin: clamp(1.5rem, 3vw, 2.5rem) auto 0;
+}

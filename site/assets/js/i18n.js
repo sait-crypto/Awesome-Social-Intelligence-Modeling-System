@@ -1,0 +1,383 @@
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "sim-site-language";
+  const SUPPORTED = new Set(["en", "zh"]);
+  const snapshots = new WeakMap();
+  let language = window.localStorage.getItem(STORAGE_KEY) === "zh" ? "zh" : "en";
+
+  const messages = {
+    en: {
+      "dynamic.built": "built {date}",
+      "dynamic.uniquePapers": "unique papers",
+      "dynamic.tasks": "{count} tasks",
+      "dynamic.papers": "{count} papers",
+      "dynamic.selected": "{count} selected",
+      "dynamic.publicationYear": "Publication year",
+      "dynamic.loadMore": "Load more papers ({count} remaining)",
+      "dynamic.noResults": "No papers match this search.",
+      "dynamic.unknownTime": "unknown time",
+      "dynamic.paper": "Paper",
+      "dynamic.project": "Project",
+      "dynamic.doi": "DOI",
+      "dynamic.communityContribution": "Community contribution · {contributor}",
+      "dynamic.undated": "Undated",
+      "dynamic.unspecifiedVenue": "Unspecified venue",
+      "dynamic.authorsMissing": "Authors not listed",
+      "dynamic.filterSearch": "Search",
+      "dynamic.filterField": "Field",
+      "dynamic.filterTask": "Task",
+      "dynamic.filterYear": "Year",
+      "dynamic.filterVenue": "Venue",
+      "dynamic.filterSource": "Source",
+      "dynamic.community": "Community",
+      "dynamic.removeFilter": "Remove {label} filter {value}",
+      "dynamic.categoryLimit": "Please select no more than four categories.",
+      "dynamic.loadFailed": "The paper data could not be loaded.",
+      "dynamic.openRepository": "Open the repository",
+      "dynamic.refreshPage": "or refresh this page.",
+      "dynamic.taxonomyUnavailable": "Taxonomy data is temporarily unavailable.",
+      "validation.passed": "Basic format checks passed. The repository pipeline performs the final validation after submission.",
+      "validation.heading": "Check the following before submitting:",
+      "validation.titleRequired": "Paper title is required.",
+      "validation.doiRequired": "DOI is required. If the paper has no DOI, click Generate placeholder.",
+      "validation.dateRequired": "Publication date is required.",
+      "validation.paperUrlRequired": "Paper URL is required.",
+      "validation.authorsRequired": "Authors are required.",
+      "validation.abstractRequired": "Abstract is required.",
+      "validation.doiFormat": "Use a DOI such as 10.1234/example.",
+      "validation.dateFormat": "Use YYYY, YYYY-MM, or YYYY-MM-DD for the publication date.",
+      "validation.urlFormat": "{label} must start with http:// or https://.",
+      "validation.selectCategory": "Select at least one category.",
+      "validation.categoryLimit": "Select no more than four categories.",
+      "validation.paperUrl": "Paper URL",
+      "validation.projectUrl": "Project URL",
+      "zotero.singleError": "Paste exactly one Zotero item.",
+      "zotero.categoryUnrecognized": "Category tags were not recognized; please select them below.",
+      "zotero.importedPaper": "Imported paper metadata.",
+      "zotero.importedAvailable": "Imported available fields.",
+      "zotero.inlineImported": "Imported available metadata",
+      "zotero.readError": "Could not read Zotero JSON.",
+      "zotero.pasted": "Metadata pasted. Select “Fill available fields” to import it.",
+      "doi.replace": "Replace the current DOI with a placeholder?",
+      "submission.long": "The detailed submission is long, so its formatted body was copied to your clipboard. Paste it into the GitHub issue that opens next.",
+      "submission.duplicateDraft": "A GitHub issue draft for this paper was opened recently. Open another only if the first draft was not submitted. Continue?",
+      "submission.clearConfirm": "Clear every field and selected category in this form? This cannot be undone.",
+      "pipeline.selected": "Selected: {name}",
+      "pipeline.selectedMany": "{count} pipeline images are ready to attach.",
+      "pipeline.count": "{count} / {max} images selected",
+      "pipeline.tooMany": "Select no more than {max} pipeline images.",
+      "pipeline.tooLarge": "Choose an image no larger than 10 MiB.",
+      "pipeline.unsupported": "Choose a PNG, JPEG, GIF, or WebP image.",
+      "pipeline.copied": "The pipeline image was copied. Paste it into the Pipeline image section of the GitHub issue before submitting.",
+      "pipeline.copyUnavailable": "The browser could not copy the selected image. Drag the same file into the Pipeline image section of the GitHub issue before submitting.",
+      "pipeline.attachMultiple": "The {count} selected images are ready. Drag them together into the Pipeline image section of the GitHub issue before submitting.",
+      "pipeline.previewAlt": "Preview of {name}",
+    },
+    zh: {
+      "nav.definition": "定义",
+      "nav.landscape": "分类统计",
+      "nav.explorer": "论文检索",
+      "nav.allPapers": "全部论文",
+      "nav.community": "社区",
+      "nav.contribute": "提交论文",
+      "nav.home": "综述主页",
+      "nav.curated": "精选论文检索",
+      "nav.toggle": "展开或收起导航",
+      "skip.explorer": "跳到论文检索",
+      "skip.complete": "跳到完整论文列表",
+      "hero.label": "综合综述 · 2026",
+      "hero.lead": "本综述将社会智能建模组织为感知、理解、生成与模拟四个阶段，并维护一套与该分类体系一致、可检索的论文集合。",
+      "hero.paper": "论文",
+      "hero.code": "代码与数据",
+      "hero.browse": "浏览论文",
+      "hero.curated": "收录论文",
+      "hero.total": "论文总数",
+      "hero.tasks": "有效任务节点",
+      "definition.eyebrow": "定义",
+      "definition.title": "什么是社会智能建模？",
+      "definition.lead": "社会智能建模（SIM）旨在建立能够表示并推理社会信号、参与者、关系、互动及群体演化过程的计算模型，其范围从识别单个社会线索延伸到社会系统模拟。",
+      "stage.perception": "社会感知",
+      "stage.understanding": "社会理解",
+      "stage.generation": "社会生成",
+      "stage.simulation": "社会模拟",
+      "stage.perceptionDesc": "识别内容、用户及多模态互动中的社会信号与状态。",
+      "stage.understandingDesc": "建模社会结构、话语、网络、社群与行为模式。",
+      "stage.generationDesc": "生成符合社会情境的内容、对话、反制言论与干预。",
+      "stage.simulationDesc": "重建动态社会过程，并探索可能的群体未来。",
+      "common.viewPapers": "查看论文",
+      "definition.framework": "综述框架",
+      "definition.frameworkCaption": "从可观测社会信号到动态社会模拟的连续路径。",
+      "landscape.eyebrow": "分类体系与统计",
+      "landscape.title": "任务分布",
+      "landscape.lead": "统计由精选综述数据库生成。多分类论文会计入所有相关任务，但顶部论文总数仅对每篇论文计数一次。",
+      "landscape.fieldViews": "四个领域视图",
+      "landscape.tasksByField": "各领域任务",
+      "landscape.fixedCounts": "完整综述固定统计 · 点击任务可直接筛选论文",
+      "landscape.loading": "正在加载分类体系…",
+      "timeline.eyebrow": "时间脉络图",
+      "timeline.title": "各领域研究的时间分布",
+      "timeline.lead": "每个点代表一篇论文，并按发表日期定位。各行对应四个综述领域；选择领域、年份或论文即可更新下方检索结果。",
+      "taxonomy.open": "展开完整分类体系",
+      "explorer.eyebrow": "论文集合",
+      "explorer.title": "搜索与筛选论文",
+      "explorer.lead": "可按标题、作者、会议、任务、摘要或简介搜索。",
+      "explorer.all": "浏览仓库全部论文",
+      "filter.search": "搜索",
+      "filter.searchPlaceholder": "标题、作者、方法或关键词…",
+      "filter.field": "领域层级",
+      "filter.allFields": "全部领域",
+      "filter.task": "任务",
+      "filter.allTasks": "全部任务",
+      "filter.year": "年份",
+      "filter.allYears": "全部年份",
+      "filter.venue": "会议 / 期刊",
+      "filter.allVenues": "全部来源",
+      "filter.sort": "排序",
+      "filter.newest": "最新优先",
+      "filter.oldest": "最早优先",
+      "filter.title": "标题 A–Z",
+      "filter.communityOnly": "仅 Community",
+      "filter.communityHint": "第三方提交并收录的论文",
+      "filter.matches": "篇论文匹配",
+      "filter.clear": "清除全部筛选",
+      "explorer.loading": "正在加载论文集合…",
+      "explorer.empty": "没有论文符合当前组合。",
+      "explorer.emptyHint": "可扩大任务范围、移除会议筛选或清除搜索条件。",
+      "explorer.loadMore": "加载更多论文",
+      "community.eyebrow": "社区",
+      "community.title": "加入 SIM 社区",
+      "community.lead": "扫描二维码加入微信讨论群，参与学术交流并获取综述更新。",
+      "community.note": "微信群二维码可能过期，最新群组信息会在本仓库中维护。",
+      "contribute.eyebrow": "论文提交",
+      "contribute.title": "推荐一篇论文",
+      "contribute.lead": "提交结构化元数据供维护者审核。论文只有通过验证并获维护者批准后，才会加入集合。",
+      "contribute.submit": "提交",
+      "contribute.submitDesc": "粘贴 Zotero 元数据或填写必填字段。",
+      "contribute.review": "审核",
+      "contribute.reviewDesc": "维护者检查研究范围、重复项和分类。",
+      "contribute.publish": "发布",
+      "contribute.publishDesc": "通过的数据将更新论文集合与网站。",
+      "contribute.provenance": "Community 来源会被保留。",
+      "contribute.provenanceDesc": "只有通过第三方提交流程收录的记录才带有 Community 标识。",
+      "form.intake": "论文录入",
+      "form.required": "带 * 的字段为必填项",
+      "form.importZotero": "从 Zotero 导入",
+      "form.zoteroHint": "可选 · 从 Zotero 插件复制的单篇记录中快速填充已有字段",
+      "form.title": "论文标题 *",
+      "form.doi": "DOI *",
+      "form.doiHint": "若论文没有 DOI，请点击按钮自动生成占位符。",
+      "form.generateDoi": "生成占位符",
+      "form.date": "发表日期 *",
+      "form.paperUrl": "论文链接 *",
+      "form.projectUrl": "项目链接",
+      "form.projectHint": "可选，代码或项目主页",
+      "form.authors": "作者 *",
+      "form.authorsPlaceholder": "完整作者列表",
+      "form.venue": "会议 / 期刊",
+      "form.venueHint": "可选，但建议填写",
+      "form.summary": "类比式简介",
+      "form.summaryHint": "可选，一句简洁描述",
+      "form.contributor": "贡献者",
+      "form.contributorHint": "可选；留空则使用 GitHub Issue 作者",
+      "form.contributorPlaceholder": "@GitHub 用户名或显示名称",
+      "form.categories": "分类 *",
+      "form.categoryLead": "最多选择四个叶子任务。",
+      "form.categorySearch": "搜索任务名称…",
+      "form.abstract": "摘要 *",
+      "form.pipelineImage": "Pipeline 图片",
+      "form.pipelineHint": "推荐填写；方法、框架或处理流程图",
+      "form.chooseImages": "选择图片",
+      "form.clearImages": "清除图片",
+      "form.pipelineHelp": "最多选择四张图片，每张不超过 10 MiB。打开 GitHub Issue 前可先预览。",
+      "form.more": "更多可选字段",
+      "form.moreHint": "详细总结与相关工作",
+      "form.notes": "补充说明",
+      "form.motivation": "研究动机",
+      "form.innovation": "创新点",
+      "form.method": "方法",
+      "form.conclusion": "结论 / 贡献",
+      "form.limitations": "局限 / 未来工作",
+      "form.related": "相关论文标题",
+      "form.relatedPlaceholder": "使用 | 分隔标题",
+      "form.privacy": "提交后会创建一个公开、结构化的 GitHub Issue。处理结果和维护者反馈会在该 Issue 或关联 PR 中提及提交者；请在 GitHub 订阅通知，不要填写私人邮箱。",
+      "form.submit": "在 GitHub 创建论文提交 Issue",
+      "form.clearAll": "全部清除",
+      "form.native": "更习惯 GitHub 原生 Issue 表单？",
+      "zotero.eyebrow": "元数据助手",
+      "zotero.title": "从 Zotero 导入",
+      "zotero.step1": "在 Zotero 中选择一条记录。",
+      "zotero.step2": "使用一键复制元数据插件复制其 JSON。",
+      "zotero.step3": "粘贴到下方；识别出的字段会被填充，不会删除其他表单字段。",
+      "zotero.pluginLead": "尚未安装插件？",
+      "zotero.download": "下载 Zotero 插件",
+      "zotero.placeholder": "粘贴一条 Zotero 记录，例如 { \"title\": \"…\", \"creators\": […] }",
+      "zotero.cancel": "取消",
+      "zotero.fill": "填充可用字段",
+      "footer.tagline": "综述、分类体系与论文集合。",
+      "footer.complete": "完整列表",
+      "footer.contributing": "参与贡献",
+      "footer.status": "数据由当前综述仓库生成 ·",
+      "back.top": "返回顶部",
+      "complete.label": "仓库索引",
+      "complete.title": "完整论文列表",
+      "complete.leadBefore": "本页以紧凑形式展示完整数据库中的",
+      "complete.leadAfter": "篇论文。需要分类、简介和交互式筛选时，请使用精选论文检索。",
+      "complete.openCurated": "打开精选论文检索",
+      "complete.back": "返回综述主页",
+      "complete.eyebrow": "仓库全部论文",
+      "complete.index": "紧凑索引",
+      "complete.generatedFrom": "由与 COMPLETE_LIST.md 相同的完整数据库生成。",
+      "complete.order": "顺序",
+      "complete.repositoryOrder": "仓库顺序",
+      "complete.tableTitle": "标题",
+      "complete.tableVenue": "会议 / 期刊",
+      "complete.tableLinks": "链接",
+      "complete.loading": "正在加载完整论文列表…",
+      "complete.lastGenerated": "最后生成于",
+      "complete.footer": "完整仓库索引",
+      "complete.paperUnit": "篇论文",
+      "paper.summary": "简介",
+      "paper.abstract": "摘要",
+      "dynamic.built": "构建于 {date}",
+      "dynamic.uniquePapers": "篇独立论文",
+      "dynamic.tasks": "{count} 个任务",
+      "dynamic.papers": "{count} 篇论文",
+      "dynamic.selected": "已选择 {count} 项",
+      "dynamic.publicationYear": "发表年份",
+      "dynamic.loadMore": "加载更多论文（剩余 {count} 篇）",
+      "dynamic.noResults": "没有论文符合当前搜索。",
+      "dynamic.unknownTime": "未知时间",
+      "dynamic.paper": "论文",
+      "dynamic.project": "项目",
+      "dynamic.doi": "DOI",
+      "dynamic.communityContribution": "Community 投稿 · {contributor}",
+      "dynamic.undated": "日期未知",
+      "dynamic.unspecifiedVenue": "来源未注明",
+      "dynamic.authorsMissing": "作者未列出",
+      "dynamic.filterSearch": "搜索",
+      "dynamic.filterField": "领域",
+      "dynamic.filterTask": "任务",
+      "dynamic.filterYear": "年份",
+      "dynamic.filterVenue": "来源",
+      "dynamic.filterSource": "来源类型",
+      "dynamic.community": "Community",
+      "dynamic.removeFilter": "移除{label}筛选：{value}",
+      "dynamic.categoryLimit": "最多选择四个分类。",
+      "dynamic.loadFailed": "论文数据加载失败。",
+      "dynamic.openRepository": "打开仓库",
+      "dynamic.refreshPage": "或刷新本页面。",
+      "dynamic.taxonomyUnavailable": "分类数据暂时不可用。",
+      "validation.passed": "基本格式检查已通过。提交后仍将由仓库管线执行最终验证。",
+      "validation.heading": "提交前请检查以下内容：",
+      "validation.titleRequired": "请填写论文标题。",
+      "validation.doiRequired": "请填写 DOI。若论文没有 DOI，请点击“生成占位符”。",
+      "validation.dateRequired": "请填写发表日期。",
+      "validation.paperUrlRequired": "请填写论文链接。",
+      "validation.authorsRequired": "请填写作者。",
+      "validation.abstractRequired": "请填写摘要。",
+      "validation.doiFormat": "DOI 格式应类似 10.1234/example。",
+      "validation.dateFormat": "发表日期请使用 YYYY、YYYY-MM 或 YYYY-MM-DD。",
+      "validation.urlFormat": "{label}必须以 http:// 或 https:// 开头。",
+      "validation.selectCategory": "请至少选择一个分类。",
+      "validation.categoryLimit": "最多选择四个分类。",
+      "validation.paperUrl": "论文链接",
+      "validation.projectUrl": "项目链接",
+      "zotero.singleError": "请只粘贴一条 Zotero 记录。",
+      "zotero.categoryUnrecognized": "未识别分类标签，请在下方手动选择。",
+      "zotero.importedPaper": "已导入论文元数据。",
+      "zotero.importedAvailable": "已导入可用字段。",
+      "zotero.inlineImported": "已导入可用元数据",
+      "zotero.readError": "无法读取 Zotero JSON。",
+      "zotero.pasted": "已粘贴元数据，请选择“填充可用字段”完成导入。",
+      "doi.replace": "是否用占位符替换当前 DOI？",
+      "submission.long": "提交内容较长，格式化正文已复制到剪贴板。请在随后打开的 GitHub Issue 中粘贴。",
+      "submission.duplicateDraft": "最近已经为这篇论文打开过 GitHub Issue 草稿。仅当上一个草稿没有提交时才继续打开，是否继续？",
+      "submission.clearConfirm": "确定清除表单中的全部字段和已选分类吗？此操作无法撤销。",
+      "pipeline.selected": "已选择：{name}",
+      "pipeline.selectedMany": "已准备 {count} 张 Pipeline 图片。",
+      "pipeline.count": "已选择 {count} / {max} 张图片",
+      "pipeline.tooMany": "Pipeline 图片最多选择 {max} 张。",
+      "pipeline.tooLarge": "请选择不超过 10 MiB 的图片。",
+      "pipeline.unsupported": "请选择 PNG、JPEG、GIF 或 WebP 图片。",
+      "pipeline.copied": "Pipeline 图片已复制。请在提交 GitHub Issue 前，将它粘贴到 Pipeline image 一栏。",
+      "pipeline.copyUnavailable": "浏览器无法复制所选图片。请在提交 GitHub Issue 前，将同一文件拖入 Pipeline image 一栏。",
+      "pipeline.attachMultiple": "已准备 {count} 张图片。请在提交前将它们一起拖入 GitHub Issue 的 Pipeline image 一栏。",
+      "pipeline.previewAlt": "{name} 的预览图",
+    },
+  };
+
+  const interpolate = (template, values = {}) =>
+    String(template).replace(/\{(\w+)\}/g, (_match, key) => String(values[key] ?? ""));
+
+  const t = (key, values) => interpolate(messages[language]?.[key] ?? messages.en[key] ?? key, values);
+
+  const nodes = (root, selector) => {
+    const matches = root instanceof Element && root.matches(selector) ? [root] : [];
+    return [...matches, ...root.querySelectorAll(selector)];
+  };
+
+  const snapshot = (element) => {
+    if (!snapshots.has(element)) {
+      const prefix = [...element.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && node.nodeValue.trim());
+      snapshots.set(element, {
+        html: element.innerHTML,
+        placeholder: element.getAttribute("placeholder"),
+        ariaLabel: element.getAttribute("aria-label"),
+        title: element.getAttribute("title"),
+        prefix,
+        prefixText: prefix?.nodeValue,
+      });
+    }
+    return snapshots.get(element);
+  };
+
+  function apply(root = document) {
+    nodes(root, "[data-i18n]").forEach((element) => {
+      const original = snapshot(element);
+      if (language === "en") element.innerHTML = original.html;
+      else element.textContent = t(element.dataset.i18n);
+    });
+    nodes(root, "[data-i18n-prefix]").forEach((element) => {
+      const original = snapshot(element);
+      if (!original.prefix) return;
+      original.prefix.nodeValue = language === "en" ? original.prefixText : `${t(element.dataset.i18nPrefix)} `;
+    });
+    [
+      ["data-i18n-placeholder", "placeholder", "placeholder"],
+      ["data-i18n-aria-label", "ariaLabel", "aria-label"],
+      ["data-i18n-title", "title", "title"],
+    ].forEach(([selector, storedKey, attribute]) => {
+      nodes(root, `[${selector}]`).forEach((element) => {
+        const original = snapshot(element);
+        const key = element.getAttribute(selector);
+        const value = language === "en" ? original[storedKey] : t(key);
+        if (value === null || value === undefined) element.removeAttribute(attribute);
+        else element.setAttribute(attribute, value);
+      });
+    });
+
+    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+    document.querySelectorAll("[data-language-toggle]").forEach((button) => {
+      button.textContent = language === "en" ? "中文" : "EN";
+      button.setAttribute("aria-label", language === "en" ? "切换为中文" : "Switch to English");
+      button.setAttribute("title", language === "en" ? "切换为中文" : "Switch to English");
+    });
+  }
+
+  function setLanguage(nextLanguage) {
+    const next = SUPPORTED.has(nextLanguage) ? nextLanguage : "en";
+    if (next === language) return;
+    language = next;
+    window.localStorage.setItem(STORAGE_KEY, language);
+    apply(document);
+    window.dispatchEvent(new CustomEvent("sim:languagechange", { detail: { language } }));
+  }
+
+  document.querySelectorAll("[data-language-toggle]").forEach((button) => {
+    button.addEventListener("click", () => setLanguage(language === "en" ? "zh" : "en"));
+  });
+  apply(document);
+
+  window.SIMI18n = Object.freeze({ apply, getLanguage: () => language, setLanguage, t });
+})();
