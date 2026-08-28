@@ -69,6 +69,7 @@
     pipelineImage: document.querySelector("[data-pipeline-image]"),
     pipelineDropZone: document.querySelector("[data-pipeline-dropzone]"),
     pipelineChoose: document.querySelector("[data-choose-pipeline]"),
+    pipelinePaste: document.querySelector("[data-paste-pipeline]"),
     pipelineClear: document.querySelector("[data-clear-pipeline]"),
     pipelineCount: document.querySelector("[data-pipeline-count]"),
     pipelinePreview: document.querySelector("[data-pipeline-preview]"),
@@ -77,6 +78,7 @@
     paperFile: document.querySelector("[data-paper-file]"),
     paperFileDropZone: document.querySelector("[data-paper-file-dropzone]"),
     paperFileChoose: document.querySelector("[data-choose-paper-file]"),
+    paperFilePaste: document.querySelector("[data-paste-paper-file]"),
     paperFileClear: document.querySelector("[data-clear-paper-file]"),
     paperFileName: document.querySelector("[data-paper-file-name]"),
     paperFileStatus: document.querySelector("[data-paper-file-status]"),
@@ -1199,6 +1201,52 @@
     });
   }
 
+  const clipboardExtension = (type) => ({
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "application/pdf": ".pdf",
+  })[type] || "";
+
+  async function readClipboardFiles(acceptedTypes, prefix) {
+    if (!navigator.clipboard?.read) throw new Error(t("clipboard.unsupported"));
+    let items;
+    try {
+      items = await navigator.clipboard.read();
+    } catch (error) {
+      if (error?.name === "NotAllowedError") throw new Error(t("clipboard.permission"));
+      throw new Error(t("clipboard.failed"));
+    }
+    const files = [];
+    for (const item of items) {
+      const type = item.types.find((candidate) => acceptedTypes.has(candidate));
+      if (!type) continue;
+      const blob = await item.getType(type);
+      files.push(new File(
+        [blob],
+        `${prefix}-${Date.now()}-${files.length + 1}${clipboardExtension(type)}`,
+        { type, lastModified: Date.now() },
+      ));
+    }
+    return files;
+  }
+
+  async function withClipboardButton(button, statusElement, callback) {
+    if (!button || !statusElement) return;
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    statusElement.textContent = t("clipboard.reading");
+    try {
+      await callback();
+    } catch (error) {
+      statusElement.textContent = error instanceof Error ? error.message : t("clipboard.failed");
+    } finally {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
+  }
+
   function setupPipelineImage() {
     if (!elements.pipelineImage) return;
     const allowedTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -1236,6 +1284,7 @@
       elements.pipelinePreviewList.replaceChildren();
       if (!files.length) {
         elements.pipelinePreview.hidden = true;
+        elements.pipelineStatus.textContent = "";
         return;
       }
       if (files.length > MAX_PIPELINE_IMAGES) {
@@ -1272,6 +1321,18 @@
       chooseBase = [...(elements.pipelineImage.files || [])];
       elements.pipelineImage.click();
     });
+    elements.pipelinePaste?.addEventListener("click", () => withClipboardButton(
+      elements.pipelinePaste,
+      elements.pipelineStatus,
+      async () => {
+        const files = await readClipboardFiles(allowedTypes, "clipboard-pipeline");
+        if (!files.length) {
+          elements.pipelineStatus.textContent = t("pipeline.clipboardEmpty");
+          return;
+        }
+        addPipelineFiles(files);
+      },
+    ));
     elements.pipelineClear?.addEventListener("click", resetPipelineImages);
     elements.pipelineImage.addEventListener("change", () => {
       if (assigningFiles) {
@@ -1335,6 +1396,18 @@
       elements.paperFile.dispatchEvent(new Event("input", { bubbles: true }));
     };
     elements.paperFileChoose?.addEventListener("click", () => elements.paperFile.click());
+    elements.paperFilePaste?.addEventListener("click", () => withClipboardButton(
+      elements.paperFilePaste,
+      elements.paperFileStatus,
+      async () => {
+        const files = await readClipboardFiles(new Set(["application/pdf"]), "clipboard-paper");
+        if (!files.length) {
+          elements.paperFileStatus.textContent = t("paperFile.clipboardEmpty");
+          return;
+        }
+        acceptFiles(files);
+      },
+    ));
     elements.paperFileClear?.addEventListener("click", resetPaperFile);
     elements.paperFile.addEventListener("change", () => {
       render();

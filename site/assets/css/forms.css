@@ -46,7 +46,7 @@
 .pipeline-upload,
 .paper-file-upload {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 352px;
+  grid-template-columns: minmax(0, 1fr) 430px;
   gap: 0.45rem 0.9rem;
   align-items: center;
   min-height: 82px;
@@ -96,10 +96,17 @@
 
 .pipeline-controls {
   display: grid;
-  grid-template-columns: 112px minmax(120px, 1fr) 92px;
+  grid-template-columns: 205px minmax(118px, 1fr) 88px;
   gap: 0.45rem;
   align-items: center;
-  width: 352px;
+  width: 430px;
+}
+
+.upload-choice-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .pipeline-controls .button {
@@ -108,6 +115,17 @@
   padding: 0.45rem 0.55rem;
   font-size: 0.68rem;
   white-space: nowrap;
+}
+
+.upload-paste {
+  border-color: #9db3ce;
+  background: #eef4fb;
+  color: #315e93;
+}
+
+.upload-paste:hover:not(:disabled) {
+  border-color: #7896bd;
+  background: #e3edf9;
 }
 
 .pipeline-controls > span {
@@ -245,7 +263,7 @@
   }
 
   .pipeline-controls {
-    grid-template-columns: 0.9fr 1.2fr 0.9fr;
+    grid-template-columns: minmax(0, 1.45fr) minmax(90px, 1fr) minmax(72px, 0.75fr);
     width: 100%;
   }
 

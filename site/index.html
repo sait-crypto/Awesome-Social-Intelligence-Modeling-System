@@ -355,14 +355,17 @@
               </div>
               <input id="pipeline-image-files" class="sr-only" name="pipeline_image_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-pipeline-image />
               <div class="pipeline-controls">
-                <button type="button" class="button button-secondary" data-choose-pipeline data-i18n="form.chooseImages">Choose images</button>
+                <div class="upload-choice-group">
+                  <button type="button" class="button button-secondary" data-choose-pipeline data-i18n="form.chooseImages" aria-label="Choose pipeline images" data-i18n-aria-label="form.chooseImagesLabel">Choose</button>
+                  <button type="button" class="button button-secondary upload-paste" data-paste-pipeline data-i18n="form.pasteImages" aria-label="Paste a pipeline image from the clipboard" data-i18n-aria-label="form.pasteImagesLabel">Paste</button>
+                </div>
                 <span data-pipeline-count>0 / 4 images selected</span>
                 <button type="button" class="pipeline-clear" data-clear-pipeline disabled data-i18n="form.clearImages">Clear images</button>
               </div>
               <div class="pipeline-preview" data-pipeline-preview hidden>
                 <div class="pipeline-preview-list" data-pipeline-preview-list></div>
-                <span data-pipeline-status></span>
               </div>
+              <span class="paper-file-status" data-pipeline-status role="status" aria-live="polite"></span>
             </div>
             <div class="span-2 paper-file-upload" data-paper-file-dropzone tabindex="0" aria-label="Choose, drop, or paste a paper PDF" data-i18n-aria-label="form.paperFileDropLabel">
               <div class="pipeline-heading">
@@ -371,11 +374,14 @@
               </div>
               <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
               <div class="pipeline-controls">
-                <button type="button" class="button button-secondary" data-choose-paper-file data-i18n="form.choosePaperFile">Choose PDF</button>
+                <div class="upload-choice-group">
+                  <button type="button" class="button button-secondary" data-choose-paper-file data-i18n="form.choosePaperFile" aria-label="Choose a paper PDF" data-i18n-aria-label="form.choosePaperFileLabel">Choose</button>
+                  <button type="button" class="button button-secondary upload-paste" data-paste-paper-file data-i18n="form.pastePaperFile" aria-label="Paste a paper PDF from the clipboard" data-i18n-aria-label="form.pastePaperFileLabel">Paste</button>
+                </div>
                 <span data-paper-file-name data-i18n="form.noPaperFile">No PDF selected</span>
                 <button type="button" class="pipeline-clear" data-clear-paper-file disabled data-i18n="form.clearPaperFile">Clear PDF</button>
               </div>
-              <span class="paper-file-status" data-paper-file-status></span>
+              <span class="paper-file-status" data-paper-file-status role="status" aria-live="polite"></span>
             </div>
           </div>
           <details class="optional-fields">
