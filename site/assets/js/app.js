@@ -37,6 +37,7 @@
     filterForm: document.querySelector("[data-filter-form]"),
     search: document.querySelector("#paper-search"),
     stage: document.querySelector("#stage-filter"),
+    subfield: document.querySelector("#subfield-filter"),
     category: document.querySelector("#category-filter"),
     year: document.querySelector("#year-filter"),
     conference: document.querySelector("#conference-filter"),
@@ -72,6 +73,11 @@
     pipelinePreview: document.querySelector("[data-pipeline-preview]"),
     pipelinePreviewList: document.querySelector("[data-pipeline-preview-list]"),
     pipelineStatus: document.querySelector("[data-pipeline-status]"),
+    paperFile: document.querySelector("[data-paper-file]"),
+    paperFileChoose: document.querySelector("[data-choose-paper-file]"),
+    paperFileClear: document.querySelector("[data-clear-paper-file]"),
+    paperFileName: document.querySelector("[data-paper-file-name]"),
+    paperFileStatus: document.querySelector("[data-paper-file-status]"),
     submitPaper: document.querySelector("[data-submit-paper]"),
     clearSubmission: document.querySelector("[data-clear-submission]"),
   };
@@ -79,6 +85,7 @@
   let submissionOpening = false;
   let pipelinePreviewUrls = [];
   let resetPipelineImages = () => {};
+  let resetPaperFile = () => {};
 
   const appendOption = (select, value, label) => {
     const option = document.createElement("option");
@@ -102,6 +109,13 @@
     document.querySelectorAll('[data-stat="category_count"]').forEach((node) => {
       node.textContent = new Intl.NumberFormat(locale()).format(stats.category_count);
     });
+    document.querySelectorAll("[data-browse-all-papers]").forEach((link) => {
+      const count = new Intl.NumberFormat(locale()).format(stats.total_paper_count);
+      const arrow = document.createElement("span");
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = "→";
+      link.replaceChildren(document.createTextNode(`${t("dynamic.browseAllPapers", { count })} `), arrow);
+    });
     document.querySelectorAll("[data-generated-at]").forEach((node) => {
       node.textContent = t("dynamic.built", { date: formatDate(state.data.meta.generated_at, "Unknown build time", locale()) });
       node.setAttribute("datetime", state.data.meta.generated_at);
@@ -111,13 +125,46 @@
 
   const mainStages = () => STAGE_ORDER.filter((stage) => !["Other", "Uncategorized"].includes(stage));
 
+  const categoryMap = () => new Map(state.data.categories.map((category) => [category.id, category]));
+
   function categoryRoot(categoryId) {
-    const categoryById = new Map(state.data.categories.map((category) => [category.id, category]));
+    const categoryById = categoryMap();
     let current = categoryById.get(categoryId);
     if (!current) return "";
     while (current.parent && categoryById.has(current.parent)) current = categoryById.get(current.parent);
     return current.id;
   }
+
+  function categorySecondLevel(categoryId) {
+    const categoryById = categoryMap();
+    let current = categoryById.get(categoryId);
+    if (!current?.parent) return "";
+    let parent = categoryById.get(current.parent);
+    while (parent?.parent) {
+      current = parent;
+      parent = categoryById.get(current.parent);
+    }
+    return current.id;
+  }
+
+  function categoryIsWithin(categoryId, ancestorId) {
+    if (!ancestorId) return true;
+    const categoryById = categoryMap();
+    let current = categoryById.get(categoryId);
+    const seen = new Set();
+    while (current && !seen.has(current.id)) {
+      if (current.id === ancestorId) return true;
+      seen.add(current.id);
+      current = categoryById.get(current.parent);
+    }
+    return false;
+  }
+
+  const paperInCategoryBranch = (paper, categoryId) =>
+    !categoryId || paper.categories.some((paperCategory) => categoryIsWithin(paperCategory, categoryId));
+
+  const branchPaperCount = (categoryId) =>
+    state.data.papers.filter((paper) => paperInCategoryBranch(paper, categoryId)).length;
 
   function updateSubmissionCategoryCount() {
     const count = elements.submissionCategories.querySelectorAll('input[type="checkbox"]:checked').length;
@@ -144,12 +191,15 @@
 
   function renderTaskBars(papers, selectedCategory = "") {
     const tasks = state.data.categories
-      .filter((item) => item.leaf && item.depth > 0 && !["Other", "Uncategorized"].includes(item.id))
+      .filter((item) => item.depth > 1 && !["Other", "Uncategorized"].includes(item.id))
       .map((item) => ({
         ...item,
         stage: categoryRoot(item.id),
-        count: papers.filter((paper) => paper.categories.includes(item.id)).length,
-      }));
+        subfield: categorySecondLevel(item.id),
+        count: papers.filter((paper) => paperInCategoryBranch(paper, item.id)).length,
+      }))
+      .filter((item) => item.count > 0);
+    const categoryById = categoryMap();
     elements.taskBars.replaceChildren();
 
     mainStages().forEach((stage) => {
@@ -166,29 +216,50 @@
       heading.innerHTML = `<h4>${stageLabel(stage)}</h4><span>${t("dynamic.tasks", { count: stageTasks.length })}</span>`;
       const list = document.createElement("div");
       list.className = "task-list";
+      const groupedTasks = new Map();
       stageTasks.forEach((task) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "task-bar";
-        button.setAttribute("aria-pressed", String(selectedCategory === task.id));
-        button.setAttribute("aria-label", `${task.name}, ${t("dynamic.papers", { count: task.count })}`);
-
-        const label = document.createElement("span");
-        label.textContent = task.name;
-        const track = document.createElement("span");
-        track.className = "bar-track";
-        const fill = document.createElement("i");
-        fill.style.setProperty("--bar-width", `${task.count ? Math.max(4, (task.count / maxCount) * 100) : 0}%`);
-        track.append(fill);
-        const count = document.createElement("strong");
-        count.textContent = task.count;
-        button.append(label, track, count);
-        button.addEventListener("click", () => {
-          const active = selectedCategory === task.id;
-          setExplorerFilters({ category: active ? "" : task.id, stage: active ? "" : task.stage });
-        });
-        list.append(button);
+        if (!groupedTasks.has(task.subfield)) groupedTasks.set(task.subfield, []);
+        groupedTasks.get(task.subfield).push(task);
       });
+      [...groupedTasks.entries()]
+        .sort(([left], [right]) => {
+          const leftCategory = categoryById.get(left);
+          const rightCategory = categoryById.get(right);
+          return (leftCategory?.order || 0) - (rightCategory?.order || 0) || left.localeCompare(right);
+        })
+        .forEach(([subfieldId, groupTasks]) => {
+          const group = document.createElement("section");
+          group.className = "task-subfield-group";
+          const groupHeading = document.createElement("h5");
+          groupHeading.textContent = categoryById.get(subfieldId)?.name || subfieldId;
+          group.append(groupHeading);
+          groupTasks.forEach((task) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "task-bar";
+            button.setAttribute("aria-pressed", String(selectedCategory === task.id));
+            button.setAttribute("aria-label", `${task.name}, ${t("dynamic.papers", { count: task.count })}`);
+
+            const label = document.createElement("span");
+            label.textContent = task.name;
+            const track = document.createElement("span");
+            track.className = "bar-track";
+            const fill = document.createElement("i");
+            fill.style.setProperty("--bar-width", `${task.count ? Math.max(4, (task.count / maxCount) * 100) : 0}%`);
+            track.append(fill);
+            const count = document.createElement("strong");
+            count.textContent = task.count;
+            button.append(label, track, count);
+            button.addEventListener("click", () => {
+              const active = selectedCategory === task.id;
+              setExplorerFilters(active
+                ? { category: "", subfield: "", stage: "" }
+                : { category: task.id, subfield: task.subfield, stage: task.stage });
+            });
+            group.append(button);
+          });
+          list.append(group);
+        });
       panel.append(heading, list);
       elements.taskBars.append(panel);
     });
@@ -354,26 +425,73 @@
     elements.timeline.append(plot);
   }
 
-  function populateFilters() {
-    const stageNames = state.data.stats.stages
-      .map((item) => item.name)
-      .sort((a, b) => STAGE_ORDER.indexOf(a) - STAGE_ORDER.indexOf(b));
-    stageNames.forEach((stage) => appendOption(elements.stage, stage, stage));
+  function replaceOptions(select, defaultLabel, options, selectedValue = "") {
+    select.replaceChildren();
+    appendOption(select, "", defaultLabel);
+    options.forEach(({ value, label }) => appendOption(select, value, label));
+    select.value = options.some((option) => option.value === selectedValue) ? selectedValue : "";
+    return select.value;
+  }
 
-    const categoryById = new Map(state.data.categories.map((category) => [category.id, category]));
-    const categoryPath = (category) => {
-      const path = [category.name];
-      let parent = categoryById.get(category.parent);
-      while (parent) {
-        path.unshift(parent.name);
-        parent = categoryById.get(parent.parent);
-      }
-      return path.join(" › ");
-    };
-    state.data.categories
-      .filter((category) => category.count > 0 && category.depth > 0)
-      .sort((a, b) => categoryPath(a).localeCompare(categoryPath(b)))
-      .forEach((category) => appendOption(elements.category, category.id, `${categoryPath(category)} (${category.count})`));
+  function syncTaxonomyOptions(selection = {}, inferFrom = "") {
+    const categoryById = categoryMap();
+    let stage = String(selection.stage || "");
+    let subfield = String(selection.subfield || "");
+    let category = String(selection.category || "");
+
+    if (inferFrom === "category" && categoryById.has(category)) {
+      stage = categoryRoot(category);
+      subfield = categorySecondLevel(category);
+    } else if (inferFrom === "subfield" && categoryById.has(subfield)) {
+      stage = categoryRoot(subfield);
+    }
+
+    const stageNames = state.data.categories
+      .filter((item) => item.depth === 0 && mainStages().includes(item.id))
+      .sort((a, b) => a.order - b.order)
+      .map((item) => item.id);
+    stage = replaceOptions(
+      elements.stage,
+      t("filter.allFields"),
+      stageNames.map((name) => ({ value: name, label: stageLabel(name) })),
+      stage,
+    );
+
+    const subfields = state.data.categories
+      .filter((item) => item.depth === 1 && mainStages().includes(categoryRoot(item.id)))
+      .filter((item) => !stage || item.parent === stage)
+      .map((item) => ({ ...item, branchCount: branchPaperCount(item.id) }))
+      .filter((item) => item.branchCount > 0)
+      .sort((a, b) => STAGE_ORDER.indexOf(categoryRoot(a.id)) - STAGE_ORDER.indexOf(categoryRoot(b.id)) || a.order - b.order || a.name.localeCompare(b.name));
+    subfield = replaceOptions(
+      elements.subfield,
+      t("filter.allSubfields"),
+      subfields.map((item) => ({ value: item.id, label: `${item.name} (${item.branchCount})` })),
+      subfield,
+    );
+
+    const tasks = state.data.categories
+      .filter((item) => item.depth > 1)
+      .filter((item) => !stage || categoryRoot(item.id) === stage)
+      .filter((item) => !subfield || categoryIsWithin(item.id, subfield))
+      .map((item) => ({ ...item, branchCount: branchPaperCount(item.id) }))
+      .filter((item) => item.branchCount > 0)
+      .sort((a, b) => {
+        const stageDifference = STAGE_ORDER.indexOf(categoryRoot(a.id)) - STAGE_ORDER.indexOf(categoryRoot(b.id));
+        const subfieldDifference = (categoryById.get(categorySecondLevel(a.id))?.order || 0) - (categoryById.get(categorySecondLevel(b.id))?.order || 0);
+        return stageDifference || subfieldDifference || a.order - b.order || a.name.localeCompare(b.name);
+      });
+    category = replaceOptions(
+      elements.category,
+      t("filter.allTasks"),
+      tasks.map((item) => ({ value: item.id, label: `${item.name} (${item.branchCount})` })),
+      category,
+    );
+    return { stage, subfield, category };
+  }
+
+  function populateFilters() {
+    syncTaxonomyOptions();
 
     [...state.data.stats.years]
       .sort((a, b) => Number(b.name) - Number(a.name))
@@ -410,7 +528,7 @@
       if (!stageCategories.length) return;
       const details = document.createElement("details");
       details.className = "category-stage";
-      details.open = stageIndex === 0;
+      details.open = false;
       details.dataset.stage = stage;
       const summary = document.createElement("summary");
       const stageName = document.createElement("strong");
@@ -481,6 +599,7 @@
   const controls = () => ({
     q: elements.search.value.trim(),
     stage: elements.stage.value,
+    subfield: elements.subfield.value,
     category: elements.category.value,
     year: elements.year.value,
     conference: elements.conference.value,
@@ -502,8 +621,13 @@
   function restoreFiltersFromUrl() {
     const params = new URLSearchParams(window.location.search);
     elements.search.value = params.get("q") || "";
-    elements.stage.value = params.get("stage") || "";
-    elements.category.value = params.get("category") || "";
+    const requested = {
+      stage: params.get("stage") || "",
+      subfield: params.get("subfield") || "",
+      category: params.get("category") || "",
+    };
+    const inferFrom = requested.category ? "category" : requested.subfield ? "subfield" : "stage";
+    syncTaxonomyOptions(requested, inferFrom);
     elements.year.value = params.get("year") || "";
     elements.conference.value = params.get("conference") || "";
     elements.sort.value = params.get("sort") || "newest";
@@ -514,7 +638,8 @@
     const ignore = new Set(ignored);
     const tokens = normalize(values.q).split(/\s+/).filter(Boolean);
     if (!ignore.has("stage") && values.stage && !paper.stages.includes(values.stage)) return false;
-    if (!ignore.has("category") && values.category && !paper.categories.includes(values.category)) return false;
+    if (!ignore.has("subfield") && values.subfield && !paperInCategoryBranch(paper, values.subfield)) return false;
+    if (!ignore.has("category") && values.category && !paperInCategoryBranch(paper, values.category)) return false;
     if (!ignore.has("year") && values.year && String(paper.year || "") !== values.year) return false;
     if (!ignore.has("conference") && values.conference && paper.conference !== values.conference) return false;
     if (!ignore.has("community") && values.community && !paper.community_contribution) return false;
@@ -590,6 +715,14 @@
     }
 
     card.querySelector(".paper-authors").textContent = paper.authors || t("dynamic.authorsMissing");
+    const thumbnail = card.querySelector(".paper-thumbnail");
+    if (isSafeUrl(paper.pipeline_thumbnail)) {
+      card.classList.add("has-thumbnail");
+      thumbnail.hidden = false;
+      const image = thumbnail.querySelector("img");
+      image.src = paper.pipeline_thumbnail;
+      image.alt = t("paper.pipelinePreview", { title: paper.title });
+    }
     const tags = card.querySelector(".paper-tags");
     paper.categories.slice(0, 4).forEach((category) => {
       const button = document.createElement("button");
@@ -597,7 +730,12 @@
       button.className = "paper-tag";
       button.textContent = category;
       button.title = `Filter to ${category}`;
-      button.addEventListener("click", () => setExplorerFilter("category", category));
+      button.addEventListener("click", () => {
+        const categoryInfo = categoryMap().get(category);
+        if (categoryInfo?.depth === 0) setExplorerFilter("stage", category);
+        else if (categoryInfo?.depth === 1) setExplorerFilter("subfield", category);
+        else setExplorerFilter("category", category);
+      });
       tags.append(button);
     });
 
@@ -644,6 +782,7 @@
     const items = [
       ["q", values.q, t("dynamic.filterSearch")],
       ["stage", values.stage, t("dynamic.filterField")],
+      ["subfield", values.subfield, t("dynamic.filterSubfield")],
       ["category", values.category, t("dynamic.filterTask")],
       ["year", values.year, t("dynamic.filterYear")],
       ["conference", values.conference, t("dynamic.filterVenue")],
@@ -669,26 +808,37 @@
     if (key === "q") elements.search.value = "";
     else if (key === "community") elements.community.checked = false;
     else if (elements[key]) elements[key].value = "";
+    if (key === "stage") syncTaxonomyOptions({ stage: "", subfield: "", category: "" }, "stage");
+    else if (key === "subfield") syncTaxonomyOptions({ stage: elements.stage.value, subfield: "", category: "" }, "subfield");
+    else if (key === "category") syncTaxonomyOptions({ stage: elements.stage.value, subfield: elements.subfield.value, category: "" }, "category");
     filterPapers();
   }
 
   function clearFilters() {
     elements.filterForm.reset();
     elements.sort.value = "newest";
+    syncTaxonomyOptions();
     filterPapers();
   }
 
   function setExplorerFilters(patch) {
     if (!state.data) return;
     hideTimelineTooltip();
-    Object.entries(patch).forEach(([key, value]) => {
-      if (elements[key]) elements[key].value = String(value);
-    });
-    if (Object.prototype.hasOwnProperty.call(patch, "category") && patch.category) {
-      elements.stage.value = categoryRoot(String(patch.category));
-    } else if (Object.prototype.hasOwnProperty.call(patch, "stage") && patch.stage && elements.category.value) {
-      if (categoryRoot(elements.category.value) !== String(patch.stage)) elements.category.value = "";
+    const current = controls();
+    const selection = {
+      stage: Object.prototype.hasOwnProperty.call(patch, "stage") ? String(patch.stage || "") : current.stage,
+      subfield: Object.prototype.hasOwnProperty.call(patch, "subfield") ? String(patch.subfield || "") : current.subfield,
+      category: Object.prototype.hasOwnProperty.call(patch, "category") ? String(patch.category || "") : current.category,
+    };
+    const source = patch.category ? "category" : patch.subfield ? "subfield" : "stage";
+    if (Object.prototype.hasOwnProperty.call(patch, "stage") && !patch.stage) {
+      selection.subfield = "";
+      selection.category = "";
     }
+    syncTaxonomyOptions(selection, source);
+    Object.entries(patch).forEach(([key, value]) => {
+      if (!["stage", "subfield", "category"].includes(key) && elements[key]) elements[key].value = String(value);
+    });
     filterPapers();
     scrollToExplorer();
   }
@@ -707,7 +857,19 @@
 
   function setupExplorerEvents() {
     elements.search.addEventListener("input", debounce(() => filterPapers()));
-    [elements.stage, elements.category, elements.year, elements.conference, elements.sort, elements.community].forEach(
+    elements.stage.addEventListener("change", () => {
+      syncTaxonomyOptions({ stage: elements.stage.value, subfield: elements.subfield.value, category: elements.category.value }, "stage");
+      filterPapers();
+    });
+    elements.subfield.addEventListener("change", () => {
+      syncTaxonomyOptions({ stage: elements.stage.value, subfield: elements.subfield.value, category: elements.category.value }, "subfield");
+      filterPapers();
+    });
+    elements.category.addEventListener("change", () => {
+      syncTaxonomyOptions({ stage: elements.stage.value, subfield: elements.subfield.value, category: elements.category.value }, "category");
+      filterPapers();
+    });
+    [elements.year, elements.conference, elements.sort, elements.community].forEach(
       (control) => control.addEventListener("change", () => filterPapers()),
     );
     elements.filterForm.addEventListener("reset", () => window.setTimeout(clearFilters, 0));
@@ -751,6 +913,12 @@
         "Pipeline image",
         pipelineFiles.length
           ? `_Paste or drag the ${pipelineFiles.length} selected pipeline image${pipelineFiles.length === 1 ? "" : "s"} here before submitting this issue._`
+          : "_No response_",
+      ],
+      [
+        "Paper file",
+        formData.get("paper_file_upload") instanceof File && formData.get("paper_file_upload").size > 0
+          ? "_Drag the selected PDF here before submitting this issue._"
           : "_No response_",
       ],
       ["Citation key", formData.get("citation_key") || "_No response_"],
@@ -971,6 +1139,32 @@
     render();
   }
 
+  function setupPaperFile() {
+    if (!elements.paperFile) return;
+    const render = () => {
+      elements.paperFile.setCustomValidity("");
+      const file = elements.paperFile.files?.[0];
+      elements.paperFileClear.disabled = !file;
+      elements.paperFileName.textContent = file ? file.name : t("form.noPaperFile");
+      elements.paperFileStatus.textContent = "";
+      if (!file) return;
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) elements.paperFile.setCustomValidity(t("paperFile.unsupported"));
+      else if (file.size > 50 * 1024 * 1024) elements.paperFile.setCustomValidity(t("paperFile.tooLarge"));
+      elements.paperFileStatus.textContent = elements.paperFile.validationMessage || t("paperFile.selected", { name: file.name });
+    };
+    resetPaperFile = () => {
+      elements.paperFile.value = "";
+      render();
+      elements.paperFile.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    elements.paperFileChoose?.addEventListener("click", () => elements.paperFile.click());
+    elements.paperFileClear?.addEventListener("click", resetPaperFile);
+    elements.paperFile.addEventListener("change", render);
+    window.addEventListener("sim:languagechange", render);
+    render();
+  }
+
   async function copyPipelineImage(file) {
     if (!(file instanceof File) || !navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
       return false;
@@ -1012,6 +1206,15 @@
       const checked = [...elements.submissionCategories.querySelectorAll('input[type="checkbox"]:checked')];
 
       const formData = new FormData(elements.submissionForm);
+      const pipelineFiles = formData.getAll("pipeline_image_file")
+        .filter((file) => file instanceof File && file.size > 0);
+      const paperFile = formData.get("paper_file_upload");
+      const missingRecommended = [
+        !cleanIssueValue(formData.get("venue"), 200) ? t("recommendation.venue") : "",
+        !pipelineFiles.length ? t("recommendation.pipeline") : "",
+        !(paperFile instanceof File && paperFile.size > 0) ? t("recommendation.paperFile") : "",
+      ].filter(Boolean);
+      if (missingRecommended.length && !window.confirm(t("submission.recommendedMissing", { fields: missingRecommended.join(", ") }))) return;
       const fingerprint = submissionFingerprint(formData);
       if (recentlyOpenedSameSubmission(fingerprint) && !window.confirm(t("submission.duplicateDraft"))) return;
 
@@ -1020,8 +1223,6 @@
       const body = buildIssueBody(formData, categories);
       const params = new URLSearchParams({ title, body });
       const issueUrl = `${REPOSITORY_URL}/issues/new?${params.toString()}`;
-      const pipelineFiles = formData.getAll("pipeline_image_file")
-        .filter((file) => file instanceof File && file.size > 0);
       submissionOpening = true;
       elements.submitPaper.disabled = true;
       const releaseButton = () => window.setTimeout(() => {
@@ -1046,11 +1247,16 @@
         : null;
       rememberSubmissionDraft(fingerprint);
       window.open(issueUrl, "_blank", "noopener");
+      const attachmentInstructions = [];
       if (imageCopy) {
-        window.alert(t((await imageCopy) ? "pipeline.copied" : "pipeline.copyUnavailable"));
+        attachmentInstructions.push(t((await imageCopy) ? "pipeline.copied" : "pipeline.copyUnavailable"));
       } else if (pipelineFiles.length > 1) {
-        window.alert(t("pipeline.attachMultiple", { count: pipelineFiles.length }));
+        attachmentInstructions.push(t("pipeline.attachMultiple", { count: pipelineFiles.length }));
       }
+      if (paperFile instanceof File && paperFile.size > 0) {
+        attachmentInstructions.push(t("paperFile.attach", { name: paperFile.name }));
+      }
+      if (attachmentInstructions.length) window.alert(attachmentInstructions.join("\n\n"));
       releaseButton();
     });
   }
@@ -1064,11 +1270,12 @@
       elements.submissionCategories.querySelectorAll(".submission-category, .category-group, .category-stage").forEach((node) => {
         node.hidden = false;
       });
-      elements.submissionCategories.querySelectorAll(".category-stage").forEach((details, index) => {
-        details.open = index === 0;
+      elements.submissionCategories.querySelectorAll(".category-stage").forEach((details) => {
+        details.open = false;
       });
       updateSubmissionCategoryCount();
       resetPipelineImages();
+      resetPaperFile();
       elements.zoteroJson.value = "";
       elements.zoteroStatus.textContent = "";
       delete elements.zoteroStatus.dataset.state;
@@ -1115,6 +1322,7 @@
       setupZoteroImport();
       setupDoiPlaceholder();
       setupPipelineImage();
+      setupPaperFile();
       restoreFiltersFromUrl();
       setupExplorerEvents();
       setupSubmissionForm();
@@ -1128,6 +1336,7 @@
   function refreshDynamicLanguage() {
     if (!state.data) return;
     renderHeadlineStats();
+    syncTaxonomyOptions(controls());
     updateSubmissionCategoryCount();
     elements.submissionCategories.querySelectorAll(".category-stage").forEach((details) => {
       const stage = details.dataset.stage;

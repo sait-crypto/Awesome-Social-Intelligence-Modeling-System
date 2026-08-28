@@ -1,4 +1,4 @@
-"""Download bounded GitHub issue image attachments into paper asset folders."""
+"""Download bounded GitHub issue image and PDF attachments for processing."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from urllib.parse import urlparse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAX_BYTES = 10 * 1024 * 1024
-MAX_IMAGES = 3
+MAX_PDF_BYTES = 50 * 1024 * 1024
+MAX_IMAGES = 4
 
 
 def allowed_url(url: str, *, redirect: bool = False) -> bool:
@@ -47,18 +48,18 @@ def image_extension(content: bytes) -> str:
     raise ValueError("The GitHub attachment is not a supported PNG, JPEG, GIF, or WebP image.")
 
 
-def download(url: str) -> bytes:
+def download(url: str, *, max_bytes: int = MAX_BYTES, field_label: str = "Pipeline image") -> bytes:
     if not allowed_url(url):
         raise ValueError("Only GitHub issue image attachments are accepted.")
     request = urllib.request.Request(url, headers={"User-Agent": "SIM-survey-intake/1.0"})
     opener = urllib.request.build_opener(SafeRedirectHandler())
     with opener.open(request, timeout=30) as response:
         content_length = response.headers.get("Content-Length")
-        if content_length and int(content_length) > MAX_BYTES:
-            raise ValueError("Pipeline image exceeds the 10 MiB limit.")
-        content = response.read(MAX_BYTES + 1)
-    if len(content) > MAX_BYTES:
-        raise ValueError("Pipeline image exceeds the 10 MiB limit.")
+        if content_length and int(content_length) > max_bytes:
+            raise ValueError(f"{field_label} exceeds its size limit.")
+        content = response.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise ValueError(f"{field_label} exceeds its size limit.")
     return content
 
 
@@ -94,6 +95,19 @@ def materialize_images(submission_path: Path, project_root: Path = PROJECT_ROOT)
             local_references.append(relative.as_posix())
         paper["pipeline_image"] = local_references
 
+        paper_reference = str(paper.get("paper_file") or "").strip()
+        if paper_reference:
+            content = download(paper_reference, max_bytes=MAX_PDF_BYTES, field_label="Paper PDF")
+            if not content.startswith(b"%PDF-"):
+                raise ValueError("The GitHub paper attachment is not a valid PDF container.")
+            digest = hashlib.sha256(content).hexdigest()[:10]
+            relative = Path("engineering") / "assets" / uid / f"community-paper-{digest}.pdf"
+            destination = project_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            created.append(destination)
+            paper["paper_file"] = relative.as_posix()
+
     submission_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return created
 
@@ -103,7 +117,7 @@ def main() -> int:
     parser.add_argument("submission", nargs="?", type=Path, default=PROJECT_ROOT / "submit_template.json")
     args = parser.parse_args()
     created = materialize_images(args.submission)
-    print(f"Materialized {len(created)} GitHub issue image attachment(s).")
+    print(f"Materialized {len(created)} GitHub issue attachment(s).")
     return 0
 
 

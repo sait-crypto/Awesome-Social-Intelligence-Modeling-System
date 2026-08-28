@@ -58,6 +58,8 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
             self.assertTrue((output / "assets/js/complete-list.js").is_file())
             self.assertTrue((output / "assets/data/image-slots.json").is_file())
             self.assertTrue((output / "assets/img/favicon.svg").is_file())
+            self.assertTrue((output / "assets/img/sim-mark.svg").is_file())
+            self.assertTrue((output / "assets/img/plugin-guide.png").is_file())
             self.assertTrue((output / "assets/img/social-intelligence-modeling-overview.png").is_file())
             self.assertTrue((output / "assets/img/wechat-group-qr.jpg").is_file())
             self.assertEqual(data["stats"]["paper_count"], len(data["papers"]))
@@ -77,6 +79,7 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
             self.assertTrue(all("AI generated" not in paper["analogy_summary"] for paper in data["papers"]))
             self.assertTrue(all("翻译" not in paper["analogy_summary"] for paper in data["papers"]))
             self.assertTrue(all(isinstance(paper["community_contribution"], bool) for paper in complete["papers"]))
+            self.assertTrue(any(paper["pipeline_thumbnail"] for paper in data["papers"]))
             self.assertTrue(
                 all(bool(paper["contributor"]) == paper["community_contribution"] for paper in complete["papers"])
             )
@@ -172,6 +175,21 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
         self.assertIn("renderTaskBars(state.data.papers, values.category)", script)
         self.assertIn("Date.UTC(2021, 0, 1)", script)
         self.assertIn('href="./complete-list.html"', html)
+        self.assertIn('id="subfield-filter"', html)
+        self.assertIn("function syncTaxonomyOptions", script)
+        self.assertIn("categorySecondLevel", script)
+        self.assertIn('group.className = "task-subfield-group"', script)
+        self.assertNotIn('path.join(" › ")', script)
+        self.assertIn('data-browse-all-papers', html)
+
+    def test_taxonomy_filter_options_are_derived_from_exported_config_nodes(self):
+        data = build_site.build_site_data()
+        by_id = {category["id"]: category for category in data["categories"]}
+
+        self.assertEqual(by_id["User-Level Understanding"]["parent"], "Understanding")
+        self.assertEqual(by_id["User Profiling"]["parent"], "User-Level Understanding")
+        self.assertEqual(by_id["User-Level Understanding"]["depth"], 1)
+        self.assertGreater(by_id["User Profiling"]["depth"], 1)
 
     def test_definition_and_community_follow_the_project_page_structure(self):
         html = (ROOT / "site/index.html").read_text(encoding="utf-8")
@@ -207,6 +225,8 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
 
         self.assertIn('name="contributor"', html)
         self.assertIn('name="pipeline_image_file"', html)
+        self.assertIn('name="paper_file_upload"', html)
+        self.assertIn('data-paper-file', html)
         self.assertIn('name="pipeline_image_file" type="file"', html)
         self.assertIn('multiple data-pipeline-image', html)
         self.assertIn('data-pipeline-count', html)
@@ -221,6 +241,10 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
         self.assertIn("submission.clearConfirm", script)
         self.assertIn('["Contributor", formData.get("contributor")', script)
         self.assertIn('"Pipeline image"', script)
+        self.assertIn('"Paper file"', script)
+        self.assertIn("submission.recommendedMissing", script)
+        self.assertIn('details.open = false', script)
+        self.assertIn('src="./assets/img/plugin-guide.png"', html)
 
 
 class CommunityIssueIntakeTests(unittest.TestCase):
@@ -306,6 +330,8 @@ Example abstract.
 Research Group
 ### Pipeline image
 ![pipeline](https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789abc)
+### Paper file
+[paper.pdf](https://github.com/user-attachments/assets/abcdef12-1234-1234-1234-123456789abc)
 """
         submission = issue_to_submission.build_submission(
             body,
@@ -318,6 +344,10 @@ Research Group
         self.assertEqual(
             paper["pipeline_image"],
             ["https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789abc"],
+        )
+        self.assertEqual(
+            paper["paper_file"],
+            "https://github.com/user-attachments/assets/abcdef12-1234-1234-1234-123456789abc",
         )
 
     def test_unknown_category_is_rejected(self):
@@ -382,6 +412,34 @@ Research Group
             self.assertTrue(reference.startswith("engineering/assets/abc12345/community-pipeline-"))
             self.assertEqual(created, [root / reference])
             self.assertEqual((root / reference).read_bytes(), png)
+
+    def test_issue_attachment_downloader_materializes_a_temporary_pdf_reference(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            submission_path = root / "submit_template.json"
+            submission_path.write_text(
+                json.dumps(
+                    {
+                        "papers": [
+                            {
+                                "uid": "abc12345",
+                                "pipeline_image": [],
+                                "paper_file": "https://github.com/user-attachments/assets/abcdef12-1234-1234-1234-123456789abc",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            pdf = b"%PDF-1.7\nexample"
+            with patch.object(download_issue_images, "download", return_value=pdf):
+                created = download_issue_images.materialize_images(submission_path, root)
+
+            stored = json.loads(submission_path.read_text(encoding="utf-8"))
+            reference = stored["papers"][0]["paper_file"]
+            self.assertTrue(reference.startswith("engineering/assets/abc12345/community-paper-"))
+            self.assertEqual(created, [root / reference])
+            self.assertEqual((root / reference).read_bytes(), pdf)
 
 
 class NotificationTests(unittest.TestCase):
@@ -484,7 +542,9 @@ class AutomationWiringTests(unittest.TestCase):
 
         self.assertEqual(errors, [])
         self.assertIn('IGNORE_PAPER_FILE_ASSETS: "true"', processing)
-        self.assertNotIn("temporary_submission_pdfs.py", processing)
+        self.assertIn('EPHEMERAL_SUBMISSION_PDFS: "true"', processing)
+        self.assertIn("temporary_submission_pdfs.py", processing)
+        self.assertIn("Remove temporary submission PDFs", processing)
         self.assertIn('[[ "${source_file,,}" == *.pdf ]]', processing)
 
     def test_accepted_update_triggers_pages_and_failure_mail_is_visible(self):

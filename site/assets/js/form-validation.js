@@ -66,6 +66,10 @@
       if (pipelineField?.validationMessage) {
         errors.push({ name: "pipeline_image_file", message: pipelineField.validationMessage });
       }
+      const paperFileField = form.elements.namedItem("paper_file_upload");
+      if (paperFileField?.validationMessage) {
+        errors.push({ name: "paper_file_upload", message: paperFileField.validationMessage });
+      }
 
       return errors.filter((error, index, items) => items.findIndex((item) => item.message === error.message) === index);
     };

@@ -90,7 +90,13 @@ body:
     id: pipeline_image
     attributes:
       label: Pipeline image
-      description: Recommended. Drag or paste one to three method, framework, or pipeline images here; each image must be no larger than 10 MiB.
+      description: Recommended. Drag or paste up to four method, framework, or pipeline images here; each image must be no larger than 10 MiB.
+
+  - type: textarea
+    id: paper_file
+    attributes:
+      label: Paper file
+      description: Recommended. Drag the original PDF here so the automation can generate higher-quality summaries; maximum size 50 MiB.
 
   - type: textarea
     id: notes
@@ -103,7 +109,7 @@ body:
     attributes:
       label: Submission checks
       options:
-        - label: I understand this issue is public and contains no private contact information or copyrighted paper PDF.
+        - label: I understand this issue is public, contains no private contact information, and only includes files I am permitted to share.
           required: true
         - label: I checked that this paper is not already present in the paper explorer.
           required: true

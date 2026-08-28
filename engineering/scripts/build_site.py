@@ -18,6 +18,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import quote
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +31,8 @@ PAPER_METADATA = PROJECT_ROOT / "engineering" / "config" / "paper_metadata.json"
 COMMUNITY_CONTRIBUTOR_PREFIX = "community:"
 ANALOGY_SUMMARY_LIMIT = 180
 ABSTRACT_EXCERPT_LIMIT = 360
+RAW_REPOSITORY_ROOT = "https://raw.githubusercontent.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/main/"
+PIPELINE_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 
 COPIED_IMAGES = {
     PROJECT_ROOT / "engineering" / "assets" / "social-intelligence-modeling-overview.png": "social-intelligence-modeling-overview.png",
@@ -123,6 +126,23 @@ def _doi_url(value: Any) -> str:
         return doi if re.match(r"^https?://(?:dx\.)?doi\.org/", doi, flags=re.I) else ""
     doi = re.sub(r"^doi\s*:\s*", "", doi, flags=re.I)
     return f"https://doi.org/{doi}" if doi else ""
+
+
+def _first_pipeline_image_url(value: Any) -> str:
+    """Return a safe raw-repository URL for the first existing pipeline image."""
+    for reference in _split_pipe(value):
+        normalized = reference.replace("\\", "/").lstrip("./")
+        parts = Path(normalized).parts
+        if not parts or ".." in parts or Path(normalized).suffix.casefold() not in PIPELINE_IMAGE_SUFFIXES:
+            continue
+        source = (PROJECT_ROOT / Path(*parts)).resolve()
+        try:
+            source.relative_to(PROJECT_ROOT.resolve())
+        except ValueError:
+            continue
+        if source.is_file():
+            return RAW_REPOSITORY_ROOT + quote(normalized, safe="/")
+    return ""
 
 
 def _normalize_categories(
@@ -221,6 +241,7 @@ def build_site_data() -> dict[str, Any]:
                 "doi": _compact_text(row.get("doi"), 180),
                 "contributor": contributor if is_community else "",
                 "community_contribution": is_community,
+                "pipeline_thumbnail": _first_pipeline_image_url(row.get("pipeline_image")),
             }
         )
 

@@ -231,8 +231,12 @@ class UpdateProcessor:
             # 使用深拷贝隔离冲突标记、资源规范化等数据库写入副作用，确保后续主流程不受影响。
             if update_complete_list:
                 try:
+                    complete_candidates = copy.deepcopy(valid_papers)
+                    if os.environ.get("EPHEMERAL_SUBMISSION_PDFS", "").strip().casefold() in {"1", "true", "yes", "on"}:
+                        for candidate in complete_candidates:
+                            candidate.paper_file = ""
                     complete_added, complete_conflicts, complete_invalid = self.complete_list_db_manager.add_papers(
-                        copy.deepcopy(valid_papers),
+                        complete_candidates,
                         conflict_resolution,
                     )
                     result['complete_list_new_papers'] += len(complete_added)
@@ -283,6 +287,11 @@ class UpdateProcessor:
                     err = f"AI生成内容失败 ({file_path}): {e}"
                     result['errors'].append(err)
                     print(f"错误: {err}")
+
+            # Workflow-supplied PDFs are transient AI context, not database assets.
+            if os.environ.get("EPHEMERAL_SUBMISSION_PDFS", "").strip().casefold() in {"1", "true", "yes", "on"}:
+                for paper in valid_papers:
+                    paper.paper_file = ""
 
             # 6. 将可能已经 AI 补全的条目添加到主数据库
             print(f"正在更新 {len(valid_papers)} 篇论文到数据库...")

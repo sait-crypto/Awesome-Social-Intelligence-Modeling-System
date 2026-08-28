@@ -43,7 +43,8 @@
   box-shadow: 0 0 0 3px rgba(184, 91, 84, 0.12);
 }
 
-.pipeline-upload {
+.pipeline-upload,
+.paper-file-upload {
   display: grid;
   gap: 0.65rem;
   padding: 0.85rem;
@@ -93,6 +94,13 @@
   font-weight: 750;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.paper-file-status {
+  min-height: 1em;
+  color: #536176;
+  font-size: 0.68rem;
+  font-weight: 600;
 }
 
 .pipeline-clear:disabled {

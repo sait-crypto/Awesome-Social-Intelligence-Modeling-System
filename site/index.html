@@ -39,7 +39,7 @@
 
     <header class="site-header" data-header>
       <a class="brand" href="#top" aria-label="Social Intelligence Modeling home">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-mark" aria-hidden="true"><img src="./assets/img/sim-mark.svg" alt="" /></span>
         <span><strong>SIM</strong><small>Survey</small></span>
       </a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
@@ -67,13 +67,19 @@
     <main id="top">
       <section class="hero academic-hero" aria-labelledby="hero-title">
         <div class="hero-copy">
+          <img class="hero-mark" src="./assets/img/sim-mark.svg" alt="" aria-hidden="true" />
           <p class="publication-label" data-i18n="hero.label">Comprehensive survey · 2026</p>
-          <h1 id="hero-title">Social Intelligence Modeling:<br />A Comprehensive Survey from Social Perception to Social Simulation</h1>
+          <h1 id="hero-title">
+            <span class="hero-main-title">Social Intelligence Modeling</span>
+            <span class="hero-subtitle">A Comprehensive Survey from Social Perception to Social Simulation</span>
+          </h1>
           <p class="author-line">Zikai Song, Xiajie Li, Yunyao Zhang, Xinglang Zhang, Wei Yang, Junqing Yu</p>
           <p class="affiliation-line">Huazhong University of Science and Technology</p>
           <p class="hero-lead" data-i18n="hero.lead">
-            We organize social intelligence modeling into four stages—perception, understanding,
-            generation, and simulation—and maintain a searchable collection aligned with this taxonomy.
+            We organize social intelligence modeling as four organically connected stages—perception,
+            understanding, generation, and simulation—forming a coherent path from observable social
+            signals to evolving social systems. A searchable collection aligned with this taxonomy makes
+            related work easier to locate across stages.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="https://doi.org/10.13140/RG.2.2.21157.87528" target="_blank" rel="noreferrer" data-i18n="hero.paper">Paper</a>
@@ -200,21 +206,31 @@
           </div>
           <div class="explorer-heading-aside">
             <p data-i18n="explorer.lead">Search by title, author, venue, task, abstract, or summary.</p>
-            <a href="./complete-list.html" data-i18n-prefix="explorer.all">Browse all repository papers <span aria-hidden="true">→</span></a>
+            <a href="./complete-list.html" data-browse-all-papers>Browse all papers <span aria-hidden="true">→</span></a>
           </div>
         </div>
 
         <div class="explorer-shell">
           <form class="filter-panel" data-filter-form aria-label="Filter papers">
-            <div class="search-field">
-              <label for="paper-search" data-i18n="filter.search">Search</label>
-              <input id="paper-search" name="q" type="search" placeholder="Title, author, method, keyword…" data-i18n-placeholder="filter.searchPlaceholder" autocomplete="off" />
-              <kbd>/</kbd>
+            <div class="filter-panel-top">
+              <div class="search-field">
+                <label for="paper-search" data-i18n="filter.search">Search</label>
+                <input id="paper-search" name="q" type="search" placeholder="Title, author, method, keyword…" data-i18n-placeholder="filter.searchPlaceholder" autocomplete="off" />
+                <kbd>/</kbd>
+              </div>
+              <div class="filter-footer">
+                <p><strong data-result-count>—</strong> <span data-i18n="filter.matches">papers match</span></p>
+                <button type="reset" class="reset-button" data-i18n="filter.clear">Clear all filters</button>
+              </div>
             </div>
             <div class="filter-grid">
               <label data-i18n-prefix="filter.field">
                 Field level
                 <select id="stage-filter" name="stage"><option value="" data-i18n="filter.allFields">All field levels</option></select>
+              </label>
+              <label data-i18n-prefix="filter.subfield">
+                Second level
+                <select id="subfield-filter" name="subfield"><option value="" data-i18n="filter.allSubfields">All second-level categories</option></select>
               </label>
               <label data-i18n-prefix="filter.task">
                 Task
@@ -240,10 +256,6 @@
                 <input id="community-filter" name="community" type="checkbox" value="1" />
                 <span><b data-i18n="filter.communityOnly">Community only</b><small data-i18n="filter.communityHint">Externally contributed papers</small></span>
               </label>
-            </div>
-            <div class="filter-footer">
-              <p><strong data-result-count>—</strong> <span data-i18n="filter.matches">papers match</span></p>
-              <button type="reset" class="reset-button" data-i18n="filter.clear">Clear all filters</button>
             </div>
           </form>
 
@@ -326,7 +338,7 @@
             <fieldset class="span-2 category-fieldset">
               <legend data-i18n="form.categories">Categories *</legend>
               <div class="category-tools">
-                <p data-i18n="form.categoryLead">Select up to four leaf tasks from the taxonomy.</p>
+                <p data-i18n="form.categoryLead">Expand a field, then select up to four leaf tasks.</p>
                 <input type="search" data-category-search placeholder="Search task names…" data-i18n-placeholder="form.categorySearch" aria-label="Search submission categories" />
                 <span data-category-count>0 selected</span>
               </div>
@@ -349,6 +361,20 @@
                 <div class="pipeline-preview-list" data-pipeline-preview-list></div>
                 <span data-pipeline-status></span>
               </div>
+            </div>
+            <div class="span-2 paper-file-upload">
+              <div class="pipeline-heading">
+                <strong data-i18n="form.paperFile">Paper file</strong>
+                <span class="field-hint" data-i18n="form.paperFileHint">recommended; upload the original PDF for AI-assisted summary generation</span>
+              </div>
+              <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
+              <div class="pipeline-controls">
+                <button type="button" class="button button-secondary" data-choose-paper-file data-i18n="form.choosePaperFile">Choose PDF</button>
+                <span data-paper-file-name data-i18n="form.noPaperFile">No PDF selected</span>
+                <button type="button" class="pipeline-clear" data-clear-paper-file disabled data-i18n="form.clearPaperFile">Clear PDF</button>
+              </div>
+              <span class="upload-help" data-i18n="form.paperFileHelp">Choose one PDF no larger than 50 MiB.</span>
+              <span class="paper-file-status" data-paper-file-status></span>
             </div>
           </div>
           <details class="optional-fields">
@@ -395,6 +421,10 @@
               <li data-i18n="zotero.step2">Use the one-click metadata plugin to copy its JSON.</li>
               <li data-i18n="zotero.step3">Paste below; recognized fields are filled without removing existing form fields.</li>
             </ol>
+            <figure class="zotero-guide">
+              <img src="./assets/img/plugin-guide.png" alt="Zotero context menu with Copy Meta to Json Format highlighted" loading="lazy" />
+              <figcaption data-i18n="zotero.guideCaption">Right-click the selected Zotero item and choose “Copy Meta to Json Format”.</figcaption>
+            </figure>
             <div class="plugin-note">
               <strong data-i18n="zotero.pluginLead">Plugin not installed?</strong>
               <a class="plugin-download" href="https://raw.githubusercontent.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/main/AI_assistant_review_tools/tools/One-Click%20Copy%20Metadata.xpi" data-i18n="zotero.download">Download the Zotero plugin</a>
@@ -434,8 +464,10 @@
           <div class="paper-meta"></div>
           <span class="community-badge" hidden data-i18n="dynamic.community">Community</span>
         </div>
-        <h3></h3>
-        <p class="paper-authors"></p>
+        <div class="paper-heading-block">
+          <div><h3></h3><p class="paper-authors"></p></div>
+          <figure class="paper-thumbnail" hidden><img alt="" loading="lazy" decoding="async" /></figure>
+        </div>
         <div class="paper-tags"></div>
         <div class="paper-description">
           <p class="paper-summary" hidden><b data-i18n="paper.summary">Summary</b><span></span></p>

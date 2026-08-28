@@ -65,6 +65,7 @@ jobs:
       # A paper_file value is optional metadata; repository automation neither
       # requires the referenced PDF nor uploads it to main.
       IGNORE_PAPER_FILE_ASSETS: "true"
+      EPHEMERAL_SUBMISSION_PDFS: "true"
 
     steps:
       # All executable code and both databases come from the trusted main branch.
@@ -283,6 +284,14 @@ jobs:
           PYTHONPATH: engineering
         run: uv run --frozen engineering/scripts/update_submission_figures.py
 
+      - name: Stage submitted PDF for AI generation
+        working-directory: main_workspace
+        env:
+          PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace/engineering/assets
+        run: >-
+          uv run --frozen python engineering/scripts/temporary_submission_pdfs.py
+          stage --manifest "${{ runner.temp }}/submission-pdfs.json"
+
       - name: Update databases and generated lists
         id: core_update
         working-directory: main_workspace
@@ -295,6 +304,13 @@ jobs:
         run: |
           set -o pipefail
           uv run --frozen engineering/src/update.py 2>&1 | tee update_log.txt
+
+      - name: Remove temporary submission PDFs
+        if: always()
+        working-directory: main_workspace
+        run: >-
+          uv run --frozen python engineering/scripts/temporary_submission_pdfs.py
+          cleanup --manifest "${{ runner.temp }}/submission-pdfs.json"
 
       - name: Comment with update result
         if: always() && steps.core_update.conclusion != 'skipped'
@@ -354,8 +370,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if find engineering/assets -type f -iname '*.pdf' -print -quit | grep -q .; then
-            echo "Error: temporary PDFs remain in the trusted working tree."
+          if [ -e "$RUNNER_TEMP/submission-pdfs.json" ]; then
+            echo "Error: the temporary PDF cleanup manifest still exists."
             exit 1
           fi
 

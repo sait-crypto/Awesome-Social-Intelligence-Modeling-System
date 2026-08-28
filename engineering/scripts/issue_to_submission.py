@@ -49,6 +49,7 @@ SECTION_TO_FIELD = {
     "additional notes": "notes",
     "contributor": "contributor",
     "pipeline image": "pipeline_image",
+    "paper file": "paper_file",
 }
 
 REQUIRED_FIELDS = ("title", "doi", "paper_url", "authors", "date", "category", "abstract")
@@ -184,7 +185,18 @@ def _normalize_pipeline_images(value: str) -> list[str]:
         ) or host == "user-images.githubusercontent.com"
         if valid and url not in accepted:
             accepted.append(url.rstrip(".,"))
-    return accepted[:3]
+    return accepted[:4]
+
+
+def _normalize_paper_file(value: str) -> str:
+    urls = re.findall(r"https://[^\s)>]+", str(value or ""))
+    for url in urls:
+        cleaned = url.rstrip(".,")
+        parsed = urlparse(cleaned)
+        host = parsed.hostname.casefold() if parsed.hostname else ""
+        if (host == "github.com" and parsed.path.startswith("/user-attachments/assets/")) or host == "user-images.githubusercontent.com":
+            return cleaned
+    return ""
 
 
 def build_submission(
@@ -219,6 +231,7 @@ def build_submission(
         fields["notes"] += f"\n\n[Submitter notes]\n{submitted_notes}"
 
     pipeline_images = _normalize_pipeline_images(fields.pop("pipeline_image", ""))
+    paper_file = _normalize_paper_file(fields.pop("paper_file", ""))
     fields["related_papers"] = _normalize_list(fields.get("related_papers", ""))
 
     ordered_fields, array_fields, boolean_fields = _schema()
@@ -237,6 +250,7 @@ def build_submission(
         {
             "contributor": contributor,
             "pipeline_image": pipeline_images,
+            "paper_file": paper_file,
             "show_in_readme": True,
             "status": "unread",
             "submission_time": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),

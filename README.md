@@ -19,6 +19,9 @@
 <table align="center">
   <tr>
     <td align="center">
+      <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/">
+        <img src="site/assets/img/sim-mark.svg" width="88" alt="Open the Social Intelligence Modeling survey website" />
+      </a><br />
       <strong>🌐 Interactive survey website</strong><br />
       Filter the paper collection and submit new papers.<br />
       <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/"><strong>Open the website →</strong></a>
