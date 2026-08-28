@@ -183,4 +183,4 @@ Workflow run: {run_url or 'Unavailable'}
 
 
 if __name__ == "__main__":
-    send_email()
+    raise SystemExit(0 if send_email() else 1)

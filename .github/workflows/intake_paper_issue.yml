@@ -79,6 +79,7 @@ jobs:
           git commit -m "Prepare community paper submission from issue #${ISSUE_NUMBER}"
           git push origin "$branch_name"
           pr_url=$(gh pr create \
+            --draft \
             --base main \
             --head "$branch_name" \
             --title "Paper submission from issue #${ISSUE_NUMBER}" \
@@ -112,6 +113,16 @@ jobs:
                 `[Open the intake log](${runUrl}) and correct the structured fields before applying the processing label again.`,
               ].join('\n'),
             });
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'Action: Process',
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
 
   process-approved-submission:
     name: Run the existing paper-processing pipeline
@@ -129,6 +140,50 @@ jobs:
       submission_pr_title: "Paper submission from issue #${{ github.event.issue.number }}"
       submission_pr_url: ${{ needs.prepare-submission-pr.outputs.pr_url }}
     secrets: inherit
+
+  finalize-intake:
+    name: Finalize the source issue
+    needs: [prepare-submission-pr, process-approved-submission]
+    if: always() && needs.prepare-submission-pr.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Record the processing result on the source issue
+        uses: actions/github-script@v9
+        env:
+          PROCESS_RESULT: ${{ needs.process-approved-submission.result }}
+        with:
+          script: |
+            const succeeded = process.env.PROCESS_RESULT === 'success';
+            const body = succeeded
+              ? '### Paper submission processed\nThe approved paper was processed by the repository pipeline. The generated processing pull request was closed without merging; the website rebuild follows the database update.'
+              : '### Paper processing failed\nNo paper data was published. Review the linked processing pull request and workflow logs, correct the issue fields if needed, then apply `Action: Process` again.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'Action: Process',
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (succeeded) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+            }
 
   notify-intake-failure:
     name: Notify maintainers when intake fails

@@ -46,8 +46,10 @@
 .pipeline-upload,
 .paper-file-upload {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem 0.8rem;
+  align-items: center;
+  padding: 0.62rem 0.72rem;
   border: 1px dashed #b8c7da;
   border-radius: 7px;
   background: #f8fafe;
@@ -70,6 +72,7 @@
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .pipeline-controls .button {
@@ -97,6 +100,7 @@
 }
 
 .paper-file-status {
+  grid-column: 1 / -1;
   min-height: 1em;
   color: #536176;
   font-size: 0.68rem;
@@ -119,6 +123,7 @@
 }
 
 .pipeline-preview {
+  grid-column: 1 / -1;
   display: grid;
   gap: 0.75rem;
   color: #536176;
@@ -169,6 +174,15 @@
 }
 
 @media (max-width: 560px) {
+  .pipeline-upload,
+  .paper-file-upload {
+    grid-template-columns: 1fr;
+  }
+
+  .pipeline-controls {
+    justify-content: flex-start;
+  }
+
   .form-submit-actions {
     grid-template-columns: 1fr;
   }

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="72" viewBox="0 0 520 72" role="img" aria-labelledby="title desc">
+  <title id="title">Open the SIM project homepage</title>
+  <desc id="desc">Search and filter the survey collection or submit a paper.</desc>
+  <rect x="1" y="1" width="518" height="70" rx="12" fill="#f7f9fc" stroke="#b9c8db" stroke-width="2"/>
+  <rect x="1" y="1" width="82" height="70" rx="12" fill="#173f69"/>
+  <path d="M82 1h8v70h-8z" fill="#173f69"/>
+  <path d="M25 25c9-9 21-9 30 0M25 47c9 9 21 9 30 0" fill="none" stroke="#dfeaf6" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="23" cy="25" r="5" fill="#7ea6d2"/>
+  <circle cx="57" cy="25" r="5" fill="#f3b27c"/>
+  <circle cx="23" cy="47" r="5" fill="#9ab7d5"/>
+  <circle cx="57" cy="47" r="5" fill="#d4dfec"/>
+  <text x="108" y="31" fill="#17334f" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing=".7">PROJECT HOMEPAGE</text>
+  <text x="108" y="52" fill="#607087" font-family="Arial, Helvetica, sans-serif" font-size="14">Search · Filter · Submit papers</text>
+  <path d="M478 28l9 8-9 8M486 36h-19" fill="none" stroke="#d8734f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

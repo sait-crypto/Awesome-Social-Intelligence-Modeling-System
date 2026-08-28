@@ -34,6 +34,9 @@ download_issue_images = load_module("download_issue_images", "engineering/script
 mark_community_submission = load_module("mark_community_submission", "engineering/scripts/mark_community_submission.py")
 send_notification = load_module("send_notification", "engineering/scripts/send_notification.py")
 validate_submission = load_module("validate_submission", "engineering/scripts/validate_submission.py")
+temporary_submission_pdfs = load_module(
+    "temporary_submission_pdfs", "engineering/scripts/temporary_submission_pdfs.py"
+)
 
 
 class SurveyWebsiteBuildTests(unittest.TestCase):
@@ -197,7 +200,8 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
 
         self.assertIn('id="community"', html)
         self.assertIn('src="./assets/img/wechat-group-qr.jpg"', html)
-        self.assertNotIn("/discussions", html)
+        self.assertIn("/discussions", html)
+        self.assertIn('data-i18n="hero.discussions"', html)
         self.assertIn('href="#community"', html)
         self.assertGreater(html.index('id="community"'), html.index('id="paper-explorer"'))
         self.assertLess(html.index('id="community"'), html.index('id="contribute"'))
@@ -206,7 +210,8 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
         self.assertIn('aria-label="Back to top"', html)
         self.assertNotIn('class="scope-boundary"', html)
         self.assertNotIn('class="definition-index"', html)
-        self.assertNotIn("Community Discussions", readme)
+        self.assertIn("homepage-badge.svg", readme)
+        self.assertIn("GitHub Discussions", readme)
         self.assertTrue((ROOT / "community/wechat-group-qr.jpg").is_file())
 
     def test_submission_no_longer_requires_or_displays_inclusion_rationale(self):
@@ -242,12 +247,36 @@ class SurveyWebsiteBuildTests(unittest.TestCase):
         self.assertIn('["Contributor", formData.get("contributor")', script)
         self.assertIn('"Pipeline image"', script)
         self.assertIn('"Paper file"', script)
-        self.assertIn("submission.recommendedMissing", script)
+        self.assertIn("confirmRecommendedFields", script)
+        self.assertIn('data-recommendation-dialog', html)
+        self.assertIn('class="category-limit">4</strong>', html)
+        self.assertIn("replaceGroupedOptions", script)
+        self.assertIn('group.label = `— ${label}`', script)
+        self.assertIn('card.classList.remove("has-thumbnail")', script)
         self.assertIn('details.open = false', script)
         self.assertIn('src="./assets/img/plugin-guide.png"', html)
 
 
 class CommunityIssueIntakeTests(unittest.TestCase):
+    @staticmethod
+    def _valid_issue_body(categories: str = "Hate Speech Analysis") -> str:
+        return f"""<!-- sim-paper-submission:v1 -->
+### Paper title
+Automated Intake QA
+### DOI
+10.1234/intake-qa
+### Paper URL
+https://example.org/intake-qa
+### Authors
+Ada Example
+### Publication date
+2026-08-28
+### Categories
+{categories}
+### Abstract
+This metadata-only paper exercises the trusted issue parser.
+"""
+
     def test_structured_issue_preserves_submitter_as_contributor(self):
         body = """<!-- sim-paper-submission:v1 -->
 ### Paper title
@@ -354,6 +383,53 @@ Research Group
         with self.assertRaisesRegex(ValueError, "Unknown survey categories"):
             issue_to_submission._normalize_categories("Invented Social Task")
 
+    def test_category_limit_accepts_four_and_rejects_five(self):
+        categories = [
+            "Hate Speech Analysis",
+            "Misinformation Analysis",
+            "Discourse and Pragmatic Analysis",
+            "Sentiment Analysis",
+            "Machine-Generated Content Detection",
+        ]
+        accepted = issue_to_submission.build_submission(
+            self._valid_issue_body(" | ".join(categories[:4])),
+            submitter="qa",
+            issue_number="1",
+            issue_url="",
+        )
+        self.assertEqual(accepted["papers"][0]["category"], categories[:4])
+        with self.assertRaisesRegex(ValueError, "at most four categories"):
+            issue_to_submission.build_submission(
+                self._valid_issue_body(" | ".join(categories)),
+                submitter="qa",
+                issue_number="2",
+                issue_url="",
+            )
+
+    def test_missing_required_fields_and_unsafe_urls_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "missing required fields"):
+            issue_to_submission.build_submission(
+                self._valid_issue_body().replace("Ada Example", "_No response_"),
+                submitter="qa",
+                issue_number="3",
+                issue_url="",
+            )
+        with self.assertRaisesRegex(ValueError, "Paper URL must be"):
+            issue_to_submission.build_submission(
+                self._valid_issue_body().replace("https://example.org/intake-qa", "file:///tmp/paper"),
+                submitter="qa",
+                issue_number="4",
+                issue_url="",
+            )
+
+    def test_attachment_parser_caps_images_and_ignores_unapproved_hosts(self):
+        accepted = [
+            f"https://github.com/user-attachments/assets/12345678-1234-1234-1234-{index:012d}"
+            for index in range(5)
+        ]
+        value = "\n".join(["https://example.org/not-accepted.png", *accepted])
+        self.assertEqual(issue_to_submission._normalize_pipeline_images(value), accepted[:4])
+
     def test_non_main_submission_marker_is_idempotent_for_json_and_csv(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -382,7 +458,78 @@ Research Group
             )
         )
         self.assertFalse(download_issue_images.allowed_url("https://example.com/pipeline.png"))
+        self.assertTrue(
+            download_issue_images.allowed_url(
+                "https://objects.githubusercontent.com/github-production-release-asset/example",
+                redirect=True,
+            )
+        )
+        self.assertFalse(download_issue_images.allowed_url("https://example.com/redirect.png", redirect=True))
         self.assertEqual(download_issue_images.image_extension(b"\x89PNG\r\n\x1a\nrest"), ".png")
+        with self.assertRaisesRegex(ValueError, "not a supported"):
+            download_issue_images.image_extension(b"not-an-image")
+
+    def test_attachment_materializer_rejects_unsafe_uid_and_wrong_pdf_magic(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            path = root / "submit_template.json"
+            path.write_text(
+                json.dumps({"papers": [{"uid": "../escape", "pipeline_image": [], "paper_file": ""}]}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "UID is missing or unsafe"):
+                download_issue_images.materialize_images(path, root)
+
+            path.write_text(
+                json.dumps(
+                    {
+                        "papers": [
+                            {
+                                "uid": "abc12345",
+                                "pipeline_image": [],
+                                "paper_file": "https://github.com/user-attachments/assets/abcdef12-1234-1234-1234-123456789abc",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(download_issue_images, "download", return_value=b"not-a-pdf"),
+                self.assertRaisesRegex(ValueError, "not a valid PDF"),
+            ):
+                download_issue_images.materialize_images(path, root)
+
+    def test_temporary_pdf_is_staged_and_removed_without_touching_other_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pr_assets = root / "pr-assets"
+            source = pr_assets / "abc12345" / "paper.pdf"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b"%PDF-1.7\nqa")
+            keep = root / "engineering" / "assets" / "keep.txt"
+            keep.parent.mkdir(parents=True)
+            keep.write_text("keep", encoding="utf-8")
+            manifest = root / "manifest.json"
+            paper = Paper(
+                uid="abc12345",
+                title="Temporary PDF QA",
+                paper_file="engineering/assets/abc12345/paper.pdf",
+            )
+
+            staged = temporary_submission_pdfs.stage_submission_pdfs(
+                [paper],
+                project_root=root,
+                assets_dir=Path("engineering/assets"),
+                pr_assets_dir=pr_assets,
+                manifest_path=manifest,
+            )
+            self.assertEqual(len(staged), 1)
+            self.assertTrue(staged[0].is_file())
+            removed = temporary_submission_pdfs.cleanup_submission_pdfs(manifest)
+            self.assertEqual(removed, staged)
+            self.assertFalse(staged[0].exists())
+            self.assertEqual(keep.read_text(encoding="utf-8"), "keep")
 
     def test_issue_image_downloader_materializes_a_project_relative_asset(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -449,6 +596,14 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("failed", heading.casefold())
         self.assertEqual(accent, "#b42318")
         self.assertIn("not published", outcome.casefold())
+
+    def test_missing_smtp_configuration_is_reported_as_unsent(self):
+        with (
+            patch.dict(send_notification.os.environ, {}, clear=True),
+            patch("builtins.print") as output,
+        ):
+            self.assertFalse(send_notification.send_email())
+        output.assert_called_once_with("Skipping email: SMTP notification configuration is incomplete.")
 
 
 class ContributorProvenanceTests(unittest.TestCase):
@@ -564,6 +719,10 @@ class AutomationWiringTests(unittest.TestCase):
         self.assertIn("startsWith('community-paper-issue-')", processing)
         self.assertIn("github.rest.git.deleteRef", processing)
         self.assertIn("uses: ./.github/workflows/process_submission.yml", intake)
+        self.assertIn("--draft", intake)
+        self.assertIn("finalize-intake:", intake)
+        self.assertIn("removeLabel", intake)
+        self.assertIn("state_reason: 'completed'", intake)
         self.assertIn("enable-cache: false", intake)
         self.assertIn("submission_head_sha:", intake)
         self.assertNotIn('gh pr edit "$pr_url" --add-label "Action: Process"', intake)
@@ -577,6 +736,8 @@ class AutomationWiringTests(unittest.TestCase):
         self.assertIn("Send deployment result email", deployment)
         self.assertIn("notify-intake-failure:", intake)
         self.assertIn("send_notification.py", intake)
+        notification = (ROOT / "engineering/scripts/send_notification.py").read_text(encoding="utf-8")
+        self.assertIn("raise SystemExit(0 if send_email() else 1)", notification)
         self.assertIn("🚨 [SIM AUTO UPDATE FAILED]", contributing)
 
 

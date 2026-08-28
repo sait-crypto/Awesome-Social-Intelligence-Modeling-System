@@ -16,18 +16,12 @@
 
 </div>
 
-<table align="center">
-  <tr>
-    <td align="center">
-      <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/">
-        <img src="site/assets/img/sim-mark.svg" width="88" alt="Open the Social Intelligence Modeling survey website" />
-      </a><br />
-      <strong>🌐 Interactive survey website</strong><br />
-      Filter the paper collection and submit new papers.<br />
-      <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/"><strong>Open the website →</strong></a>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/">
+    <img src="site/assets/img/homepage-badge.svg" height="58" alt="Open the SIM project homepage to search, filter, or submit papers" />
+  </a><br />
+  <strong><a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions">GitHub Discussions</a></strong>
+</p>
 
 <!-- PAPER_INTRO_START -->
 This repository accompanies our paper:

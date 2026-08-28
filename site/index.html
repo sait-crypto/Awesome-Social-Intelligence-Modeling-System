@@ -85,6 +85,7 @@
             <a class="button button-primary" href="https://doi.org/10.13140/RG.2.2.21157.87528" target="_blank" rel="noreferrer" data-i18n="hero.paper">Paper</a>
             <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System" target="_blank" rel="noreferrer" data-i18n="hero.code">Code &amp; data</a>
             <a class="button button-secondary" href="#paper-explorer" data-i18n="hero.browse">Browse papers</a>
+            <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions" target="_blank" rel="noreferrer" data-i18n="hero.discussions">Discussions</a>
           </div>
           <div class="hero-meta" aria-label="Survey statistics">
             <div><strong data-stat="paper_count">—</strong><span data-i18n="hero.curated">curated papers</span></div>
@@ -338,7 +339,7 @@
             <fieldset class="span-2 category-fieldset">
               <legend data-i18n="form.categories">Categories *</legend>
               <div class="category-tools">
-                <p data-i18n="form.categoryLead">Expand a field, then select up to four leaf tasks.</p>
+                <p><span data-i18n="form.categoryLeadBefore">Expand a field, then select up to</span> <strong class="category-limit">4</strong> <span data-i18n="form.categoryLeadAfter">leaf tasks.</span></p>
                 <input type="search" data-category-search placeholder="Search task names…" data-i18n-placeholder="form.categorySearch" aria-label="Search submission categories" />
                 <span data-category-count>0 selected</span>
               </div>
@@ -348,7 +349,7 @@
             <div class="span-2 pipeline-upload">
               <div class="pipeline-heading">
                 <strong data-i18n="form.pipelineImage">Pipeline images</strong>
-                <span class="field-hint" data-i18n="form.pipelineHint">recommended; method, framework, or processing pipeline</span>
+                <span class="field-hint" data-i18n="form.pipelineHint">recommended · up to 4 method or framework images · 10 MiB each</span>
               </div>
               <input id="pipeline-image-files" class="sr-only" name="pipeline_image_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-pipeline-image />
               <div class="pipeline-controls">
@@ -356,7 +357,6 @@
                 <span data-pipeline-count>0 / 4 images selected</span>
                 <button type="button" class="pipeline-clear" data-clear-pipeline disabled data-i18n="form.clearImages">Clear images</button>
               </div>
-              <span class="upload-help" data-i18n="form.pipelineHelp">Choose up to four images, each no larger than 10 MiB. Previews are shown before the GitHub issue opens.</span>
               <div class="pipeline-preview" data-pipeline-preview hidden>
                 <div class="pipeline-preview-list" data-pipeline-preview-list></div>
                 <span data-pipeline-status></span>
@@ -365,7 +365,7 @@
             <div class="span-2 paper-file-upload">
               <div class="pipeline-heading">
                 <strong data-i18n="form.paperFile">Paper file</strong>
-                <span class="field-hint" data-i18n="form.paperFileHint">recommended; upload the original PDF for AI-assisted summary generation</span>
+                <span class="field-hint" data-i18n="form.paperFileHint">recommended · original PDF for AI-assisted summary generation · 50 MiB maximum</span>
               </div>
               <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
               <div class="pipeline-controls">
@@ -373,7 +373,6 @@
                 <span data-paper-file-name data-i18n="form.noPaperFile">No PDF selected</span>
                 <button type="button" class="pipeline-clear" data-clear-paper-file disabled data-i18n="form.clearPaperFile">Clear PDF</button>
               </div>
-              <span class="upload-help" data-i18n="form.paperFileHelp">Choose one PDF no larger than 50 MiB.</span>
               <span class="paper-file-status" data-paper-file-status></span>
             </div>
           </div>
@@ -406,6 +405,25 @@
             data-i18n="form.native"
           >Prefer GitHub's native issue form?</a>
         </form>
+
+        <dialog class="recommendation-dialog" data-recommendation-dialog aria-labelledby="recommendation-dialog-title">
+          <div class="dialog-shell recommendation-shell">
+            <div class="recommendation-heading">
+              <span class="recommendation-mark" aria-hidden="true">!</span>
+              <div>
+                <p class="eyebrow" data-i18n="recommendation.eyebrow">Submission quality check</p>
+                <h3 id="recommendation-dialog-title" data-i18n="recommendation.title">Recommended materials are missing</h3>
+              </div>
+            </div>
+            <p class="recommendation-lead" data-i18n="recommendation.lead">These materials help maintainers verify the paper and produce a reliable summary:</p>
+            <ul class="recommendation-list" data-recommendation-list></ul>
+            <p class="recommendation-warning"><strong data-i18n="recommendation.warning">Submissions with insufficient evidence or very low quality may be rejected.</strong></p>
+            <div class="dialog-actions recommendation-actions">
+              <button type="button" class="button button-primary" data-recommendation-review data-i18n="recommendation.review">Review the form</button>
+              <button type="button" class="button button-secondary recommendation-continue" data-recommendation-continue data-i18n="recommendation.continue">Continue anyway</button>
+            </div>
+          </div>
+        </dialog>
 
         <dialog class="zotero-dialog" data-zotero-dialog aria-labelledby="zotero-dialog-title">
           <div class="dialog-shell">

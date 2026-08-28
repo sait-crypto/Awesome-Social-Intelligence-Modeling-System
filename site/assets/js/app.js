@@ -80,6 +80,10 @@
     paperFileStatus: document.querySelector("[data-paper-file-status]"),
     submitPaper: document.querySelector("[data-submit-paper]"),
     clearSubmission: document.querySelector("[data-clear-submission]"),
+    recommendationDialog: document.querySelector("[data-recommendation-dialog]"),
+    recommendationList: document.querySelector("[data-recommendation-list]"),
+    recommendationReview: document.querySelector("[data-recommendation-review]"),
+    recommendationContinue: document.querySelector("[data-recommendation-continue]"),
   };
   let submissionValidator = null;
   let submissionOpening = false;
@@ -433,6 +437,36 @@
     return select.value;
   }
 
+  function replaceGroupedOptions(select, defaultLabel, groups, selectedValue = "") {
+    select.replaceChildren();
+    appendOption(select, "", defaultLabel);
+    const validValues = new Set();
+    groups.forEach(({ label, options }) => {
+      const group = document.createElement("optgroup");
+      group.label = `— ${label}`;
+      options.forEach(({ value, label: optionLabel }) => {
+        validValues.add(value);
+        appendOption(group, value, optionLabel);
+      });
+      select.append(group);
+    });
+    select.value = validValues.has(selectedValue) ? selectedValue : "";
+    return select.value;
+  }
+
+  function categoryPath(categoryId) {
+    const categoryById = categoryMap();
+    const path = [];
+    let current = categoryById.get(categoryId);
+    const seen = new Set();
+    while (current && !seen.has(current.id)) {
+      path.unshift(current);
+      seen.add(current.id);
+      current = categoryById.get(current.parent);
+    }
+    return path;
+  }
+
   function syncTaxonomyOptions(selection = {}, inferFrom = "") {
     const categoryById = categoryMap();
     let stage = String(selection.stage || "");
@@ -481,10 +515,17 @@
         const subfieldDifference = (categoryById.get(categorySecondLevel(a.id))?.order || 0) - (categoryById.get(categorySecondLevel(b.id))?.order || 0);
         return stageDifference || subfieldDifference || a.order - b.order || a.name.localeCompare(b.name);
       });
-    category = replaceOptions(
+    const taskGroups = new Map();
+    tasks.forEach((item) => {
+      const path = categoryPath(item.id).slice(0, -1);
+      const groupLabel = path.map((node, index) => (index === 0 ? stageLabel(node.id) : node.name)).join(" · ");
+      if (!taskGroups.has(groupLabel)) taskGroups.set(groupLabel, []);
+      taskGroups.get(groupLabel).push({ value: item.id, label: `${item.name} (${item.branchCount})` });
+    });
+    category = replaceGroupedOptions(
       elements.category,
       t("filter.allTasks"),
-      tasks.map((item) => ({ value: item.id, label: `${item.name} (${item.branchCount})` })),
+      [...taskGroups.entries()].map(([label, options]) => ({ label, options })),
       category,
     );
     return { stage, subfield, category };
@@ -716,12 +757,19 @@
 
     card.querySelector(".paper-authors").textContent = paper.authors || t("dynamic.authorsMissing");
     const thumbnail = card.querySelector(".paper-thumbnail");
+    thumbnail.hidden = true;
+    card.classList.remove("has-thumbnail");
     if (isSafeUrl(paper.pipeline_thumbnail)) {
       card.classList.add("has-thumbnail");
       thumbnail.hidden = false;
       const image = thumbnail.querySelector("img");
       image.src = paper.pipeline_thumbnail;
       image.alt = t("paper.pipelinePreview", { title: paper.title });
+      image.addEventListener("error", () => {
+        thumbnail.hidden = true;
+        card.classList.remove("has-thumbnail");
+        image.removeAttribute("src");
+      }, { once: true });
     }
     const tags = card.querySelector(".paper-tags");
     paper.categories.slice(0, 4).forEach((category) => {
@@ -1197,6 +1245,44 @@
     }
   }
 
+  function confirmRecommendedFields(missingFields) {
+    if (!elements.recommendationDialog?.showModal) {
+      return Promise.resolve(window.confirm(t("submission.recommendedMissing", { fields: missingFields.join(", ") })));
+    }
+    elements.recommendationList.replaceChildren(...missingFields.map((field) => {
+      const item = document.createElement("li");
+      item.textContent = field;
+      return item;
+    }));
+    elements.recommendationDialog.showModal();
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (accepted) => {
+        if (settled) return;
+        settled = true;
+        elements.recommendationReview.removeEventListener("click", review);
+        elements.recommendationContinue.removeEventListener("click", proceed);
+        elements.recommendationDialog.removeEventListener("cancel", cancel);
+        elements.recommendationDialog.removeEventListener("click", backdrop);
+        if (elements.recommendationDialog.open) elements.recommendationDialog.close();
+        resolve(accepted);
+      };
+      const review = () => finish(false);
+      const proceed = () => finish(true);
+      const cancel = (event) => {
+        event.preventDefault();
+        finish(false);
+      };
+      const backdrop = (event) => {
+        if (event.target === elements.recommendationDialog) finish(false);
+      };
+      elements.recommendationReview.addEventListener("click", review);
+      elements.recommendationContinue.addEventListener("click", proceed);
+      elements.recommendationDialog.addEventListener("cancel", cancel);
+      elements.recommendationDialog.addEventListener("click", backdrop);
+    });
+  }
+
   function setupSubmissionForm() {
     elements.submissionForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -1214,7 +1300,7 @@
         !pipelineFiles.length ? t("recommendation.pipeline") : "",
         !(paperFile instanceof File && paperFile.size > 0) ? t("recommendation.paperFile") : "",
       ].filter(Boolean);
-      if (missingRecommended.length && !window.confirm(t("submission.recommendedMissing", { fields: missingRecommended.join(", ") }))) return;
+      if (missingRecommended.length && !(await confirmRecommendedFields(missingRecommended))) return;
       const fingerprint = submissionFingerprint(formData);
       if (recentlyOpenedSameSubmission(fingerprint) && !window.confirm(t("submission.duplicateDraft"))) return;
 
