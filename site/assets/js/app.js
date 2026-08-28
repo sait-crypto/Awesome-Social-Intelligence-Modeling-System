@@ -67,6 +67,7 @@
     doiGenerate: document.querySelector("[data-generate-doi]"),
     validationSummary: document.querySelector("[data-form-validation]"),
     pipelineImage: document.querySelector("[data-pipeline-image]"),
+    pipelineDropZone: document.querySelector("[data-pipeline-dropzone]"),
     pipelineChoose: document.querySelector("[data-choose-pipeline]"),
     pipelineClear: document.querySelector("[data-clear-pipeline]"),
     pipelineCount: document.querySelector("[data-pipeline-count]"),
@@ -74,6 +75,7 @@
     pipelinePreviewList: document.querySelector("[data-pipeline-preview-list]"),
     pipelineStatus: document.querySelector("[data-pipeline-status]"),
     paperFile: document.querySelector("[data-paper-file]"),
+    paperFileDropZone: document.querySelector("[data-paper-file-dropzone]"),
     paperFileChoose: document.querySelector("[data-choose-paper-file]"),
     paperFileClear: document.querySelector("[data-clear-paper-file]"),
     paperFileName: document.querySelector("[data-paper-file-name]"),
@@ -90,6 +92,7 @@
   let pipelinePreviewUrls = [];
   let resetPipelineImages = () => {};
   let resetPaperFile = () => {};
+  let addPipelineFiles = () => false;
 
   const appendOption = (select, value, label) => {
     const option = document.createElement("option");
@@ -513,14 +516,19 @@
       .sort((a, b) => {
         const stageDifference = STAGE_ORDER.indexOf(categoryRoot(a.id)) - STAGE_ORDER.indexOf(categoryRoot(b.id));
         const subfieldDifference = (categoryById.get(categorySecondLevel(a.id))?.order || 0) - (categoryById.get(categorySecondLevel(b.id))?.order || 0);
-        return stageDifference || subfieldDifference || a.order - b.order || a.name.localeCompare(b.name);
+        const thirdLevelDifference = (categoryPath(a.id)[2]?.order || 0) - (categoryPath(b.id)[2]?.order || 0);
+        const depthDifference = a.depth - b.depth;
+        return stageDifference || subfieldDifference || thirdLevelDifference || depthDifference || a.order - b.order || a.name.localeCompare(b.name);
       });
     const taskGroups = new Map();
     tasks.forEach((item) => {
-      const path = categoryPath(item.id).slice(0, -1);
-      const groupLabel = path.map((node, index) => (index === 0 ? stageLabel(node.id) : node.name)).join(" · ");
+      const path = categoryPath(item.id);
+      const groupPath = path.slice(0, 2);
+      const groupLabel = groupPath.map((node, index) => (index === 0 ? stageLabel(node.id) : node.name)).join(" · ");
+      const parent = item.depth > 2 ? categoryById.get(item.parent) : null;
+      const taskLabel = parent ? `${parent.name} > ${item.name}` : item.name;
       if (!taskGroups.has(groupLabel)) taskGroups.set(groupLabel, []);
-      taskGroups.get(groupLabel).push({ value: item.id, label: `${item.name} (${item.branchCount})` });
+      taskGroups.get(groupLabel).push({ value: item.id, label: `${taskLabel} (${item.branchCount})` });
     });
     category = replaceGroupedOptions(
       elements.category,
@@ -583,26 +591,29 @@
       const grouped = new Map();
       stageCategories.forEach((category) => {
         const path = pathFor(category);
-        const groupName = path.slice(1, -1).join(" › ") || stage;
+        const groupName = path[1] || stage;
         if (!grouped.has(groupName)) grouped.set(groupName, []);
-        grouped.get(groupName).push(category);
+        grouped.get(groupName).push({ category, path });
       });
-      [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([groupName, categories]) => {
+      [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([groupName, entries]) => {
         const group = document.createElement("section");
         group.className = "category-group";
         const heading = document.createElement("h4");
         heading.textContent = groupName;
         group.append(heading);
-        categories.sort((a, b) => a.name.localeCompare(b.name)).forEach((category) => {
+        entries.sort((a, b) => a.category.name.localeCompare(b.category.name)).forEach(({ category, path }) => {
         const label = document.createElement("label");
         label.className = "submission-category";
-        label.dataset.search = normalize(`${stage} ${groupName} ${category.name}`);
+        const displayName = path.length > 3
+          ? `${path.at(-2)} › ${category.name}`
+          : category.name;
+        label.dataset.search = normalize(`${stage} ${path.join(" ")} ${displayName}`);
         const input = document.createElement("input");
         input.type = "checkbox";
         input.name = "categories";
         input.value = category.id;
         const text = document.createElement("span");
-        text.textContent = category.name;
+        text.textContent = displayName;
         input.addEventListener("change", () => {
           const checked = elements.submissionCategories.querySelectorAll('input[type="checkbox"]:checked');
           if (checked.length > 4) {
@@ -985,6 +996,10 @@
       "<!-- sim-paper-submission:v1 -->",
       ...fields.flatMap(([heading, value]) => [`### ${heading}`, cleanIssueValue(value), ""]),
       "---",
+      "**Status:** Waiting for maintainer review.",
+      "",
+      "Keep this issue open and select GitHub's **Subscribe** control. Approval status, validation results, duplicate or rejection reasons, processing updates, and maintainer feedback will be posted here.",
+      "",
       "Submitted through the Social Intelligence Modeling survey homepage.",
     ].join("\n");
   }
@@ -1130,9 +1145,77 @@
     });
   }
 
+  function transferredFiles(transfer) {
+    const direct = [...(transfer?.files || [])].filter((file) => file instanceof File && file.size > 0);
+    if (direct.length) return direct;
+    return [...(transfer?.items || [])]
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file) => file instanceof File && file.size > 0);
+  }
+
+  function replaceInputFiles(input, files) {
+    if (typeof DataTransfer === "undefined") return false;
+    const transfer = new DataTransfer();
+    files.forEach((file) => transfer.items.add(file));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  }
+
+  function bindDropPasteZone(zone, onFiles) {
+    if (!zone) return;
+    const carriesFiles = (transfer) => [...(transfer?.types || [])].includes("Files");
+    const activate = (event) => {
+      if (!carriesFiles(event.dataTransfer)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      zone.classList.add("is-dragover");
+    };
+    zone.addEventListener("dragenter", activate);
+    zone.addEventListener("dragover", activate);
+    zone.addEventListener("dragleave", (event) => {
+      if (!zone.contains(event.relatedTarget)) zone.classList.remove("is-dragover");
+    });
+    zone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      zone.classList.remove("is-dragover");
+      const files = transferredFiles(event.dataTransfer);
+      if (files.length) onFiles(files, "drop");
+    });
+    zone.addEventListener("paste", (event) => {
+      const files = transferredFiles(event.clipboardData);
+      if (!files.length) return;
+      event.preventDefault();
+      onFiles(files, "paste");
+    });
+  }
+
   function setupPipelineImage() {
     if (!elements.pipelineImage) return;
     const allowedTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+    let assigningFiles = false;
+    let chooseBase = [];
+    const fileKey = (file) => [file.name, file.size, file.type, file.lastModified].join("|");
+    const mergeFiles = (...groups) => {
+      const seen = new Set();
+      return groups.flat().filter((file) => {
+        const key = fileKey(file);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+    const commitFiles = (files) => {
+      assigningFiles = true;
+      const replaced = replaceInputFiles(elements.pipelineImage, files);
+      assigningFiles = false;
+      return replaced;
+    };
+    addPipelineFiles = (files, base = [...(elements.pipelineImage.files || [])]) => (
+      commitFiles(mergeFiles(base, files))
+    );
     const releasePreviews = () => {
       pipelinePreviewUrls.forEach((url) => URL.revokeObjectURL(url));
       pipelinePreviewUrls = [];
@@ -1173,13 +1256,31 @@
       elements.pipelinePreview.hidden = false;
     };
     resetPipelineImages = () => {
+      chooseBase = [];
       elements.pipelineImage.value = "";
       render();
       elements.pipelineImage.dispatchEvent(new Event("input", { bubbles: true }));
     };
-    elements.pipelineChoose?.addEventListener("click", () => elements.pipelineImage.click());
+    elements.pipelineChoose?.addEventListener("click", () => {
+      chooseBase = [...(elements.pipelineImage.files || [])];
+      elements.pipelineImage.click();
+    });
     elements.pipelineClear?.addEventListener("click", resetPipelineImages);
-    elements.pipelineImage.addEventListener("change", render);
+    elements.pipelineImage.addEventListener("change", () => {
+      if (assigningFiles) {
+        render();
+        return;
+      }
+      const picked = [...(elements.pipelineImage.files || [])];
+      const base = chooseBase;
+      chooseBase = [];
+      if (base.length && picked.length) {
+        addPipelineFiles(picked, base);
+        return;
+      }
+      render();
+    });
+    bindDropPasteZone(elements.pipelineDropZone, (files) => addPipelineFiles(files));
     window.addEventListener("sim:languagechange", () => {
       render();
       elements.pipelineImage.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1189,6 +1290,15 @@
 
   function setupPaperFile() {
     if (!elements.paperFile) return;
+    const imageTypes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+    const isPdf = (file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    let assigningFile = false;
+    const commitFile = (file) => {
+      assigningFile = true;
+      const replaced = replaceInputFiles(elements.paperFile, file ? [file] : []);
+      assigningFile = false;
+      return replaced;
+    };
     const render = () => {
       elements.paperFile.setCustomValidity("");
       const file = elements.paperFile.files?.[0];
@@ -1196,10 +1306,21 @@
       elements.paperFileName.textContent = file ? file.name : t("form.noPaperFile");
       elements.paperFileStatus.textContent = "";
       if (!file) return;
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-      if (!isPdf) elements.paperFile.setCustomValidity(t("paperFile.unsupported"));
+      if (!isPdf(file)) elements.paperFile.setCustomValidity(t("paperFile.unsupported"));
       else if (file.size > 50 * 1024 * 1024) elements.paperFile.setCustomValidity(t("paperFile.tooLarge"));
       elements.paperFileStatus.textContent = elements.paperFile.validationMessage || t("paperFile.selected", { name: file.name });
+    };
+    const acceptFiles = (files) => {
+      const pdf = files.find(isPdf);
+      const images = files.filter((file) => imageTypes.has(file.type));
+      if (pdf) commitFile(pdf);
+      else if (!images.length && files[0]) commitFile(files[0]);
+      if (images.length && addPipelineFiles(images)) {
+        const routed = t("paperFile.imagesRouted", { count: images.length });
+        elements.paperFileStatus.textContent = [elements.paperFileStatus.textContent, routed]
+          .filter(Boolean)
+          .join(" ");
+      }
     };
     resetPaperFile = () => {
       elements.paperFile.value = "";
@@ -1208,7 +1329,11 @@
     };
     elements.paperFileChoose?.addEventListener("click", () => elements.paperFile.click());
     elements.paperFileClear?.addEventListener("click", resetPaperFile);
-    elements.paperFile.addEventListener("change", render);
+    elements.paperFile.addEventListener("change", () => {
+      render();
+      if (assigningFile) return;
+    });
+    bindDropPasteZone(elements.paperFileDropZone, acceptFiles);
     window.addEventListener("sim:languagechange", render);
     render();
   }

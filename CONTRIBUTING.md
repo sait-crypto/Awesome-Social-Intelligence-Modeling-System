@@ -6,11 +6,11 @@ Thank you for helping maintain the Social Intelligence Modeling paper collection
 
 ## Recommended workflow
 
-For most contributors, use the **[website paper-submission form](https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/#contribute)**. It can fill the required metadata from JSON copied by the repository's Zotero plugin, provides a hierarchical taxonomy selector, and prepares a structured public GitHub issue without collecting an email address. A maintainer reviews the scope and taxonomy, then applies the `Action: Process` label to that issue. The intake workflow creates a pull request and explicitly invokes the repository's existing paper-processing workflow, which validates the submission, updates the canonical databases, and rebuilds the public website.
+For most contributors, use the **[website paper-submission form](https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/#contribute)**. It can fill the required metadata from JSON copied by the repository's Zotero plugin, provides a hierarchical taxonomy selector, and prepares a structured public GitHub issue without collecting an email address. A maintainer reviews the scope and taxonomy, then applies the `Action: Process` label to that issue. The intake workflow creates a backend pull request and explicitly invokes the repository's existing paper-processing workflow, which validates the submission and updates the canonical databases. The accepted database commit then triggers one path-filtered website deployment.
 
 Website submissions and submissions processed from a non-`main` pull request automatically receive a `community:` prefix in the paper's `contributor` field. Only this explicit prefix produces a **Community contribution** badge. Direct maintainer updates to `main` keep their existing provenance and are not marked as Community submissions.
 
-Processing results and maintainer feedback are posted to the public suggestion issue or its linked pull request and mention the submitter. Subscribe to the GitHub issue to receive those notifications. Do not place a private email address in the public form or in the paper database.
+The public suggestion issue is the primary communication record and remains open during review and processing. Waiting-for-approval status, validation and processing results, duplicate or rejection reasons, and maintainer feedback are posted there. The generated pull request is only a backend processing artifact. Subscribe to the GitHub issue to receive every update; maintainers should close it only after follow-up is complete. Do not place a private email address in the public form or in the paper database.
 
 ### Desktop and pull-request workflow
 
@@ -25,6 +25,8 @@ Processing results and maintainer feedback are posted to the public suggestion i
 
 > [!IMPORTANT]
 > Pull requests must come from a non-`main` branch; submissions made directly from `main` do not trigger automatic processing.
+>
+> Relevant website, database, taxonomy, metadata, or build-script updates on `main` automatically rebuild GitHub Pages. This deployment workflow is separate from paper submission processing: an ordinary `main` push never starts the submission pipeline.
 
 ### If PR automation fails
 

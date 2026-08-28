@@ -63,7 +63,13 @@ class DatabaseManager:
             print(f"保存数据库失败: {e}")
             return False
 
-    def add_papers(self, new_papers: List[Paper], conflict_resolution: str = 'mark') -> Tuple[List[Paper], List[Paper], List[str]]:
+    def add_papers(
+        self,
+        new_papers: List[Paper],
+        conflict_resolution: str = 'mark',
+        *,
+        validate_existing: bool = True,
+    ) -> Tuple[List[Paper], List[Paper], List[str]]:
         """
         添加新论文到数据库，同时验证冲突
         
@@ -79,16 +85,19 @@ class DatabaseManager:
         if not success:
             return [], new_papers, [f"无法加载数据库: {self.database_path}"]
 
-        # 2. 统一验证所有已写入数据库的论文条目（记录日志）
+        # 2. 统一验证所有已写入数据库的论文条目（记录日志）。
+        # Complete List 在统一更新中采用宽松追加策略，但 GUI 直接打开它时
+        # 仍走默认检查，因此这里只提供显式、调用点受控的跳过开关。
         invalid_msg = []
-        for p in old_papers:
-            try:
-                # 仅做检查，不 normalize
-                valid, errors, _ = p.validate_paper_fields(self.config, check_required=True, check_non_empty=True, no_normalize=True)
-                if not valid or p.invalid_fields:
-                    invalid_msg.append(f"DB Existing '{p.title[:30]}' invalid: {errors[:2]}")
-            except Exception as e:
-                print(f"验证已存在论文时出错: {e}")
+        if validate_existing:
+            for p in old_papers:
+                try:
+                    # 仅做检查，不 normalize
+                    valid, errors, _ = p.validate_paper_fields(self.config, check_required=True, check_non_empty=True, no_normalize=True)
+                    if not valid or p.invalid_fields:
+                        invalid_msg.append(f"DB Existing '{p.title[:30]}' invalid: {errors[:2]}")
+                except Exception as e:
+                    print(f"验证已存在论文时出错: {e}")
 
         # 3. 还原原有的冲突结构
         # non_conflict_papers存储结构: [(主论文, [冲突论文1, 冲突论文2, ...]), ...]

@@ -346,10 +346,10 @@
               <div class="submission-categories" data-submission-categories></div>
             </fieldset>
             <label class="span-2" data-i18n-prefix="form.abstract">Abstract *<textarea name="abstract" required rows="5" maxlength="10000"></textarea></label>
-            <div class="span-2 pipeline-upload">
+            <div class="span-2 pipeline-upload" data-pipeline-dropzone tabindex="0" aria-label="Choose, drop, or paste pipeline images" data-i18n-aria-label="form.pipelineDropLabel">
               <div class="pipeline-heading">
                 <strong data-i18n="form.pipelineImage">Pipeline images</strong>
-                <span class="field-hint" data-i18n="form.pipelineHint">recommended · up to 4 method or framework images · 10 MiB each</span>
+                <span class="field-hint" data-i18n="form.pipelineHint">recommended · choose, drop, or paste · 4 × 10 MiB</span>
               </div>
               <input id="pipeline-image-files" class="sr-only" name="pipeline_image_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-pipeline-image />
               <div class="pipeline-controls">
@@ -362,10 +362,10 @@
                 <span data-pipeline-status></span>
               </div>
             </div>
-            <div class="span-2 paper-file-upload">
+            <div class="span-2 paper-file-upload" data-paper-file-dropzone tabindex="0" aria-label="Choose, drop, or paste a paper PDF" data-i18n-aria-label="form.paperFileDropLabel">
               <div class="pipeline-heading">
                 <strong data-i18n="form.paperFile">Paper file</strong>
-                <span class="field-hint" data-i18n="form.paperFileHint">recommended · original PDF for AI-assisted summary generation · 50 MiB maximum</span>
+                <span class="field-hint" data-i18n="form.paperFileHint">recommended · choose, drop, or paste PDF · 50 MiB</span>
               </div>
               <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
               <div class="pipeline-controls">
@@ -392,7 +392,7 @@
           <input type="hidden" name="title_translation" />
           <input type="hidden" name="summary_citable_paragraph" />
           <div class="form-validation-summary" data-form-validation hidden role="status" aria-live="polite"></div>
-          <p class="privacy-note" data-i18n="form.privacy">This creates a public, structured GitHub issue for review. Processing results and maintainer feedback mention the submitter there or in the linked pull request; subscribe on GitHub for notifications. Do not include a private email address.</p>
+          <p class="privacy-note" data-i18n="form.privacy">This creates a public GitHub issue that remains open as the submission record. After submitting, select GitHub's Subscribe control; approval status, validation results, processing updates, and maintainer feedback are posted there. Do not include a private email address.</p>
           <div class="form-submit-actions">
             <button type="button" class="button form-clear" data-clear-submission data-i18n="form.clearAll">Clear all</button>
             <button type="submit" class="button button-primary form-submit" data-submit-paper data-i18n-prefix="form.submit">Create submission issue on GitHub <span>↗</span></button>
@@ -469,7 +469,7 @@
         <a href="./complete-list.html" data-i18n="footer.complete">Complete list</a>
         <a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer" data-i18n="footer.contributing">Contributing</a>
       </div>
-      <p class="footer-status"><span></span> <span data-i18n="footer.status">Data generated from the active survey repository ·</span> <time data-generated-at>updating</time></p>
+      <p class="footer-status"><span class="footer-status-dot" aria-hidden="true"></span> <span data-i18n="footer.status">Data generated from the active survey repository ·</span> <time data-generated-at>updating</time></p>
     </footer>
 
     <a class="back-to-top" href="#top" aria-label="Back to top" title="Back to top" data-i18n-aria-label="back.top" data-i18n-title="back.top">

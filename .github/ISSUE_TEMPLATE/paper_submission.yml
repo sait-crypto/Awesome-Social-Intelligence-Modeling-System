@@ -6,6 +6,7 @@ body:
     attributes:
       value: |
         Thanks for helping keep the survey current. Submissions are public and remain separate from the curated database until validation and maintainer approval.
+        After submitting, keep this issue open and select GitHub's **Subscribe** control. Waiting-for-review status, validation results, processing outcomes, duplicate or rejection reasons, and maintainer feedback are posted here.
 
   - type: input
     id: title
@@ -117,4 +118,4 @@ body:
   - type: markdown
     attributes:
       value: |
-        Processing results and maintainer feedback are posted to this public issue or its linked processing pull request and mention the submitter. Use GitHub's **Subscribe** control if you want a notification for every update; do not post a private email address here.
+        This public issue is the primary submission record and remains open during review and processing. The linked pull request is only a backend processing artifact. Use GitHub's **Subscribe** control for every status update; do not post a private email address here.

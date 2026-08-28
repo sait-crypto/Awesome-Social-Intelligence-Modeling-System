@@ -1715,7 +1715,7 @@ summary:focus-visible {
   border-top: 1px solid var(--night-line);
 }
 
-.footer-status span {
+.footer-status-dot {
   display: inline-block;
   width: 7px;
   height: 7px;
@@ -1723,6 +1723,10 @@ summary:focus-visible {
   border-radius: 50%;
   background: var(--lime);
   box-shadow: 0 0 10px rgba(201, 242, 123, 0.7);
+}
+
+.footer-status time {
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
@@ -3204,6 +3208,14 @@ body {
   backdrop-filter: blur(3px);
 }
 
+.zotero-dialog {
+  height: min(820px, calc(100vh - 0.75rem));
+  height: min(820px, calc(100dvh - 0.75rem));
+  max-height: calc(100vh - 0.75rem);
+  max-height: calc(100dvh - 0.75rem);
+  overscroll-behavior: contain;
+}
+
 .recommendation-dialog {
   width: min(570px, calc(100vw - 2rem));
   overflow: hidden;
@@ -3407,6 +3419,15 @@ body {
   justify-content: flex-end;
   gap: 0.6rem;
   margin-top: 0.8rem;
+}
+
+.zotero-dialog .dialog-actions {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  padding: 0.8rem 0 0.15rem;
+  border-top: 1px solid var(--line);
+  background: #fff;
 }
 
 .privacy-note {
@@ -3726,7 +3747,7 @@ body {
   font-size: 0.61rem;
 }
 
-.footer-status span {
+.footer-status-dot {
   background: #91a5bf;
   box-shadow: 0 0 8px rgba(145, 165, 191, 0.55);
 }
