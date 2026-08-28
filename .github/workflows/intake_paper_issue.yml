@@ -23,12 +23,14 @@ jobs:
       ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       ISSUE_URL: ${{ github.event.issue.html_url }}
+      SIM_UPLOAD_ENDPOINT: ${{ vars.SIM_UPLOAD_ENDPOINT }}
       GH_TOKEN: ${{ github.token }}
     outputs:
       head_ref: ${{ steps.create_pr.outputs.head_ref }}
       head_sha: ${{ steps.create_pr.outputs.head_sha }}
       pr_number: ${{ steps.create_pr.outputs.pr_number }}
       pr_url: ${{ steps.create_pr.outputs.pr_url }}
+      pdf_artifact_name: ${{ steps.attachments.outputs.pdf_artifact_name }}
 
     steps:
       - name: Check out trusted main branch
@@ -56,14 +58,34 @@ jobs:
           --issue-url "$ISSUE_URL"
           --output submit_template.json
 
-      - name: Materialize GitHub pipeline image attachments
-        run: >-
-          uv run --frozen python engineering/scripts/download_issue_images.py
-          submit_template.json
+      - name: Download all submission files before processing
+        id: attachments
+        shell: bash
+        run: |
+          set -euo pipefail
+          pdf_bundle="$RUNNER_TEMP/submission-pdf-bundle"
+          uv run --frozen python engineering/scripts/download_issue_images.py \
+            submit_template.json \
+            --pdf-bundle-dir "$pdf_bundle"
+          if find "$pdf_bundle" -type f -name '*.pdf' -print -quit 2>/dev/null | grep -q .; then
+            echo "pdf_artifact_name=paper-submission-pdfs-issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "pdf_artifact_name=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Preserve downloaded PDF for the isolated processing job
+        if: steps.attachments.outputs.pdf_artifact_name != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.attachments.outputs.pdf_artifact_name }}
+          path: ${{ runner.temp }}/submission-pdf-bundle
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Validate generated submission
         env:
           PYTHONPATH: engineering
+          IGNORE_PAPER_FILE_ASSETS: "true"
         run: uv run --frozen python engineering/scripts/validate_submission.py
 
       - name: Create processing pull request
@@ -129,6 +151,7 @@ jobs:
     name: Run the existing paper-processing pipeline
     needs: prepare-submission-pr
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     uses: ./.github/workflows/process_submission.yml
@@ -140,6 +163,7 @@ jobs:
       submission_pr_number: ${{ fromJSON(needs.prepare-submission-pr.outputs.pr_number) }}
       submission_pr_title: "Paper submission from issue #${{ github.event.issue.number }}"
       submission_pr_url: ${{ needs.prepare-submission-pr.outputs.pr_url }}
+      submission_pdf_artifact: ${{ needs.prepare-submission-pr.outputs.pdf_artifact_name }}
     secrets: inherit
 
   finalize-intake:

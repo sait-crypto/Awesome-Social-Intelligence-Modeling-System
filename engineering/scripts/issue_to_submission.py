@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -174,17 +174,34 @@ def _normalize_contributor(value: str, submitter: str) -> str:
     return f"community:{label}"
 
 
+def _is_accepted_attachment_url(url: str) -> bool:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        return False
+    host = parsed.hostname.casefold()
+    if (host == "github.com" and parsed.path.startswith("/user-attachments/assets/")) or host == "user-images.githubusercontent.com":
+        return True
+    configured = urlparse(os.environ.get("SIM_UPLOAD_ENDPOINT", "").strip().rstrip("/"))
+    if configured.scheme != "https" or not configured.hostname:
+        return False
+    prefix = configured.path.rstrip("/") + "/v1/files/"
+    query = parse_qs(parsed.query)
+    return (
+        host == configured.hostname.casefold()
+        and parsed.port == configured.port
+        and parsed.path.startswith(prefix)
+        and bool(query.get("expires", [""])[0])
+        and bool(query.get("signature", [""])[0])
+    )
+
+
 def _normalize_pipeline_images(value: str) -> list[str]:
     urls = re.findall(r"https://[^\s)>]+", str(value or ""))
     accepted: list[str] = []
     for url in urls:
-        parsed = urlparse(url.rstrip(".,"))
-        host = parsed.hostname.casefold() if parsed.hostname else ""
-        valid = (
-            host == "github.com" and parsed.path.startswith("/user-attachments/assets/")
-        ) or host == "user-images.githubusercontent.com"
-        if valid and url not in accepted:
-            accepted.append(url.rstrip(".,"))
+        cleaned = url.rstrip(".,")
+        if _is_accepted_attachment_url(cleaned) and cleaned not in accepted:
+            accepted.append(cleaned)
     return accepted[:4]
 
 
@@ -192,9 +209,7 @@ def _normalize_paper_file(value: str) -> str:
     urls = re.findall(r"https://[^\s)>]+", str(value or ""))
     for url in urls:
         cleaned = url.rstrip(".,")
-        parsed = urlparse(cleaned)
-        host = parsed.hostname.casefold() if parsed.hostname else ""
-        if (host == "github.com" and parsed.path.startswith("/user-attachments/assets/")) or host == "user-images.githubusercontent.com":
+        if _is_accepted_attachment_url(cleaned):
             return cleaned
     return ""
 

@@ -12,6 +12,7 @@ on:
       - engineering/assets/social-intelligence-modeling-overview.png
       - engineering/assets/category_architecture.png
       - engineering/scripts/build_site.py
+      - engineering/scripts/smoke_test_upload_endpoint.py
       - .github/workflows/deploy_pages.yml
   pull_request:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - engineering/assets/social-intelligence-modeling-overview.png
       - engineering/assets/category_architecture.png
       - engineering/scripts/build_site.py
+      - engineering/scripts/smoke_test_upload_endpoint.py
       - .github/workflows/deploy_pages.yml
   workflow_dispatch:
 
@@ -48,6 +50,8 @@ jobs:
           python-version: "3.13"
 
       - name: Build static survey website
+        env:
+          SIM_UPLOAD_ENDPOINT: ${{ vars.SIM_UPLOAD_ENDPOINT }}
         run: python engineering/scripts/build_site.py --output site-dist
 
       - name: Verify generated website
@@ -63,6 +67,12 @@ jobs:
           assert complete['stats']['paper_count'] >= data['stats']['paper_count'];
           assert data['stats']['paper_count'] > 0;
           print(f\"Verified {len(data['papers'])} curated and {len(complete['papers'])} complete-list paper records.\")"
+
+      - name: Verify direct submission file transfer
+        if: github.event_name != 'pull_request' && vars.SIM_UPLOAD_ENDPOINT != ''
+        env:
+          SIM_UPLOAD_ENDPOINT: ${{ vars.SIM_UPLOAD_ENDPOINT }}
+        run: python engineering/scripts/smoke_test_upload_endpoint.py
 
       - name: Upload GitHub Pages artifact
         if: github.event_name != 'pull_request'

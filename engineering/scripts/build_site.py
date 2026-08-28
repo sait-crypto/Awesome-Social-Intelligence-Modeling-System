@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import html
 import json
 import os
 import re
@@ -18,7 +19,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -372,6 +373,21 @@ def _version_static_assets(output: Path) -> None:
                     html_path.write_text(updated, encoding="utf-8")
 
 
+def _configure_upload_endpoint(output: Path) -> None:
+    """Inject the optional serverless upload endpoint without storing secrets."""
+    endpoint = os.environ.get("SIM_UPLOAD_ENDPOINT", "").strip().rstrip("/")
+    if endpoint:
+        parsed = urlparse(endpoint)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            raise ValueError("SIM_UPLOAD_ENDPOINT must be an HTTPS origin without a path, query, or fragment.")
+    index_path = output / "index.html"
+    source = index_path.read_text(encoding="utf-8")
+    marker = "__SIM_UPLOAD_ENDPOINT__"
+    if marker not in source:
+        raise RuntimeError("Website upload endpoint placeholder is missing from index.html.")
+    index_path.write_text(source.replace(marker, html.escape(endpoint, quote=True)), encoding="utf-8")
+
+
 def build_site(output_dir: Path) -> dict[str, Any]:
     output = _assert_safe_output(output_dir)
     if not SITE_SOURCE.is_dir():
@@ -380,6 +396,7 @@ def build_site(output_dir: Path) -> dict[str, Any]:
     if output.exists():
         shutil.rmtree(output)
     shutil.copytree(SITE_SOURCE, output)
+    _configure_upload_endpoint(output)
     _version_static_assets(output)
 
     data = build_site_data()
@@ -415,6 +432,7 @@ def build_site(output_dir: Path) -> dict[str, Any]:
         output / "assets" / "js" / "site-core.js",
         output / "assets" / "js" / "i18n.js",
         output / "assets" / "js" / "form-validation.js",
+        output / "assets" / "js" / "upload-client.js",
         output / "assets" / "js" / "image-slots.js",
         output / "assets" / "js" / "complete-list.js",
         data_dir / "image-slots.json",

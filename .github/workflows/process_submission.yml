@@ -34,6 +34,11 @@ on:
         description: Pull request URL used in notifications.
         required: true
         type: string
+      submission_pdf_artifact:
+        description: Optional same-run artifact containing an ephemeral paper PDF.
+        required: false
+        type: string
+        default: ""
 
 env:
   SUBMISSION_HEAD_SHA: ${{ inputs.submission_head_sha || github.event.pull_request.head.sha }}
@@ -56,6 +61,7 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'Action: Process')
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     env:
@@ -87,6 +93,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           lfs: true
+
+      - name: Download the complete ephemeral PDF bundle
+        if: inputs.submission_pdf_artifact != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.submission_pdf_artifact }}
+          path: pr_workspace
 
       # Preserve the contributor's source update independently of later
       # validation, AI generation, database updates, or push failures.

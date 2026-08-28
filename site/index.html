@@ -8,6 +8,7 @@
       content="A living survey and interactive paper atlas for social intelligence modeling, from social perception to social simulation."
     />
     <meta name="theme-color" content="#ffffff" />
+    <meta name="sim-upload-endpoint" content="__SIM_UPLOAD_ENDPOINT__" />
     <meta property="og:type" content="website" />
     <link rel="icon" href="./assets/img/favicon.svg" type="image/svg+xml" />
     <meta property="og:title" content="Social Intelligence Modeling: A Comprehensive Survey" />
@@ -31,6 +32,7 @@
     <script src="./assets/js/site-core.js" defer></script>
     <script src="./assets/js/i18n.js" defer></script>
     <script src="./assets/js/form-validation.js" defer></script>
+    <script src="./assets/js/upload-client.js" defer></script>
     <script src="./assets/js/image-slots.js" defer></script>
     <script src="./assets/js/app.js" defer></script>
   </head>
@@ -393,6 +395,7 @@
           <input type="hidden" name="summary_citable_paragraph" />
           <div class="form-validation-summary" data-form-validation hidden role="status" aria-live="polite"></div>
           <p class="privacy-note" data-i18n="form.privacy">This creates a public GitHub issue that remains open as the submission record. After submitting, select GitHub's Subscribe control; approval status, validation results, processing updates, and maintainer feedback are posted there. Do not include a private email address.</p>
+          <p class="upload-status" data-upload-status role="status" aria-live="polite"></p>
           <div class="form-submit-actions">
             <button type="button" class="button form-clear" data-clear-submission data-i18n="form.clearAll">Clear all</button>
             <button type="submit" class="button button-primary form-submit" data-submit-paper data-i18n-prefix="form.submit">Create submission issue on GitHub <span>↗</span></button>

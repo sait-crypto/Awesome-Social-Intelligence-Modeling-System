@@ -202,6 +202,26 @@
   gap: 0.65rem;
 }
 
+.upload-status {
+  min-height: 1.35em;
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.upload-status[data-state="working"] {
+  color: #315e93;
+}
+
+.upload-status[data-state="error"] {
+  color: #a23b33;
+  font-weight: 650;
+}
+
+.upload-status[data-state="success"] {
+  color: #376c5b;
+}
+
 .form-submit-actions .form-submit {
   width: auto;
 }

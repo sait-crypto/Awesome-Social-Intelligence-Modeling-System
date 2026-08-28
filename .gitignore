@@ -78,6 +78,10 @@ AI_assistant_review_tools/.env
 # Logs
 *.log
 
+# Local Cloudflare Worker state
+services/submission-upload-worker/.wrangler/
+services/submission-upload-worker/.dev.vars
+
 
 # Local WeChat publicity materials
 /community/wechat-article.md

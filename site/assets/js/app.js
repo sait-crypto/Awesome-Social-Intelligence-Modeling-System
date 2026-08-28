@@ -80,6 +80,7 @@
     paperFileClear: document.querySelector("[data-clear-paper-file]"),
     paperFileName: document.querySelector("[data-paper-file-name]"),
     paperFileStatus: document.querySelector("[data-paper-file-status]"),
+    uploadStatus: document.querySelector("[data-upload-status]"),
     submitPaper: document.querySelector("[data-submit-paper]"),
     clearSubmission: document.querySelector("[data-clear-submission]"),
     recommendationDialog: document.querySelector("[data-recommendation-dialog]"),
@@ -954,9 +955,11 @@
     return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
   };
 
-  function buildIssueBody(formData, categories) {
+  function buildIssueBody(formData, categories, uploaded = {}) {
     const pipelineFiles = formData.getAll("pipeline_image_file")
       .filter((file) => file instanceof File && file.size > 0);
+    const pipelineReferences = Array.isArray(uploaded.pipelineReferences) ? uploaded.pipelineReferences : [];
+    const paperReference = String(uploaded.paperReference || "");
     const fields = [
       ["Paper title", formData.get("title")],
       ["DOI", formData.get("doi")],
@@ -970,13 +973,17 @@
       ["Abstract", cleanIssueValue(formData.get("abstract"), 2600)],
       [
         "Pipeline image",
-        pipelineFiles.length
+        pipelineReferences.length
+          ? pipelineReferences.join("\n")
+          : pipelineFiles.length
           ? `_Paste or drag the ${pipelineFiles.length} selected pipeline image${pipelineFiles.length === 1 ? "" : "s"} here before submitting this issue._`
           : "_No response_",
       ],
       [
         "Paper file",
-        formData.get("paper_file_upload") instanceof File && formData.get("paper_file_upload").size > 0
+        paperReference
+          ? paperReference
+          : formData.get("paper_file_upload") instanceof File && formData.get("paper_file_upload").size > 0
           ? "_Drag the selected PDF here before submitting this issue._"
           : "_No response_",
       ],
@@ -1431,22 +1438,66 @@
 
       const categories = checked.map((input) => input.value);
       const title = `[Paper Submission] ${cleanIssueValue(formData.get("title"), 180)}`;
-      const body = buildIssueBody(formData, categories);
-      const params = new URLSearchParams({ title, body });
-      const issueUrl = `${REPOSITORY_URL}/issues/new?${params.toString()}`;
       submissionOpening = true;
       elements.submitPaper.disabled = true;
-      const releaseButton = () => window.setTimeout(() => {
+      elements.uploadStatus.textContent = "";
+      delete elements.uploadStatus.dataset.state;
+      const releaseButton = (delay = 2500) => window.setTimeout(() => {
         submissionOpening = false;
         elements.submitPaper.disabled = false;
-      }, 2500);
+      }, delay);
+
+      let uploaded = {};
+      const hasFiles = pipelineFiles.length > 0 || (paperFile instanceof File && paperFile.size > 0);
+      const directUpload = Boolean(hasFiles && window.SIMUpload?.isConfigured?.());
+      let issueWindow = null;
+      if (directUpload) {
+        issueWindow = window.open("about:blank", "_blank");
+        if (!issueWindow) {
+          elements.uploadStatus.textContent = t("upload.popupBlocked");
+          elements.uploadStatus.dataset.state = "error";
+          releaseButton(0);
+          return;
+        }
+        issueWindow.opener = null;
+        issueWindow.document.title = t("upload.waitingTitle");
+        issueWindow.document.body.textContent = t("upload.waitingPage");
+        try {
+          uploaded = await window.SIMUpload.uploadSubmissionFiles({
+            pipelineFiles,
+            paperFile,
+            onProgress: ({ completed, total, file }) => {
+              elements.uploadStatus.textContent = file
+                ? t("upload.progress", { completed: completed + 1, total, name: file.name })
+                : t("upload.complete", { total });
+              elements.uploadStatus.dataset.state = file ? "working" : "success";
+            },
+          });
+        } catch (error) {
+          issueWindow.close();
+          elements.uploadStatus.textContent = t("upload.failed", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+          elements.uploadStatus.dataset.state = "error";
+          releaseButton(0);
+          return;
+        }
+      } else if (hasFiles) {
+        elements.uploadStatus.textContent = t("upload.manualFallback");
+      }
+
+      const body = buildIssueBody(formData, categories, uploaded);
+      const params = new URLSearchParams({ title, body });
+      const issueUrl = `${REPOSITORY_URL}/issues/new?${params.toString()}`;
 
       if (issueUrl.length > 7900 && navigator.clipboard?.writeText) {
         try {
           await navigator.clipboard.writeText(body);
           rememberSubmissionDraft(fingerprint);
           window.alert(t("submission.long"));
-          window.open(`${REPOSITORY_URL}/issues/new?${new URLSearchParams({ title }).toString()}`, "_blank", "noopener");
+          const shortUrl = `${REPOSITORY_URL}/issues/new?${new URLSearchParams({ title }).toString()}`;
+          if (issueWindow) issueWindow.location.replace(shortUrl);
+          else window.open(shortUrl, "_blank", "noopener");
           releaseButton();
           return;
         } catch (_error) {
@@ -1454,17 +1505,18 @@
         }
       }
       const imageCopy = pipelineFiles.length === 1
-        ? copyPipelineImage(pipelineFiles[0])
+        && !directUpload ? copyPipelineImage(pipelineFiles[0])
         : null;
       rememberSubmissionDraft(fingerprint);
-      window.open(issueUrl, "_blank", "noopener");
+      if (issueWindow) issueWindow.location.replace(issueUrl);
+      else window.open(issueUrl, "_blank", "noopener");
       const attachmentInstructions = [];
-      if (imageCopy) {
+      if (!directUpload && imageCopy) {
         attachmentInstructions.push(t((await imageCopy) ? "pipeline.copied" : "pipeline.copyUnavailable"));
-      } else if (pipelineFiles.length > 1) {
+      } else if (!directUpload && pipelineFiles.length > 1) {
         attachmentInstructions.push(t("pipeline.attachMultiple", { count: pipelineFiles.length }));
       }
-      if (paperFile instanceof File && paperFile.size > 0) {
+      if (!directUpload && paperFile instanceof File && paperFile.size > 0) {
         attachmentInstructions.push(t("paperFile.attach", { name: paperFile.name }));
       }
       if (attachmentInstructions.length) window.alert(attachmentInstructions.join("\n\n"));
@@ -1492,6 +1544,8 @@
       delete elements.zoteroStatus.dataset.state;
       elements.zoteroInlineStatus.textContent = t("form.zoteroHint");
       delete elements.zoteroInlineStatus.dataset.state;
+      elements.uploadStatus.textContent = "";
+      delete elements.uploadStatus.dataset.state;
       elements.submissionForm.querySelectorAll("details.optional-fields").forEach((details) => {
         details.open = false;
       });
