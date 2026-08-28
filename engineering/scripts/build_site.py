@@ -355,6 +355,23 @@ def _assert_safe_output(output_dir: Path) -> Path:
     return resolved
 
 
+def _version_static_assets(output: Path) -> None:
+    """Append content hashes to local CSS/JS URLs so Pages updates bypass stale caches."""
+    html_paths = list(output.glob("*.html"))
+    for asset_root in (output / "assets" / "css", output / "assets" / "js"):
+        for asset in asset_root.iterdir():
+            if not asset.is_file():
+                continue
+            digest = hashlib.sha256(asset.read_bytes()).hexdigest()[:10]
+            relative_url = f"./{asset.relative_to(output).as_posix()}"
+            versioned_url = f"{relative_url}?v={digest}"
+            for html_path in html_paths:
+                source = html_path.read_text(encoding="utf-8")
+                updated = source.replace(f'{relative_url}"', f'{versioned_url}"')
+                if updated != source:
+                    html_path.write_text(updated, encoding="utf-8")
+
+
 def build_site(output_dir: Path) -> dict[str, Any]:
     output = _assert_safe_output(output_dir)
     if not SITE_SOURCE.is_dir():
@@ -363,6 +380,7 @@ def build_site(output_dir: Path) -> dict[str, Any]:
     if output.exists():
         shutil.rmtree(output)
     shutil.copytree(SITE_SOURCE, output)
+    _version_static_assets(output)
 
     data = build_site_data()
     complete_list_data = build_complete_list_data()

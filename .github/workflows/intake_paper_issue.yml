@@ -83,7 +83,7 @@ jobs:
             --base main \
             --head "$branch_name" \
             --title "Paper submission from issue #${ISSUE_NUMBER}" \
-            --body "Generated from #${ISSUE_NUMBER} after maintainer approval. Submitter: @${ISSUE_AUTHOR}. Processing results and maintainer comments on this pull request notify the submitter through GitHub.")
+            --body "Backend processing artifact generated from #${ISSUE_NUMBER} after maintainer approval. Submitter: @${ISSUE_AUTHOR}. Post contributor-facing status and feedback to the source issue; this pull request is closed without merging after processing.")
           pr_number=$(gh pr view "$pr_url" --json number --jq '.number')
           echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
@@ -94,7 +94,8 @@ jobs:
         if: success()
         run: >-
           gh issue comment "$ISSUE_NUMBER"
-          --body "The suggestion passed intake validation and is being processed through the repository's existing paper-submission pipeline in ${{ steps.create_pr.outputs.pr_url }}. The public survey website will rebuild after the database update succeeds."
+          --body "### Validation passed — processing started
+          The suggestion passed intake validation and is being processed through the repository's existing paper-submission pipeline in ${{ steps.create_pr.outputs.pr_url }}. No action is needed from the submitter. This issue remains the communication record; the result will be posted here."
 
       - name: Report intake failure
         if: failure()
@@ -157,8 +158,8 @@ jobs:
           script: |
             const succeeded = process.env.PROCESS_RESULT === 'success';
             const body = succeeded
-              ? '### Paper submission processed\nThe approved paper was processed by the repository pipeline. The generated processing pull request was closed without merging; the website rebuild follows the database update.'
-              : '### Paper processing failed\nNo paper data was published. Review the linked processing pull request and workflow logs, correct the issue fields if needed, then apply `Action: Process` again.';
+              ? '### Paper submission processed\nThe approved paper was processed by the repository pipeline. The generated processing pull request was closed without merging, and website deployment was explicitly requested. This issue remains open as the submission record and communication channel; a maintainer may close it after follow-up is complete.'
+              : '### Paper processing failed\nNo paper data was published. Review the linked processing pull request and workflow logs, then post or correct the requested fields here. A maintainer can reapply `Action: Process` after the issue is ready. This issue remains open for follow-up.';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -174,15 +175,6 @@ jobs:
               });
             } catch (error) {
               if (error.status !== 404) throw error;
-            }
-            if (succeeded) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                state: 'closed',
-                state_reason: 'completed',
-              });
             }
 
   notify-intake-failure:

@@ -30,6 +30,9 @@ class UpdateProcessor:
                 self.settings['ai'].get('enable_ai_generation', 'true'),
             )
         ).strip().lower() in ('1', 'true', 'yes', 'on')
+        self.require_ai_generation = str(
+            os.environ.get('REQUIRE_AI_GENERATION', 'false')
+        ).strip().lower() in ('1', 'true', 'yes', 'on')
         
         # 获取所有可能的更新文件路径
         self.update_files = []
@@ -227,35 +230,50 @@ class UpdateProcessor:
             if not valid_papers:
                 continue
 
-            # 4. 在任何 AI 自动补全之前，将原始有效条目镜像到 Complete List 数据库。
-            # 使用深拷贝隔离冲突标记、资源规范化等数据库写入副作用，确保后续主流程不受影响。
-            if update_complete_list:
-                try:
-                    complete_candidates = copy.deepcopy(valid_papers)
-                    if os.environ.get("EPHEMERAL_SUBMISSION_PDFS", "").strip().casefold() in {"1", "true", "yes", "on"}:
-                        for candidate in complete_candidates:
-                            candidate.paper_file = ""
-                    complete_added, complete_conflicts, complete_invalid = self.complete_list_db_manager.add_papers(
-                        complete_candidates,
-                        conflict_resolution,
-                    )
-                    result['complete_list_new_papers'] += len(complete_added)
-                    result['complete_list_conflicts'] += len(complete_conflicts)
-                    if complete_invalid:
-                        result['invalid_msg'].extend(complete_invalid)
-                    print(
-                        f"Complete List 镜像完成: 新增 {len(complete_added)}，"
-                        f"冲突 {len(complete_conflicts)}"
-                    )
-                except Exception as e:
-                    err = f"Complete List 数据库镜像失败 ({file_path}): {e}"
-                    result['complete_list_errors'].append(err)
-                    result['errors'].append(err)
-                    print(f"错误: {err}")
-            else:
-                print("已按用户选择跳过 Complete List 数据库镜像")
+            # Complete List 保留独立可编辑内容，不是由主数据库重建的只读镜像。
+            # 这里先保存投稿原貌；仅当主数据库实际接纳该论文后，才宽松追加对应条目。
+            complete_candidates_by_key = {
+                paper.get_key(): copy.deepcopy(paper)
+                for paper in valid_papers
+            }
 
-            # 5. AI 生成缺失内容并回写到 *当前文件*
+            # 5. AI 生成缺失内容并回写到 *当前文件*。
+            # 自动投稿流程可要求 AI 补全必须成功，避免 API/Secret 失效时静默入库。
+            automatic_fields = list(
+                getattr(self.ai_generator, 'auto_generate_fields', ['analogy_summary'])
+                if self.ai_generator
+                else ['analogy_summary']
+            )
+            pending_ai_fields = {
+                paper.get_key(): [
+                    field for field in automatic_fields
+                    if not str(getattr(paper, field, '') or '').strip()
+                    or self.settings['database'].get('value_deprecation_mark', '[Deprecated]')
+                    in str(getattr(paper, field, '') or '')
+                ]
+                for paper in valid_papers
+            }
+            needs_ai_generation = any(pending_ai_fields.values())
+
+            if (
+                self.require_ai_generation
+                and needs_ai_generation
+                and (
+                    not self.enable_ai
+                    or not self.ai_generator
+                    or not self.ai_generator.is_available()
+                )
+            ):
+                err = (
+                    f"AI 自动补全为必需步骤，但当前 Profile 没有可用 API key "
+                    f"({os.path.basename(file_path)})"
+                )
+                result['errors'].append(err)
+                print(f"错误: {err}")
+                had_db_update_attempt = True
+                continue
+
+            ai_generation_failed = False
             if self.enable_ai and self.ai_generator and self.ai_generator.is_available():
                 print("使用AI生成缺失内容...")
                 try:
@@ -287,6 +305,33 @@ class UpdateProcessor:
                     err = f"AI生成内容失败 ({file_path}): {e}"
                     result['errors'].append(err)
                     print(f"错误: {err}")
+                    ai_generation_failed = True
+
+            if self.require_ai_generation and needs_ai_generation:
+                remaining_ai_fields = {
+                    paper.get_key(): [
+                        field for field in pending_ai_fields.get(paper.get_key(), [])
+                        if not str(getattr(paper, field, '') or '').strip()
+                    ]
+                    for paper in valid_papers
+                }
+                if ai_generation_failed or any(remaining_ai_fields.values()):
+                    missing_preview = ', '.join(
+                        sorted({
+                            field
+                            for fields in remaining_ai_fields.values()
+                            for field in fields
+                        })
+                    ) or 'unknown fields'
+                    err = (
+                        f"AI 自动补全失败，未生成必需字段: {missing_preview} "
+                        f"({os.path.basename(file_path)})"
+                    )
+                    if err not in result['errors']:
+                        result['errors'].append(err)
+                    print(f"错误: {err}")
+                    had_db_update_attempt = True
+                    continue
 
             # Workflow-supplied PDFs are transient AI context, not database assets.
             if os.environ.get("EPHEMERAL_SUBMISSION_PDFS", "").strip().casefold() in {"1", "true", "yes", "on"}:
@@ -311,7 +356,43 @@ class UpdateProcessor:
                 print(f"错误: {err}")
                 continue
 
-            # 7. 从更新文件移除已处理论文
+            # 7. Complete List 只跟随本次主库真正接纳的论文（新增或冲突条目）。
+            # 跳过 Complete List 既有条目的完整字段检查；GUI 的默认检查不受影响。
+            accepted_by_core = added + conflicts
+            if update_complete_list and accepted_by_core:
+                try:
+                    complete_candidates = []
+                    for accepted in accepted_by_core:
+                        candidate = copy.deepcopy(
+                            complete_candidates_by_key.get(accepted.get_key(), accepted)
+                        )
+                        candidate.conflict_marker = accepted.conflict_marker
+                        if os.environ.get("EPHEMERAL_SUBMISSION_PDFS", "").strip().casefold() in {"1", "true", "yes", "on"}:
+                            candidate.paper_file = ""
+                        complete_candidates.append(candidate)
+
+                    complete_added, complete_conflicts, _ = self.complete_list_db_manager.add_papers(
+                        complete_candidates,
+                        conflict_resolution,
+                        validate_existing=False,
+                    )
+                    result['complete_list_new_papers'] += len(complete_added)
+                    result['complete_list_conflicts'] += len(complete_conflicts)
+                    print(
+                        f"Complete List 宽松追加完成: 新增 {len(complete_added)}，"
+                        f"冲突 {len(complete_conflicts)}"
+                    )
+                except Exception as e:
+                    err = f"Complete List 数据库追加失败 ({file_path}): {e}"
+                    result['complete_list_errors'].append(err)
+                    result['errors'].append(err)
+                    print(f"错误: {err}")
+            elif not update_complete_list:
+                print("已按用户选择跳过 Complete List 数据库追加")
+            else:
+                print("主数据库未接纳新条目，Complete List 不追加")
+
+            # 8. 从更新文件移除已处理论文
             if self.is_remove_added_paper:
                 try:
                     # 从 valid_papers 中找出那些已经成功 add 或 标记为 conflict 的
@@ -489,7 +570,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--skip-complete-list',
         action='store_true',
-        help='跳过 Complete List 数据库镜像及 COMPLETE_LIST.md 生成',
+        help='跳过 Complete List 数据库对应条目追加及 COMPLETE_LIST.md 生成',
     )
     parser.add_argument(
         '--update-file',

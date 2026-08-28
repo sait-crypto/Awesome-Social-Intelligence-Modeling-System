@@ -513,14 +513,19 @@
       .sort((a, b) => {
         const stageDifference = STAGE_ORDER.indexOf(categoryRoot(a.id)) - STAGE_ORDER.indexOf(categoryRoot(b.id));
         const subfieldDifference = (categoryById.get(categorySecondLevel(a.id))?.order || 0) - (categoryById.get(categorySecondLevel(b.id))?.order || 0);
-        return stageDifference || subfieldDifference || a.order - b.order || a.name.localeCompare(b.name);
+        const thirdLevelDifference = (categoryPath(a.id)[2]?.order || 0) - (categoryPath(b.id)[2]?.order || 0);
+        const depthDifference = a.depth - b.depth;
+        return stageDifference || subfieldDifference || thirdLevelDifference || depthDifference || a.order - b.order || a.name.localeCompare(b.name);
       });
     const taskGroups = new Map();
     tasks.forEach((item) => {
-      const path = categoryPath(item.id).slice(0, -1);
-      const groupLabel = path.map((node, index) => (index === 0 ? stageLabel(node.id) : node.name)).join(" · ");
+      const path = categoryPath(item.id);
+      const groupPath = path.slice(0, 2);
+      const groupLabel = groupPath.map((node, index) => (index === 0 ? stageLabel(node.id) : node.name)).join(" · ");
+      const parent = item.depth > 2 ? categoryById.get(item.parent) : null;
+      const taskLabel = parent ? `${parent.name} > ${item.name}` : item.name;
       if (!taskGroups.has(groupLabel)) taskGroups.set(groupLabel, []);
-      taskGroups.get(groupLabel).push({ value: item.id, label: `${item.name} (${item.branchCount})` });
+      taskGroups.get(groupLabel).push({ value: item.id, label: `${taskLabel} (${item.branchCount})` });
     });
     category = replaceGroupedOptions(
       elements.category,
@@ -985,6 +990,10 @@
       "<!-- sim-paper-submission:v1 -->",
       ...fields.flatMap(([heading, value]) => [`### ${heading}`, cleanIssueValue(value), ""]),
       "---",
+      "**Status:** Waiting for maintainer review.",
+      "",
+      "Keep this issue open and select GitHub's **Subscribe** control. Approval status, validation results, duplicate or rejection reasons, processing updates, and maintainer feedback will be posted here.",
+      "",
       "Submitted through the Social Intelligence Modeling survey homepage.",
     ].join("\n");
   }

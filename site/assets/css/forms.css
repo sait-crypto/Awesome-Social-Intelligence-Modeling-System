@@ -46,20 +46,31 @@
 .pipeline-upload,
 .paper-file-upload {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.4rem 0.8rem;
+  grid-template-columns: minmax(0, 1fr) 352px;
+  gap: 0.45rem 0.9rem;
   align-items: center;
-  padding: 0.62rem 0.72rem;
+  min-height: 82px;
+  padding: 0.68rem 0.78rem;
   border: 1px dashed #b8c7da;
   border-radius: 7px;
   background: #f8fafe;
 }
 
+/* Keep visually hidden file inputs from inheriting the form-wide 100% width. */
+.submission-form input.sr-only {
+  box-sizing: border-box;
+  width: 1px;
+  min-width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
 .pipeline-heading {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.55rem;
-  align-items: baseline;
+  display: grid;
+  gap: 0.22rem;
+  align-content: center;
+  min-width: 0;
   color: #565a68;
   font-size: 0.69rem;
   font-weight: 800;
@@ -68,35 +79,46 @@
 }
 
 .pipeline-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: 112px minmax(120px, 1fr) 92px;
+  gap: 0.45rem;
   align-items: center;
-  justify-content: flex-end;
+  width: 352px;
 }
 
 .pipeline-controls .button {
-  min-height: 34px;
-  padding: 0.45rem 0.75rem;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.45rem 0.55rem;
   font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .pipeline-controls > span {
   color: #536176;
   font-size: 0.68rem;
   font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .pipeline-clear {
-  padding: 0;
-  border: 0;
-  background: transparent;
+  width: 100%;
+  min-height: 36px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d3a7a2;
+  border-radius: 5px;
+  background: #fff7f6;
   color: #a0443e;
   cursor: pointer;
   font-size: 0.67rem;
   font-weight: 750;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.pipeline-clear:hover:not(:disabled) {
+  border-color: #b86f68;
+  background: #ffefed;
 }
 
 .paper-file-status {
@@ -107,10 +129,16 @@
   font-weight: 600;
 }
 
+.paper-file-status:empty {
+  display: none;
+}
+
 .pipeline-clear:disabled {
-  color: #9da7b5;
+  border-color: #d8dee7;
+  background: #f2f5f8;
+  color: #8f99a8;
   cursor: not-allowed;
-  text-decoration: none;
+  opacity: 1;
 }
 
 .upload-help {
@@ -177,10 +205,18 @@
   .pipeline-upload,
   .paper-file-upload {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
   .pipeline-controls {
-    justify-content: flex-start;
+    grid-template-columns: 0.9fr 1.2fr 0.9fr;
+    width: 100%;
+  }
+
+  .pipeline-controls .button,
+  .pipeline-clear {
+    min-width: 0;
+    padding-inline: 0.35rem;
   }
 
   .form-submit-actions {

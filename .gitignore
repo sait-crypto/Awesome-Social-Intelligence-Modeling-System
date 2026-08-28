@@ -55,6 +55,7 @@ engineering/* - ??*.csv
 **/*_duplicate*
 **/*backup*
 **/*old*
+tests/
 
 # Local paper manuscripts and Zotero attachments
 /paper.pdf

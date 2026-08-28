@@ -1715,7 +1715,7 @@ summary:focus-visible {
   border-top: 1px solid var(--night-line);
 }
 
-.footer-status span {
+.footer-status-dot {
   display: inline-block;
   width: 7px;
   height: 7px;
@@ -1723,6 +1723,10 @@ summary:focus-visible {
   border-radius: 50%;
   background: var(--lime);
   box-shadow: 0 0 10px rgba(201, 242, 123, 0.7);
+}
+
+.footer-status time {
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
@@ -3726,7 +3730,7 @@ body {
   font-size: 0.61rem;
 }
 
-.footer-status span {
+.footer-status-dot {
   background: #91a5bf;
   box-shadow: 0 0 8px rgba(145, 165, 191, 0.55);
 }

@@ -300,6 +300,7 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           AI_API_KEYS: ${{ secrets.AI_API_KEYS }}
           AI_AUTO_GENERATE_FIELDS: ${{ vars.AI_AUTO_GENERATE_FIELDS }}
+          REQUIRE_AI_GENERATION: "true"
         shell: bash
         run: |
           set -o pipefail
@@ -387,8 +388,8 @@ jobs:
             exit 0
           fi
 
-          # Do not use GitHub's [skip ci] marker here: the accepted database
-          # commit must trigger the survey website rebuild.
+          # The database push triggers the Pages workflow once through its
+          # path-filtered main push event. It does not retrigger this workflow.
           git commit -m "Process paper submission from @$PR_USER"
 
           git fetch origin main

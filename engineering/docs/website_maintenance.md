@@ -21,7 +21,7 @@ The build copies only the required framework images and writes `assets/data/site
 
 ## GitHub Pages
 
-`.github/workflows/deploy_pages.yml` builds pull requests for validation and deploys every accepted `main` update that changes the website, selected database, taxonomy, metadata, or required images.
+`.github/workflows/deploy_pages.yml` validates relevant pull requests and automatically publishes relevant website, database, taxonomy, metadata, or build-script changes pushed to `main`. It is independent from the paper-submission workflow, so an ordinary `main` push deploys the site when needed without starting submission processing.
 
 One repository administrator must select **Settings → Pages → Build and deployment → GitHub Actions** once. The expected project URL is:
 
@@ -29,7 +29,7 @@ One repository administrator must select **Settings → Pages → Build and depl
 https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/
 ```
 
-The paper-processing commit must not contain GitHub's `[skip ci]` marker because that would suppress the Pages rebuild.
+The paper-processing workflow pushes accepted database changes to `main`; that path-filtered push triggers one Pages deployment. A no-op or rejected submission does not deploy the website.
 
 ## Community paper intake
 
@@ -39,7 +39,7 @@ One repository administrator must enable **Settings → Actions → General → 
 2. A maintainer reviews scope and taxonomy and applies the existing `Action: Process` label.
 3. `.github/workflows/intake_paper_issue.yml` converts the issue to `submit_template.json`, preserves the GitHub author in `contributor`, validates it, and opens a processing pull request.
 4. The intake workflow explicitly calls the existing `Process Paper Submission` reusable workflow for that pull request. This avoids relying on a `GITHUB_TOKEN`-created pull-request event to start a second workflow.
-5. The database commit triggers the Pages workflow.
+5. A successful database commit reaches `main` and triggers one path-filtered Pages deployment. It does not trigger another submission-processing run.
 
 The homepage accepts the standard single-item JSON produced by `AI_assistant_review_tools/tools/One-Click Copy Metadata.xpi`. It maps Zotero title, creators, DOI, date, URL, abstract, venue, citation key, and supported `cat ...` tags into the form; taxonomy remains reviewable before submission.
 
