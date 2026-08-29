@@ -4,6 +4,50 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled]
     branches: [main]
+  workflow_call:
+    inputs:
+      submission_head_sha:
+        description: Commit containing the trusted-as-data submission file.
+        required: true
+        type: string
+      submission_head_repository:
+        description: Repository containing the submission commit.
+        required: true
+        type: string
+      submission_head_ref:
+        description: Branch name containing the submission commit.
+        required: true
+        type: string
+      submission_pr_author:
+        description: GitHub login credited for the submission.
+        required: true
+        type: string
+      submission_pr_number:
+        description: Pull request used for comments and artifacts.
+        required: true
+        type: number
+      submission_pr_title:
+        description: Pull request title used in notifications.
+        required: true
+        type: string
+      submission_pr_url:
+        description: Pull request URL used in notifications.
+        required: true
+        type: string
+      submission_pdf_artifact:
+        description: Optional same-run artifact containing an ephemeral paper PDF.
+        required: false
+        type: string
+        default: ""
+
+env:
+  SUBMISSION_HEAD_SHA: ${{ inputs.submission_head_sha || github.event.pull_request.head.sha }}
+  SUBMISSION_HEAD_REPOSITORY: ${{ inputs.submission_head_repository || github.event.pull_request.head.repo.full_name }}
+  SUBMISSION_HEAD_REF: ${{ inputs.submission_head_ref || github.event.pull_request.head.ref }}
+  SUBMISSION_PR_AUTHOR: ${{ inputs.submission_pr_author || github.event.pull_request.user.login }}
+  SUBMISSION_PR_NUMBER: ${{ inputs.submission_pr_number || github.event.pull_request.number }}
+  SUBMISSION_PR_TITLE: ${{ inputs.submission_pr_title || github.event.pull_request.title }}
+  SUBMISSION_PR_URL: ${{ inputs.submission_pr_url || github.event.pull_request.html_url }}
 
 concurrency:
   group: paper-submission-main-update
@@ -12,17 +56,22 @@ concurrency:
 jobs:
   process-submission:
     if: >-
+      inputs.submission_head_sha != '' ||
       vars.AUTO_PROCESS_SUBMISSIONS == 'true' ||
       contains(github.event.pull_request.labels.*.name, 'Action: Process')
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     env:
       PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace_assets
       PR_FIGURES_DIR: ${{ github.workspace }}/pr_workspace_figures
       AUTO_AI_GENERATION: "true"
-      EPHEMERAL_PAPER_FILES: "true"
+      # A paper_file value is optional metadata; repository automation neither
+      # requires the referenced PDF nor uploads it to main.
+      IGNORE_PAPER_FILE_ASSETS: "true"
+      EPHEMERAL_SUBMISSION_PDFS: "true"
 
     steps:
       # All executable code and both databases come from the trusted main branch.
@@ -32,24 +81,33 @@ jobs:
           ref: main
           path: main_workspace
           fetch-depth: 0
+          lfs: true
 
       # The contributor checkout is treated as untrusted data only.
       - name: Check out pull request data
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ env.SUBMISSION_HEAD_SHA }}
+          repository: ${{ env.SUBMISSION_HEAD_REPOSITORY }}
           path: pr_workspace
           fetch-depth: 1
           persist-credentials: false
+          lfs: true
+
+      - name: Download the complete ephemeral PDF bundle
+        if: inputs.submission_pdf_artifact != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.submission_pdf_artifact }}
+          path: pr_workspace
 
       # Preserve the contributor's source update independently of later
       # validation, AI generation, database updates, or push failures.
       - name: Preserve submitted update files
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         continue-on-error: true
         with:
-          name: paper-submission-pr-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          name: paper-submission-pr-${{ env.SUBMISSION_PR_NUMBER }}-${{ github.run_attempt }}
           path: |
             pr_workspace/submit_template.json
             pr_workspace/submit_template.csv
@@ -78,6 +136,10 @@ jobs:
             [ -d "$source_root" ] || return 0
 
             while IFS= read -r -d '' source_file; do
+              # Paper PDFs are local research materials, not repository assets.
+              if [[ "${source_file,,}" == *.pdf ]]; then
+                continue
+              fi
               relative_path="${source_file#"$source_root"/}"
               trusted_file="$trusted_root/$relative_path"
               if [ ! -f "$trusted_file" ] || ! cmp -s "$source_file" "$trusted_file"; then
@@ -103,12 +165,21 @@ jobs:
             main_workspace/figures \
             pr_workspace_figures
 
+      - name: Mark pull-request records as community submissions
+        working-directory: main_workspace
+        shell: bash
+        run: >-
+          python engineering/scripts/mark_community_submission.py
+          --submitter "$SUBMISSION_PR_AUTHOR"
+          submit_template.json submit_template.csv
+
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           version: "0.11.12"
           python-version: "3.13"
           working-directory: main_workspace
+          enable-cache: false
 
       - name: Install locked dependencies
         working-directory: main_workspace
@@ -158,12 +229,8 @@ jobs:
                 echo "Error: the submission contains more than 25 asset files."
                 exit 1
               fi
-              if find "$asset_dir" -type f ! -iname '*.pdf' -size +10M -print -quit | grep -q .; then
-                echo "Error: each submitted non-PDF asset must be no larger than 10 MiB."
-                exit 1
-              fi
-              if find "$asset_dir" -type f -iname '*.pdf' -size +50M -print -quit | grep -q .; then
-                echo "Error: each submitted PDF must be no larger than 50 MiB."
+              if find "$asset_dir" -type f -size +10M -print -quit | grep -q .; then
+                echo "Error: each submitted image or other repository asset must be no larger than 10 MiB."
                 exit 1
               fi
             fi
@@ -172,10 +239,10 @@ jobs:
       # Archive bounded resources before validation, AI generation, or database
       # processing so they remain downloadable when a later step fails.
       - name: Preserve submitted resources
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         continue-on-error: true
         with:
-          name: paper-submission-resources-pr-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          name: paper-submission-resources-pr-${{ env.SUBMISSION_PR_NUMBER }}-${{ github.run_attempt }}
           path: |
             pr_workspace_assets
             pr_workspace_figures
@@ -196,7 +263,8 @@ jobs:
         if: failure() && steps.validate.outcome == 'failure'
         uses: actions/github-script@v9
         env:
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR: ${{ env.SUBMISSION_PR_AUTHOR }}
+          PR_NUMBER: ${{ env.SUBMISSION_PR_NUMBER }}
         with:
           script: |
             const fs = require('fs');
@@ -219,23 +287,23 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: Number(process.env.PR_NUMBER),
               body,
             });
-
-      - name: Stage temporary paper PDFs
-        working-directory: main_workspace
-        env:
-          PYTHONPATH: engineering
-        run: >-
-          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
-          stage --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
 
       - name: Normalize submitted assets
         working-directory: main_workspace
         env:
           PYTHONPATH: engineering
         run: uv run --frozen engineering/scripts/update_submission_figures.py
+
+      - name: Stage submitted PDF for AI generation
+        working-directory: main_workspace
+        env:
+          PR_ASSETS_DIR: ${{ github.workspace }}/pr_workspace/engineering/assets
+        run: >-
+          uv run --frozen python engineering/scripts/temporary_submission_pdfs.py
+          stage --manifest "${{ runner.temp }}/submission-pdfs.json"
 
       - name: Update databases and generated lists
         id: core_update
@@ -245,16 +313,25 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           AI_API_KEYS: ${{ secrets.AI_API_KEYS }}
           AI_AUTO_GENERATE_FIELDS: ${{ vars.AI_AUTO_GENERATE_FIELDS }}
+          REQUIRE_AI_GENERATION: "true"
         shell: bash
         run: |
           set -o pipefail
           uv run --frozen engineering/src/update.py 2>&1 | tee update_log.txt
 
+      - name: Remove temporary submission PDFs
+        if: always()
+        working-directory: main_workspace
+        run: >-
+          uv run --frozen python engineering/scripts/temporary_submission_pdfs.py
+          cleanup --manifest "${{ runner.temp }}/submission-pdfs.json"
+
       - name: Comment with update result
         if: always() && steps.core_update.conclusion != 'skipped'
         uses: actions/github-script@v9
         env:
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR: ${{ env.SUBMISSION_PR_AUTHOR }}
+          PR_NUMBER: ${{ env.SUBMISSION_PR_NUMBER }}
           UPDATE_OUTCOME: ${{ steps.core_update.outcome }}
         with:
           script: |
@@ -281,18 +358,9 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: Number(process.env.PR_NUMBER),
               body,
             });
-
-      - name: Remove temporary paper PDFs
-        if: always()
-        working-directory: main_workspace
-        env:
-          PYTHONPATH: engineering
-        run: >-
-          uv run --frozen engineering/scripts/temporary_submission_pdfs.py
-          cleanup --manifest "$RUNNER_TEMP/paper-pdf-manifest.json"
 
       - name: Verify database integrity
         working-directory: main_workspace
@@ -309,15 +377,15 @@ jobs:
         working-directory: main_workspace
         env:
           PYTHONPATH: engineering
-          PR_USER: ${{ github.event.pull_request.user.login }}
+          PR_USER: ${{ env.SUBMISSION_PR_AUTHOR }}
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if find engineering/assets -type f -iname '*.pdf' -print -quit | grep -q .; then
-            echo "Error: temporary PDFs remain in the trusted working tree."
+          if [ -e "$RUNNER_TEMP/submission-pdfs.json" ]; then
+            echo "Error: the temporary PDF cleanup manifest still exists."
             exit 1
           fi
 
@@ -333,7 +401,9 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Process paper submission from @$PR_USER [skip ci]"
+          # The database push triggers the Pages workflow once through its
+          # path-filtered main push event. It does not retrigger this workflow.
+          git commit -m "Process paper submission from @$PR_USER"
 
           git fetch origin main
           CURRENT_MAIN_SHA=$(git rev-parse origin/main)
@@ -345,26 +415,68 @@ jobs:
 
           git push origin HEAD:main
 
-      - name: Send optional email notification
+      - name: Preserve processing logs for notifications
         if: always()
-        working-directory: main_workspace
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper-processing-logs-pr-${{ env.SUBMISSION_PR_NUMBER }}-${{ github.run_attempt }}
+          path: |
+            main_workspace/update_log.txt
+            main_workspace/validation_log.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Close source pull request without merging
+        if: success()
+        continue-on-error: true
+        uses: actions/github-script@v9
         env:
-          PYTHONPATH: engineering
-          NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
-          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
-          SMTP_PORT: ${{ vars.SMTP_PORT }}
-          SMTP_USER: ${{ vars.SMTP_USER }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          workflow_status: ${{ job.status }}
-          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-          PR_USER: ${{ github.event.pull_request.user.login }}
-        run: uv run --frozen engineering/scripts/send_notification.py
+          PR_NUMBER: ${{ env.SUBMISSION_PR_NUMBER }}
+        with:
+          script: |
+            const pullNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(pullNumber) || pullNumber < 1) {
+              core.warning('No valid source pull-request number was supplied; nothing to close.');
+              return;
+            }
+            const { data: pull } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullNumber,
+            });
+            if (pull.state !== 'open') return;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullNumber,
+              body: 'Processed successfully through the trusted paper-update pipeline. This source PR is closed without merging because the validated database and website changes were committed directly to `main`.',
+            });
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullNumber,
+              state: 'closed',
+            });
+            const sameRepository = pull.head.repo?.full_name === `${context.repo.owner}/${context.repo.repo}`;
+            const generatedBranch = String(pull.head.ref || '').startsWith('community-paper-issue-');
+            if (sameRepository && generatedBranch) {
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${pull.head.ref}`,
+                });
+              } catch (error) {
+                core.warning(`The processed PR was closed, but its generated branch could not be deleted: ${error}`);
+              }
+            }
 
       - name: Report workflow failure
         if: failure()
         uses: actions/github-script@v9
         env:
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR: ${{ env.SUBMISSION_PR_AUTHOR }}
+          PR_NUMBER: ${{ env.SUBMISSION_PR_NUMBER }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -378,6 +490,44 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: Number(process.env.PR_NUMBER),
               body,
             });
+
+  notify-maintainers:
+    name: Notify maintainers
+    needs: process-submission
+    if: always() && needs.process-submission.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted notification script
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Download processing logs when available
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: paper-processing-logs-pr-${{ env.SUBMISSION_PR_NUMBER }}-${{ github.run_attempt }}
+          path: notification-logs
+
+      - name: Send maintainer email
+        env:
+          NOTIFICATION_EMAIL: ${{ vars.NOTIFICATION_EMAIL }}
+          SMTP_SERVER: ${{ vars.SMTP_SERVER }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WORKFLOW_STATUS: ${{ needs.process-submission.result }}
+          AUTOMATION_KIND: Paper database update
+          PR_BRANCH: ${{ env.SUBMISSION_HEAD_REF }}
+          PR_USER: ${{ env.SUBMISSION_PR_AUTHOR }}
+          PR_NUMBER: ${{ env.SUBMISSION_PR_NUMBER }}
+          PR_TITLE: ${{ env.SUBMISSION_PR_TITLE }}
+          PR_URL: ${{ env.SUBMISSION_PR_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NOTIFICATION_LOG_DIR: notification-logs
+        run: python engineering/scripts/send_notification.py

@@ -31,6 +31,16 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_PDF_BYTES = 50 * 1024 * 1024
 
 
+def _ignore_paper_file_assets() -> bool:
+    """Return whether repository automation should treat paper_file as metadata only."""
+    return str(os.environ.get("IGNORE_PAPER_FILE_ASSETS", "")).strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _configure_output() -> None:
     """Avoid Windows console encoding failures while printing paper titles."""
     for stream in (sys.stdout, sys.stderr):
@@ -340,6 +350,10 @@ def validate_paper_assets(
         "paper_file": {".pdf"},
     }
     for field, allowed_suffixes in field_specs.items():
+        # GitHub Actions stores paper_file as optional metadata only. The PDF is
+        # intentionally neither required nor uploaded to the repository.
+        if field == "paper_file" and _ignore_paper_file_assets():
+            continue
         raw_value = str(getattr(paper, field, "") or "").strip()
         references = [part.strip() for part in raw_value.split("|") if part.strip()]
         if field == "paper_file" and len(references) > 1:
