@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A compact, searchable index of every paper in the Social Intelligence Modeling repository."
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="./assets/img/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/complete-list.html" />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+    <link rel="stylesheet" href="./assets/css/complete-list.css" />
+    <link rel="stylesheet" href="./assets/css/image-slots.css" />
+    <title>Complete Paper List · Social Intelligence Modeling</title>
+    <script src="./assets/js/site-core.js" defer></script>
+    <script src="./assets/js/i18n.js" defer></script>
+    <script src="./assets/js/image-slots.js" defer></script>
+    <script src="./assets/js/complete-list.js" defer></script>
+  </head>
+  <body class="complete-list-body">
+    <a class="skip-link" href="#complete-paper-list" data-i18n="skip.complete">Skip to complete paper list</a>
+
+    <header class="site-header" data-header>
+      <a class="brand" href="./" aria-label="Social Intelligence Modeling survey homepage">
+        <span class="brand-mark" aria-hidden="true"><img src="./assets/img/sim-mark.svg" alt="" /></span>
+        <span><strong>SIM</strong><small>Survey</small></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="complete-primary-nav">
+        <span></span><span></span><span></span><span class="sr-only" data-i18n="nav.toggle">Toggle navigation</span>
+      </button>
+      <nav id="complete-primary-nav" class="primary-nav" aria-label="Primary navigation">
+        <a href="./" data-i18n="nav.home">Survey homepage</a>
+        <a href="./#paper-explorer" data-i18n="nav.curated">Curated explorer</a>
+        <a href="./complete-list.html" aria-current="page" data-i18n="nav.allPapers">All papers</a>
+        <a href="./#contribute" data-i18n="nav.contribute">Contribute</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="language-toggle" data-language-toggle>中文</button>
+        <a
+          class="header-link"
+          href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/blob/main/COMPLETE_LIST.md"
+          target="_blank"
+          rel="noreferrer"
+        >Markdown <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="top" class="complete-list-main">
+      <section class="complete-list-hero" aria-labelledby="complete-list-title">
+        <div>
+          <p class="publication-label" data-i18n="complete.label">Repository index</p>
+          <h1 id="complete-list-title" data-i18n="complete.title">Complete paper list</h1>
+          <p><span data-i18n="complete.leadBefore">A compact index of all</span> <strong data-complete-total>—</strong> <span data-i18n="complete.leadAfter">papers in the repository's complete database. For survey-selected papers with taxonomy, summaries, and interactive filters, use the curated explorer.</span></p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="./#paper-explorer" data-i18n="complete.openCurated">Open curated explorer</a>
+            <a class="button button-secondary" href="./" data-i18n="complete.back">Back to survey</a>
+          </div>
+          <figure class="optional-image-slot image-slot-wide" data-image-slot="complete_list_feature" hidden>
+            <img alt="" loading="lazy" />
+            <figcaption></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="complete-paper-list" class="complete-list-section" aria-labelledby="complete-paper-list-title">
+        <div class="complete-list-heading">
+          <div>
+            <p class="eyebrow" data-i18n="complete.eyebrow">All repository papers</p>
+            <h2 id="complete-paper-list-title" data-i18n="complete.index">Compact index</h2>
+          </div>
+          <p data-i18n="complete.generatedFrom">Generated from the same complete-list database as <code>COMPLETE_LIST.md</code>.</p>
+        </div>
+
+        <form class="complete-list-toolbar" data-complete-controls role="search">
+          <label>
+            <span data-i18n="filter.search">Search</span>
+            <input data-complete-search type="search" placeholder="Title, author, venue, DOI, or year…" data-i18n-placeholder="filter.searchPlaceholder" autocomplete="off" />
+          </label>
+          <label>
+            <span data-i18n="complete.order">Order</span>
+            <select data-complete-sort>
+              <option value="source" data-i18n="complete.repositoryOrder">Repository order</option>
+              <option value="newest" data-i18n="filter.newest">Newest first</option>
+              <option value="title" data-i18n="filter.title">Title A–Z</option>
+            </select>
+          </label>
+          <p><strong data-complete-count>—</strong> <span data-i18n="complete.paperUnit">papers</span></p>
+        </form>
+
+        <div class="complete-table-shell">
+          <table class="complete-paper-table">
+            <thead>
+              <tr><th scope="col" data-i18n="complete.tableTitle">Title</th><th scope="col" data-i18n="complete.tableVenue">Venue</th><th scope="col" data-i18n="complete.tableLinks">Links</th></tr>
+            </thead>
+            <tbody data-complete-list aria-live="polite" aria-busy="true">
+              <tr><td colspan="3" class="complete-loading" data-i18n="complete.loading">Loading complete paper list…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="load-more-wrap complete-load-more-wrap">
+          <button type="button" class="button button-dark" data-complete-load-more hidden data-i18n="explorer.loadMore">Load more papers</button>
+        </div>
+        <p class="complete-list-source"><span data-i18n="complete.lastGenerated">Last generated</span> <time data-complete-generated>—</time>.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer complete-list-footer">
+      <div>
+        <a class="brand footer-brand" href="./"><strong>SIM</strong><span>Social Intelligence Modeling</span></a>
+        <p data-i18n="footer.tagline">Survey, taxonomy, and paper collection.</p>
+      </div>
+      <div class="footer-links">
+        <a href="./" data-i18n="nav.home">Survey homepage</a>
+        <a href="./#paper-explorer" data-i18n="nav.curated">Curated explorer</a>
+        <a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System" target="_blank" rel="noreferrer">Repository</a>
+      </div>
+      <p class="footer-status"><span class="footer-status-dot" aria-hidden="true"></span> <span data-i18n="complete.footer">Complete repository index</span></p>
+    </footer>
+
+    <a class="back-to-top" href="#top" aria-label="Back to top" title="Back to top" data-i18n-aria-label="back.top" data-i18n-title="back.top">
+      <span aria-hidden="true"></span>
+    </a>
+  </body>
+</html>

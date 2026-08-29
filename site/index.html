@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A living survey and interactive paper atlas for social intelligence modeling, from social perception to social simulation."
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="sim-upload-endpoint" content="__SIM_UPLOAD_ENDPOINT__" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="./assets/img/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="Social Intelligence Modeling: A Comprehensive Survey" />
+    <meta
+      property="og:description"
+      content="Understand the field, explore its taxonomy, and find papers across perception, understanding, generation, and simulation."
+    />
+    <meta
+      property="og:image"
+      content="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/assets/img/social-intelligence-modeling-overview.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link
+      rel="canonical"
+      href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/"
+    />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+    <link rel="stylesheet" href="./assets/css/forms.css" />
+    <link rel="stylesheet" href="./assets/css/image-slots.css" />
+    <title>Social Intelligence Modeling: A Comprehensive Survey</title>
+    <script src="./assets/js/site-core.js" defer></script>
+    <script src="./assets/js/i18n.js" defer></script>
+    <script src="./assets/js/form-validation.js" defer></script>
+    <script src="./assets/js/upload-client.js" defer></script>
+    <script src="./assets/js/image-slots.js" defer></script>
+    <script src="./assets/js/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#paper-explorer" data-i18n="skip.explorer">Skip to paper explorer</a>
+
+    <header class="site-header" data-header>
+      <a class="brand" href="#top" aria-label="Social Intelligence Modeling home">
+        <span class="brand-mark" aria-hidden="true"><img src="./assets/img/sim-mark.svg" alt="" /></span>
+        <span><strong>SIM</strong><small>Survey</small></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+        <span></span><span></span><span></span><span class="sr-only" data-i18n="nav.toggle">Toggle navigation</span>
+      </button>
+      <nav id="primary-nav" class="primary-nav" aria-label="Primary navigation">
+        <a href="#definition" data-i18n="nav.definition">Definition</a>
+        <a href="#task-landscape" data-i18n="nav.landscape">Task landscape</a>
+        <a href="#paper-explorer" data-i18n="nav.explorer">Paper explorer</a>
+        <a href="./complete-list.html" data-i18n="nav.allPapers">All papers</a>
+        <a href="#community" data-i18n="nav.community">Community</a>
+        <a href="#contribute" data-i18n="nav.contribute">Contribute</a>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="language-toggle" data-language-toggle>中文</button>
+        <a
+          class="header-link"
+          href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System"
+          target="_blank"
+          rel="noreferrer"
+        >GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero academic-hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <img class="hero-mark" src="./assets/img/sim-mark.svg" alt="" aria-hidden="true" />
+          <p class="publication-label" data-i18n="hero.label">Comprehensive survey · 2026</p>
+          <h1 id="hero-title">
+            <span class="hero-main-title">Social Intelligence Modeling</span>
+            <span class="hero-subtitle">A Comprehensive Survey from Social Perception to Social Simulation</span>
+          </h1>
+          <p class="author-line">Zikai Song, Xiajie Li, Yunyao Zhang, Xinglang Zhang, Wei Yang, Junqing Yu</p>
+          <p class="affiliation-line">Huazhong University of Science and Technology</p>
+          <p class="hero-lead" data-i18n="hero.lead">
+            We organize social intelligence modeling as four organically connected stages—perception,
+            understanding, generation, and simulation—forming a coherent path from observable social
+            signals to evolving social systems. A searchable collection aligned with this taxonomy makes
+            related work easier to locate across stages.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://doi.org/10.13140/RG.2.2.21157.87528" target="_blank" rel="noreferrer" data-i18n="hero.paper">Paper</a>
+            <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System" target="_blank" rel="noreferrer" data-i18n="hero.code">Code &amp; data</a>
+            <a class="button button-secondary" href="#paper-explorer" data-i18n="hero.browse">Browse papers</a>
+            <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions" target="_blank" rel="noreferrer" data-i18n="hero.discussions">Discussions</a>
+          </div>
+          <div class="hero-meta" aria-label="Survey statistics">
+            <div><strong data-stat="paper_count">—</strong><span data-i18n="hero.curated">curated papers</span></div>
+            <div><strong data-stat="total_paper_count">—</strong><span data-i18n="hero.total">total papers</span></div>
+            <div><strong data-stat="category_count">—</strong><span data-i18n="hero.tasks">active task nodes</span></div>
+          </div>
+        </div>
+        <figure class="optional-image-slot image-slot-wide" data-image-slot="hero_feature" hidden>
+          <img alt="" loading="lazy" />
+          <figcaption></figcaption>
+        </figure>
+      </section>
+
+      <section id="definition" class="section definition-section" aria-labelledby="definition-title">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="definition.eyebrow">Definition</p>
+          <h2 id="definition-title" data-i18n="definition.title">What is Social Intelligence Modeling?</h2>
+          <p data-i18n="definition.lead">
+            Social Intelligence Modeling (SIM) develops computational models that represent and
+            reason about social signals, actors, relations, interactions, and evolving collective
+            processes. Its scope runs from detecting a single social cue to simulating a society.
+          </p>
+        </div>
+
+        <div class="definition-grid">
+          <article id="stage-perception" class="definition-card tone-coral">
+            <h3 data-i18n="stage.perception">Perception</h3>
+            <p data-i18n="stage.perceptionDesc">Recognize social signals and states in content, users, and multimodal interactions.</p>
+            <button type="button" class="text-action" data-stage-filter="Perception" data-i18n-prefix="common.viewPapers">View papers <span>→</span></button>
+          </article>
+          <article id="stage-understanding" class="definition-card tone-sky">
+            <h3 data-i18n="stage.understanding">Under<wbr />standing</h3>
+            <p data-i18n="stage.understandingDesc">Model social structure, discourse, networks, communities, and behavioral patterns.</p>
+            <button type="button" class="text-action" data-stage-filter="Understanding" data-i18n-prefix="common.viewPapers">View papers <span>→</span></button>
+          </article>
+          <article id="stage-generation" class="definition-card tone-lime">
+            <h3 data-i18n="stage.generation">Generation</h3>
+            <p data-i18n="stage.generationDesc">Produce socially situated content, dialogue, counter-speech, and interventions.</p>
+            <button type="button" class="text-action" data-stage-filter="Generation" data-i18n-prefix="common.viewPapers">View papers <span>→</span></button>
+          </article>
+          <article id="stage-simulation" class="definition-card tone-violet">
+            <h3 data-i18n="stage.simulation">Simulation</h3>
+            <p data-i18n="stage.simulationDesc">Reconstruct dynamic social processes and explore plausible collective futures.</p>
+            <button type="button" class="text-action" data-stage-filter="Simulation" data-i18n-prefix="common.viewPapers">View papers <span>→</span></button>
+          </article>
+        </div>
+
+        <figure class="framework-figure">
+          <div class="figure-frame">
+            <img
+              src="./assets/img/social-intelligence-modeling-overview.png"
+              alt="Overview of the Social Intelligence Modeling framework from social perception to social simulation"
+              loading="lazy"
+            />
+          </div>
+          <figcaption><span data-i18n="definition.framework">Survey framework</span> <span data-i18n="definition.frameworkCaption">A continuous path from observable signals to simulated social dynamics.</span></figcaption>
+        </figure>
+      </section>
+
+      <section id="community" class="section community-section" aria-labelledby="community-title">
+        <div class="section-heading community-heading">
+          <p class="eyebrow" data-i18n="community.eyebrow">Community</p>
+          <h2 id="community-title" data-i18n="community.title">Join the SIM community.</h2>
+          <p data-i18n="community.lead">Scan the QR code to join the WeChat discussion group for research exchange and survey updates.</p>
+        </div>
+        <div class="community-qr-panel">
+          <img src="./assets/img/wechat-group-qr.jpg" alt="WeChat QR code for the Social Intelligence Modeling discussion group" loading="lazy" />
+          <p data-i18n="community.note">WeChat group QR codes may expire. Updated group information is maintained in this repository.</p>
+          <p class="community-discussion-note" data-i18n="community.discussionHint">You can also ask questions and join open research discussions on GitHub.</p>
+          <a
+            class="button button-secondary community-discussion-button"
+            href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="community.discussionButton"
+          >Open GitHub Discussions</a>
+        </div>
+        <figure class="optional-image-slot image-slot-wide" data-image-slot="community_feature" hidden>
+          <img alt="" loading="lazy" />
+          <figcaption></figcaption>
+        </figure>
+      </section>
+
+      <section id="task-landscape" class="section landscape-section" aria-labelledby="landscape-title">
+        <div class="section-heading heading-row">
+          <div>
+            <p class="eyebrow" data-i18n="landscape.eyebrow">Taxonomy and statistics</p>
+            <h2 id="landscape-title" data-i18n="landscape.title">Task distribution</h2>
+          </div>
+          <p data-i18n="landscape.lead">
+            Counts are generated from the selected survey database. Multi-category papers appear in
+            every relevant task, while the headline total counts each paper once.
+          </p>
+        </div>
+
+        <figure class="optional-image-slot image-slot-wide" data-image-slot="landscape_feature" hidden>
+          <img alt="" loading="lazy" />
+          <figcaption></figcaption>
+        </figure>
+
+        <div class="landscape-layout">
+          <div class="stage-overview">
+            <h3 class="minor-heading" data-i18n="landscape.fieldViews">Four field-level views</h3>
+            <div class="stage-stats" data-stage-stats aria-live="polite">
+              <div class="loading-card" data-i18n="landscape.loading">Loading taxonomy…</div>
+            </div>
+          </div>
+          <div class="task-overview">
+            <div class="minor-heading-row">
+              <h3 class="minor-heading" data-i18n="landscape.tasksByField">Tasks by field</h3>
+              <span data-i18n="landscape.fixedCounts">Fixed full-survey counts · click a task to filter the paper list</span>
+            </div>
+            <div class="task-bars" data-task-bars aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="timeline-panel chronology-panel">
+          <div class="timeline-intro">
+            <p class="eyebrow" data-i18n="timeline.eyebrow">Chronological map</p>
+            <h3 data-i18n="timeline.title">Literature by field over time</h3>
+            <p data-i18n="timeline.lead">Each dot is one paper positioned by publication date. Rows correspond to the four survey fields; select a row, year, or paper to update the explorer.</p>
+          </div>
+          <div class="chronology-map" data-timeline aria-label="Paper timeline grouped by survey field"></div>
+        </div>
+
+        <details class="taxonomy-figure">
+          <summary data-i18n-prefix="taxonomy.open">Open the complete taxonomy architecture <span aria-hidden="true">＋</span></summary>
+          <div class="figure-frame light-frame">
+            <img
+              src="./assets/img/category-architecture.png"
+              alt="Complete category architecture for the Social Intelligence Modeling survey"
+              loading="lazy"
+            />
+          </div>
+        </details>
+      </section>
+
+      <section id="paper-explorer" class="section explorer-section" aria-labelledby="explorer-title">
+        <div class="section-heading heading-row explorer-heading">
+          <div>
+            <p class="eyebrow" data-i18n="explorer.eyebrow">Paper collection</p>
+            <h2 id="explorer-title" data-i18n="explorer.title">Search and filter papers</h2>
+          </div>
+          <div class="explorer-heading-aside">
+            <p data-i18n="explorer.lead">Search by title, author, venue, task, abstract, or summary.</p>
+            <a href="./complete-list.html" data-browse-all-papers>Browse all papers <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+
+        <div class="explorer-shell">
+          <form class="filter-panel" data-filter-form aria-label="Filter papers">
+            <div class="filter-panel-top">
+              <div class="search-field">
+                <label for="paper-search" data-i18n="filter.search">Search</label>
+                <input id="paper-search" name="q" type="search" placeholder="Title, author, method, keyword…" data-i18n-placeholder="filter.searchPlaceholder" autocomplete="off" />
+                <kbd>/</kbd>
+              </div>
+              <div class="filter-footer">
+                <p><strong data-result-count>—</strong> <span data-i18n="filter.matches">papers match</span></p>
+              </div>
+            </div>
+            <div class="filter-grid">
+              <label data-i18n-prefix="filter.field">
+                Field level
+                <select id="stage-filter" name="stage"><option value="" data-i18n="filter.allFields">All field levels</option></select>
+              </label>
+              <label data-i18n-prefix="filter.subfield">
+                Second level
+                <select id="subfield-filter" name="subfield"><option value="" data-i18n="filter.allSubfields">All second-level categories</option></select>
+              </label>
+              <label data-i18n-prefix="filter.task">
+                Task
+                <select id="category-filter" name="category"><option value="" data-i18n="filter.allTasks">All tasks</option></select>
+              </label>
+              <label data-i18n-prefix="filter.year">
+                Year
+                <select id="year-filter" name="year"><option value="" data-i18n="filter.allYears">All years</option></select>
+              </label>
+              <label data-i18n-prefix="filter.venue">
+                Venue
+                <select id="conference-filter" name="conference"><option value="" data-i18n="filter.allVenues">All venues</option></select>
+              </label>
+              <label data-i18n-prefix="filter.sort">
+                Sort
+                <select id="sort-filter" name="sort">
+                  <option value="newest" data-i18n="filter.newest">Newest first</option>
+                  <option value="oldest" data-i18n="filter.oldest">Oldest first</option>
+                  <option value="title" data-i18n="filter.title">Title A–Z</option>
+                </select>
+              </label>
+              <label class="community-filter">
+                <input id="community-filter" name="community" type="checkbox" value="1" />
+                <span><b data-i18n="filter.communityOnly">Community only</b><small data-i18n="filter.communityHint">Externally contributed papers</small></span>
+              </label>
+            </div>
+          </form>
+
+          <div class="active-filters" data-active-filters aria-live="polite" hidden></div>
+          <div class="paper-grid" data-paper-grid aria-live="polite" aria-busy="true">
+            <div class="paper-loading" data-i18n="explorer.loading">Loading the paper atlas…</div>
+          </div>
+          <div class="empty-state" data-empty-state hidden>
+            <span>0</span>
+            <h3 data-i18n="explorer.empty">No papers match this combination.</h3>
+            <p data-i18n="explorer.emptyHint">Try a broader task, remove the venue filter, or clear the search.</p>
+            <button type="button" class="button button-dark" data-clear-filters data-i18n="filter.clear">Clear filters</button>
+          </div>
+          <div class="load-more-wrap">
+            <button type="button" class="button button-dark" data-load-more hidden data-i18n="explorer.loadMore">Load more papers</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="contribute" class="section contribute-section" aria-labelledby="contribute-title">
+        <div class="contribute-copy">
+          <p class="eyebrow" data-i18n="contribute.eyebrow">Paper submission</p>
+          <h2 id="contribute-title" data-i18n="contribute.title">Suggest a paper</h2>
+          <p class="contribute-lead" data-i18n="contribute.lead">
+            Submit structured metadata for review. A suggestion is added to the collection only after validation and maintainer approval.
+          </p>
+          <ol class="contribution-flow">
+            <li><span>1</span><div><strong data-i18n="contribute.submit">Submit</strong><p data-i18n="contribute.submitDesc">Paste Zotero metadata or fill the required fields.</p></div></li>
+            <li><span>2</span><div><strong data-i18n="contribute.review">Review</strong><p data-i18n="contribute.reviewDesc">A maintainer checks scope, duplicates, and taxonomy.</p></div></li>
+            <li><span>3</span><div><strong data-i18n="contribute.publish">Publish</strong><p data-i18n="contribute.publishDesc">Accepted data updates the collection and website.</p></div></li>
+          </ol>
+          <div class="contribution-note">
+            <strong data-i18n="contribute.provenance">Community provenance is preserved.</strong>
+            <p data-i18n="contribute.provenanceDesc">Only records accepted through this third-party intake carry the Community badge.</p>
+          </div>
+        </div>
+
+        <form class="submission-form" data-submission-form novalidate>
+          <div class="form-heading">
+            <span data-i18n="form.intake">Paper intake</span>
+            <p data-i18n="form.required">Required fields are marked *</p>
+          </div>
+          <div class="form-tools">
+            <button type="button" class="button button-secondary" data-open-zotero data-i18n="form.importZotero">Import from Zotero</button>
+            <span data-zotero-inline-status data-i18n="form.zoteroHint">Optional · quickly fill available metadata from one copied Zotero item</span>
+          </div>
+          <div class="form-grid">
+            <label class="span-2" data-i18n-prefix="form.title">Paper title *<input name="title" required maxlength="500" /></label>
+            <label data-i18n-prefix="form.doi">
+              DOI *
+              <span class="field-hint" data-i18n="form.doiHint">If this paper has no DOI, use the button to generate a placeholder.</span>
+              <span class="input-action-row">
+                <input name="doi" required maxlength="180" placeholder="10.xxxx/xxxxx" />
+                <button type="button" data-generate-doi data-i18n="form.generateDoi">Generate placeholder</button>
+              </span>
+            </label>
+            <label data-i18n-prefix="form.date">Publication date *<input name="date" required maxlength="40" placeholder="YYYY-MM-DD" /></label>
+            <label class="span-2" data-i18n-prefix="form.paperUrl">Paper URL *<input name="paper_url" type="url" required maxlength="1000" placeholder="https://…" /></label>
+            <label class="span-2" data-i18n-prefix="form.projectUrl">Project URL <span class="field-hint" data-i18n="form.projectHint">optional, code or project page</span><input name="project_url" type="url" maxlength="1000" placeholder="https://github.com/…" /></label>
+            <label class="span-2" data-i18n-prefix="form.authors">Authors *<textarea name="authors" required rows="2" maxlength="2000" placeholder="Full author list" data-i18n-placeholder="form.authorsPlaceholder"></textarea></label>
+            <label data-i18n-prefix="form.venue">Venue <span class="field-hint" data-i18n="form.venueHint">optional but helpful</span><input name="venue" maxlength="200" placeholder="ACL 2026, arXiv, …" /></label>
+            <label data-i18n-prefix="form.summary">Analogy summary <span class="field-hint" data-i18n="form.summaryHint">optional, one concise sentence</span><textarea name="analogy_summary" rows="2" maxlength="1000"></textarea></label>
+            <label class="span-2" data-i18n-prefix="form.contributor">Contributor <span class="field-hint" data-i18n="form.contributorHint">optional; defaults to the GitHub issue author</span><input name="contributor" maxlength="160" placeholder="@github-login or display name" data-i18n-placeholder="form.contributorPlaceholder" /></label>
+            <fieldset class="span-2 category-fieldset">
+              <legend data-i18n="form.categories">Categories *</legend>
+              <div class="category-tools">
+                <p><span data-i18n="form.categoryLeadBefore">Expand a field, then select up to</span> <strong class="category-limit">4</strong> <span data-i18n="form.categoryLeadAfter">leaf tasks.</span></p>
+                <input type="search" data-category-search placeholder="Search task names…" data-i18n-placeholder="form.categorySearch" aria-label="Search submission categories" />
+                <span data-category-count>0 selected</span>
+              </div>
+              <div class="submission-categories" data-submission-categories></div>
+            </fieldset>
+            <label class="span-2" data-i18n-prefix="form.abstract">Abstract *<textarea name="abstract" required rows="5" maxlength="10000"></textarea></label>
+            <div class="span-2 pipeline-upload" data-pipeline-dropzone tabindex="0" aria-label="Choose, drop, or paste pipeline images" data-i18n-aria-label="form.pipelineDropLabel">
+              <div class="pipeline-heading">
+                <strong data-i18n="form.pipelineImage">Pipeline images</strong>
+                <span class="field-hint" data-i18n="form.pipelineHint">recommended · choose, drop, or paste · 4 × 10 MiB</span>
+              </div>
+              <input id="pipeline-image-files" class="sr-only" name="pipeline_image_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-pipeline-image />
+              <div class="pipeline-controls">
+                <div class="upload-choice-group">
+                  <button type="button" class="button button-secondary" data-choose-pipeline data-i18n="form.chooseImages" aria-label="Choose pipeline images" data-i18n-aria-label="form.chooseImagesLabel">Choose</button>
+                  <button type="button" class="button button-secondary upload-paste" data-paste-pipeline data-i18n="form.pasteImages" aria-label="Paste a pipeline image from the clipboard" data-i18n-aria-label="form.pasteImagesLabel">Paste</button>
+                </div>
+                <span data-pipeline-count>0 / 4 images selected</span>
+                <button type="button" class="pipeline-clear" data-clear-pipeline disabled data-i18n="form.clearImages">Clear images</button>
+              </div>
+              <div class="pipeline-preview" data-pipeline-preview hidden>
+                <div class="pipeline-preview-list" data-pipeline-preview-list></div>
+              </div>
+              <span class="paper-file-status" data-pipeline-status role="status" aria-live="polite"></span>
+            </div>
+            <div class="span-2 paper-file-upload" data-paper-file-dropzone tabindex="0" aria-label="Choose or drop a paper PDF" data-i18n-aria-label="form.paperFileDropLabel">
+              <div class="pipeline-heading">
+                <strong data-i18n="form.paperFile">Paper file</strong>
+                <span class="field-hint" data-i18n="form.paperFileHint">recommended · choose or drop PDF · 50 MiB</span>
+              </div>
+              <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
+              <div class="pipeline-controls">
+                <button type="button" class="button button-secondary" data-choose-paper-file data-i18n="form.choosePaperFile" aria-label="Choose a paper PDF" data-i18n-aria-label="form.choosePaperFileLabel">Choose PDF</button>
+                <span data-paper-file-name data-i18n="form.noPaperFile">No PDF selected</span>
+                <button type="button" class="pipeline-clear" data-clear-paper-file disabled data-i18n="form.clearPaperFile">Clear PDF</button>
+              </div>
+              <span class="paper-file-status" data-paper-file-status role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <details class="optional-fields">
+            <summary data-i18n-prefix="form.more">More optional fields <span data-i18n="form.moreHint">Detailed summaries and related work</span></summary>
+            <div class="form-grid">
+              <label class="span-2" data-i18n-prefix="form.notes">Additional notes<textarea name="notes" rows="3" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.motivation">Motivation<textarea name="summary_motivation" rows="2" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.innovation">Innovation<textarea name="summary_innovation" rows="2" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.method">Method<textarea name="summary_method" rows="2" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.conclusion">Conclusion / contribution<textarea name="summary_conclusion" rows="2" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.limitations">Limitations / future work<textarea name="summary_limitation" rows="2" maxlength="3000"></textarea></label>
+              <label class="span-2" data-i18n-prefix="form.related">Related paper titles<textarea name="related_papers" rows="2" maxlength="3000" placeholder="Separate titles with |" data-i18n-placeholder="form.relatedPlaceholder"></textarea></label>
+            </div>
+          </details>
+          <input type="hidden" name="citation_key" />
+          <input type="hidden" name="title_translation" />
+          <input type="hidden" name="summary_citable_paragraph" />
+          <div class="form-validation-summary" data-form-validation hidden role="status" aria-live="polite"></div>
+          <p class="privacy-note" data-i18n="form.privacy">This creates a public GitHub issue that remains open as the submission record. After submitting, select GitHub's Subscribe control; approval status, validation results, processing updates, and maintainer feedback are posted there. Do not include a private email address.</p>
+          <div class="upload-status" data-upload-status hidden role="status" aria-live="polite" aria-atomic="true">
+            <span class="upload-status-mark" aria-hidden="true"></span>
+            <span class="upload-status-copy">
+              <strong data-upload-status-title></strong>
+              <small data-upload-status-detail></small>
+            </span>
+          </div>
+          <div class="form-submit-actions">
+            <button type="button" class="button form-clear" data-clear-submission data-i18n="form.clearAll">Clear all</button>
+            <button type="submit" class="button button-primary form-submit" data-submit-paper data-i18n-prefix="form.submit">Create submission issue on GitHub <span>↗</span></button>
+          </div>
+          <a
+            class="form-alternative"
+            href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/issues/new?template=paper_submission.yml"
+            target="_blank"
+            rel="noreferrer"
+            data-i18n="form.native"
+          >Prefer GitHub's native issue form?</a>
+        </form>
+
+        <dialog class="recommendation-dialog" data-recommendation-dialog aria-labelledby="recommendation-dialog-title">
+          <div class="dialog-shell recommendation-shell">
+            <div class="recommendation-heading">
+              <span class="recommendation-mark" aria-hidden="true">!</span>
+              <div>
+                <p class="eyebrow" data-i18n="recommendation.eyebrow">Submission quality check</p>
+                <h3 id="recommendation-dialog-title" data-i18n="recommendation.title">Recommended materials are missing</h3>
+              </div>
+            </div>
+            <p class="recommendation-lead" data-i18n="recommendation.lead">These materials help maintainers verify the paper and produce a reliable summary:</p>
+            <ul class="recommendation-list" data-recommendation-list></ul>
+            <p class="recommendation-warning"><strong data-i18n="recommendation.warning">Submissions with insufficient evidence or very low quality may be rejected.</strong></p>
+            <div class="dialog-actions recommendation-actions">
+              <button type="button" class="button button-primary" data-recommendation-review data-i18n="recommendation.review">Review the form</button>
+              <button type="button" class="button button-secondary recommendation-continue" data-recommendation-continue data-i18n="recommendation.continue">Continue anyway</button>
+            </div>
+          </div>
+        </dialog>
+
+        <dialog class="recommendation-dialog upload-recovery-dialog" data-upload-recovery-dialog aria-labelledby="upload-recovery-dialog-title">
+          <div class="dialog-shell recommendation-shell">
+            <div class="recommendation-heading">
+              <span class="recommendation-mark" aria-hidden="true">!</span>
+              <div>
+                <p class="eyebrow" data-i18n="upload.recoveryEyebrow">Upload interrupted</p>
+                <h3 id="upload-recovery-dialog-title" data-i18n="upload.recoveryTitle">Choose how to continue</h3>
+              </div>
+            </div>
+            <p class="upload-recovery-message" data-upload-recovery-message></p>
+            <p class="upload-recovery-progress" data-upload-recovery-progress></p>
+            <p class="recommendation-warning" data-i18n="upload.recoveryHint">Completed uploads are kept. Continue retries only the unfinished files; alternatively, open the prefilled GitHub Issue and attach the unfinished files manually.</p>
+            <div class="dialog-actions recommendation-actions upload-recovery-actions">
+              <button type="button" class="button button-primary" data-upload-recovery-retry data-i18n="upload.recoveryRetry">Continue uploading</button>
+              <button type="button" class="button button-secondary recommendation-continue" data-upload-recovery-fallback data-i18n="upload.recoveryFallback">Open Issue and upload manually</button>
+            </div>
+          </div>
+        </dialog>
+
+        <dialog class="zotero-dialog" data-zotero-dialog aria-labelledby="zotero-dialog-title">
+          <div class="dialog-shell">
+            <div class="dialog-heading">
+              <div>
+                <p class="eyebrow" data-i18n="zotero.eyebrow">Metadata helper</p>
+                <h3 id="zotero-dialog-title" data-i18n="zotero.title">Import from Zotero</h3>
+              </div>
+              <button type="button" class="dialog-close" data-close-zotero aria-label="Close Zotero import">×</button>
+            </div>
+            <ol class="zotero-steps">
+              <li data-i18n="zotero.step1">Select one item in Zotero.</li>
+              <li data-i18n="zotero.step2">Use the one-click metadata plugin to copy its JSON.</li>
+              <li data-i18n="zotero.step3">Paste below; recognized fields are filled without removing existing form fields.</li>
+            </ol>
+            <figure class="zotero-guide">
+              <img src="./assets/img/plugin-guide.png" alt="Zotero context menu with Copy Meta to Json Format highlighted" loading="lazy" />
+              <figcaption data-i18n="zotero.guideCaption">Right-click the selected Zotero item and choose “Copy Meta to Json Format”.</figcaption>
+            </figure>
+            <div class="plugin-note">
+              <strong data-i18n="zotero.pluginLead">Plugin not installed?</strong>
+              <a class="plugin-download" href="https://raw.githubusercontent.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/main/AI_assistant_review_tools/tools/One-Click%20Copy%20Metadata.xpi" data-i18n="zotero.download">Download the Zotero plugin</a>
+            </div>
+            <textarea data-zotero-json rows="7" spellcheck="false" placeholder='Paste one Zotero item, for example { "title": "…", "creators": […] }' data-i18n-placeholder="zotero.placeholder"></textarea>
+            <p class="zotero-status" data-zotero-status role="status" aria-live="polite"></p>
+            <div class="dialog-actions">
+              <button type="button" class="button button-secondary" data-close-zotero data-i18n="zotero.cancel">Cancel</button>
+              <button type="button" class="button button-primary" data-import-zotero data-i18n="zotero.fill">Fill available fields</button>
+            </div>
+          </div>
+        </dialog>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <a class="brand footer-brand" href="#top"><strong>SIM</strong><span>Social Intelligence Modeling</span></a>
+        <p data-i18n="footer.tagline">Survey, taxonomy, and paper collection.</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://doi.org/10.13140/RG.2.2.21157.87528" target="_blank" rel="noreferrer">Paper</a>
+        <a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System" target="_blank" rel="noreferrer">Repository</a>
+        <a href="./complete-list.html" data-i18n="footer.complete">Complete list</a>
+        <a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer" data-i18n="footer.contributing">Contributing</a>
+      </div>
+      <p class="footer-status"><span class="footer-status-dot" aria-hidden="true"></span> <span data-i18n="footer.status">Data generated from the active survey repository ·</span> <time data-generated-at>updating</time></p>
+    </footer>
+
+    <a class="back-to-top" href="#top" aria-label="Back to top" title="Back to top" data-i18n-aria-label="back.top" data-i18n-title="back.top">
+      <span aria-hidden="true"></span>
+    </a>
+
+    <template id="paper-card-template">
+      <article class="paper-card">
+        <div class="paper-card-top">
+          <div class="paper-meta"></div>
+          <span class="community-badge" hidden data-i18n="dynamic.community">Community</span>
+        </div>
+        <div class="paper-heading-block">
+          <div><h3></h3><p class="paper-authors"></p></div>
+          <figure class="paper-thumbnail" hidden><img alt="" loading="lazy" decoding="async" /></figure>
+        </div>
+        <div class="paper-tags"></div>
+        <div class="paper-description">
+          <p class="paper-summary" hidden><b data-i18n="paper.summary">Summary</b><span></span></p>
+          <p class="paper-abstract" hidden><b data-i18n="paper.abstract">Abstract</b><span></span></p>
+        </div>
+        <p class="paper-contributor" hidden></p>
+        <div class="paper-links"></div>
+      </article>
+    </template>
+  </body>
+</html>

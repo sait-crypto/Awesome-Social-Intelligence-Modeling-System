@@ -14,6 +14,7 @@ __pycache__/
 engineering/build/
 develop-eggs/
 engineering/dist/
+/site-dist/
 downloads/
 eggs/
 .eggs/
@@ -54,6 +55,7 @@ engineering/* - ??*.csv
 **/*_duplicate*
 **/*backup*
 **/*old*
+tests/
 
 # Local paper manuscripts and Zotero attachments
 /paper.pdf
@@ -75,6 +77,10 @@ AI_assistant_review_tools/.env
 
 # Logs
 *.log
+
+# Local Cloudflare Worker state
+services/submission-upload-worker/.wrangler/
+services/submission-upload-worker/.dev.vars
 
 
 # Local WeChat publicity materials
