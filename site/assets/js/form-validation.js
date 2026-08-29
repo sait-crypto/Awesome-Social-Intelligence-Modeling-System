@@ -12,6 +12,8 @@
     ["authors", "validation.authorsRequired"],
     ["abstract", "validation.abstractRequired"],
   ];
+  const REQUIRED_MESSAGES = new Map(REQUIRED_FIELDS);
+  const VALIDATED_FIELDS = new Set([...REQUIRED_MESSAGES.keys(), "project_url"]);
 
   const fieldValue = (form, name) => String(form.elements.namedItem(name)?.value || "").trim();
 
@@ -27,34 +29,30 @@
       field.setAttribute("aria-invalid", message ? "true" : "false");
     };
 
+    const fieldError = (name) => {
+      const value = fieldValue(form, name);
+      const requiredMessage = REQUIRED_MESSAGES.get(name);
+      if (requiredMessage && !value) return t(requiredMessage);
+
+      if (name === "doi") {
+        const doi = value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
+        return doi && !DOI_PATTERN.test(doi) ? t("validation.doiFormat") : "";
+      }
+      if (name === "date") return value && !DATE_PATTERN.test(value) ? t("validation.dateFormat") : "";
+      if (["paper_url", "project_url"].includes(name) && value && !/^https?:\/\/\S+$/i.test(value)) {
+        return t("validation.urlFormat", {
+          label: t(name === "paper_url" ? "validation.paperUrl" : "validation.projectUrl"),
+        });
+      }
+      return "";
+    };
+
     const collectErrors = () => {
       const errors = [];
-      REQUIRED_FIELDS.forEach(([name, messageKey]) => {
-        const requiredError = fieldValue(form, name) ? "" : t(messageKey);
-        setFieldValidity(name, requiredError);
-        if (requiredError) errors.push({ name, message: requiredError });
-      });
-
-      const doi = fieldValue(form, "doi").replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
-      const doiError = doi && !DOI_PATTERN.test(doi) ? t("validation.doiFormat") : "";
-      setFieldValidity("doi", doiError);
-      if (doiError) errors.push({ name: "doi", message: doiError });
-
-      const date = fieldValue(form, "date");
-      const dateError = date && !DATE_PATTERN.test(date) ? t("validation.dateFormat") : "";
-      setFieldValidity("date", dateError);
-      if (dateError) errors.push({ name: "date", message: dateError });
-
-      [
-        ["paper_url", "validation.paperUrl"],
-        ["project_url", "validation.projectUrl"],
-      ].forEach(([name, labelKey]) => {
-        const value = fieldValue(form, name);
-        const urlError = value && !/^https?:\/\/\S+$/i.test(value)
-          ? t("validation.urlFormat", { label: t(labelKey) })
-          : "";
-        setFieldValidity(name, urlError);
-        if (urlError) errors.push({ name, message: urlError });
+      VALIDATED_FIELDS.forEach((name) => {
+        const message = fieldError(name);
+        setFieldValidity(name, message);
+        if (message) errors.push({ name, message });
       });
 
       const checked = categoryContainer.querySelectorAll('input[type="checkbox"]:checked');
@@ -119,7 +117,8 @@
     });
     form.addEventListener("focusout", (event) => {
       if (!event.target.matches("input, textarea")) return;
-      collectErrors();
+      const name = event.target.name;
+      if (VALIDATED_FIELDS.has(name)) setFieldValidity(name, fieldError(name));
     });
     window.addEventListener("sim:languagechange", () => {
       if (attempted) render(collectErrors());

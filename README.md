@@ -27,7 +27,7 @@
 This repository accompanies our paper:
 
 > **[Social Intelligence Modeling: A Comprehensive Survey from Social Perception to Social Simulation](https://doi.org/10.13140/RG.2.2.21157.87528)** \
-> Zikai Song, Xiajie Li, Yunyao Zhang, Xinglang Zhang, Wei Yang, and Junqing Yu \
+> Zikai Song<sup>\*</sup>, Xiajie Li<sup>\*</sup>, Yunyao Zhang, Xinglang Zhang, Wei Yang, and Junqing Yu \
 > Huazhong University of Science and Technology \
 > **Venue:** ResearchGate preprint &nbsp;|&nbsp; **Year:** 2026
 

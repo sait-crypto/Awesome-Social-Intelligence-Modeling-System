@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const { formatDate, isSafeUrl, normalize, setupNavigation } = window.SIMSite;
+  const { formatDate, isSafeUrl, normalize, paperVenue, setupNavigation } = window.SIMSite;
   const i18n = window.SIMI18n;
   const t = (key, values) => i18n.t(key, values);
   const locale = () => (i18n.getLanguage() === "zh" ? "zh-CN" : "en");
@@ -558,9 +558,14 @@
       .sort((a, b) => Number(b.name) - Number(a.name))
       .forEach((year) => appendOption(elements.year, year.name, `${year.name} (${year.count})`));
 
-    state.data.stats.conferences.forEach((conference) => {
-      appendOption(elements.conference, conference.name, `${conference.name} (${conference.count})`);
+    const conferenceCounts = new Map();
+    state.data.papers.forEach((paper) => {
+      const conference = paperVenue(paper);
+      if (conference) conferenceCounts.set(conference, (conferenceCounts.get(conference) || 0) + 1);
     });
+    [...conferenceCounts.entries()]
+      .sort(([nameA, countA], [nameB, countB]) => countB - countA || nameA.localeCompare(nameB))
+      .forEach(([conference, count]) => appendOption(elements.conference, conference, `${conference} (${count})`));
   }
 
   function renderSubmissionCategories() {
@@ -705,7 +710,7 @@
     if (!ignore.has("subfield") && values.subfield && !paperInCategoryBranch(paper, values.subfield)) return false;
     if (!ignore.has("category") && values.category && !paperInCategoryBranch(paper, values.category)) return false;
     if (!ignore.has("year") && values.year && String(paper.year || "") !== values.year) return false;
-    if (!ignore.has("conference") && values.conference && paper.conference !== values.conference) return false;
+    if (!ignore.has("conference") && values.conference && paperVenue(paper) !== values.conference) return false;
     if (!ignore.has("community") && values.community && !paper.community_contribution) return false;
     if (!ignore.has("q") && tokens.length) {
       const haystack = normalize(
@@ -713,7 +718,7 @@
           paper.title,
           paper.title_translation,
           paper.authors,
-          paper.conference,
+          paperVenue(paper),
           paper.categories.join(" "),
           paper.analogy_summary,
           paper.abstract,
@@ -761,7 +766,7 @@
   function renderPaperCard(paper) {
     const card = elements.cardTemplate.content.firstElementChild.cloneNode(true);
     const meta = card.querySelector(".paper-meta");
-    meta.textContent = [paper.year || t("dynamic.undated"), paper.conference || t("dynamic.unspecifiedVenue")].join(" · ");
+    meta.textContent = [paper.year || t("dynamic.undated"), paperVenue(paper) || t("dynamic.unspecifiedVenue")].join(" · ");
 
     const badge = card.querySelector(".community-badge");
     badge.hidden = !paper.community_contribution;
@@ -1838,7 +1843,10 @@
 
   async function initializeData() {
     try {
-      const response = await fetch("./assets/data/site-data.json", { cache: "no-cache" });
+      const response = await fetch("./assets/data/site-data.json?v=__SIM_SITE_DATA_VERSION__", {
+        cache: "force-cache",
+        credentials: "omit",
+      });
       if (!response.ok) throw new Error(`Paper data request failed with status ${response.status}`);
       state.data = await response.json();
       renderHeadlineStats();

@@ -19,7 +19,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -32,8 +32,9 @@ PAPER_METADATA = PROJECT_ROOT / "engineering" / "config" / "paper_metadata.json"
 COMMUNITY_CONTRIBUTOR_PREFIX = "community:"
 ANALOGY_SUMMARY_LIMIT = 180
 ABSTRACT_EXCERPT_LIMIT = 360
-RAW_REPOSITORY_ROOT = "https://raw.githubusercontent.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/main/"
 PIPELINE_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+PIPELINE_THUMBNAIL_SIZE = (720, 420)
+PIPELINE_THUMBNAIL_QUALITY = 78
 
 COPIED_IMAGES = {
     PROJECT_ROOT / "engineering" / "assets" / "social-intelligence-modeling-overview.png": "social-intelligence-modeling-overview.png",
@@ -129,8 +130,8 @@ def _doi_url(value: Any) -> str:
     return f"https://doi.org/{doi}" if doi else ""
 
 
-def _first_pipeline_image_url(value: Any) -> str:
-    """Return a safe raw-repository URL for the first existing pipeline image."""
+def _first_pipeline_image_path(value: Any) -> Path | None:
+    """Return the first safe, existing pipeline image path."""
     for reference in _split_pipe(value):
         normalized = reference.replace("\\", "/").lstrip("./")
         parts = Path(normalized).parts
@@ -142,8 +143,48 @@ def _first_pipeline_image_url(value: Any) -> str:
         except ValueError:
             continue
         if source.is_file():
-            return RAW_REPOSITORY_ROOT + quote(normalized, safe="/")
-    return ""
+            return source
+    return None
+
+
+def _build_pipeline_thumbnail(value: Any, destination_dir: Path) -> str:
+    """Create a compact, same-origin thumbnail for the first pipeline image."""
+    source = _first_pipeline_image_path(value)
+    if source is None:
+        return ""
+
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    if source.suffix.casefold() == ".svg":
+        destination = destination_dir / f"{digest}.svg"
+        if not destination.exists():
+            shutil.copy2(source, destination)
+    else:
+        try:
+            from PIL import Image, ImageOps
+        except ImportError as exc:  # pragma: no cover - exercised by deployment setup
+            raise RuntimeError("Pillow is required to build website paper thumbnails.") from exc
+
+        destination = destination_dir / f"{digest}.webp"
+        if not destination.exists():
+            try:
+                with Image.open(source) as opened:
+                    opened.seek(0)
+                    image = ImageOps.exif_transpose(opened)
+                    image.thumbnail(PIPELINE_THUMBNAIL_SIZE, Image.Resampling.LANCZOS, reducing_gap=3.0)
+                    has_alpha = image.mode in {"RGBA", "LA"} or "transparency" in image.info
+                    image = image.convert("RGBA" if has_alpha else "RGB")
+                    image.save(
+                        destination,
+                        format="WEBP",
+                        quality=PIPELINE_THUMBNAIL_QUALITY,
+                        method=4,
+                    )
+            except (OSError, ValueError) as exc:
+                print(f"Warning: unable to build pipeline thumbnail for {source}: {exc}")
+                return ""
+
+    return f"./assets/paper-thumbnails/{destination.name}"
 
 
 def _normalize_categories(
@@ -193,7 +234,7 @@ def _sorted_counter(counter: Counter[Any]) -> list[dict[str, Any]]:
     ]
 
 
-def build_site_data() -> dict[str, Any]:
+def build_site_data(thumbnail_dir: Path | None = None) -> dict[str, Any]:
     taxonomy = _load_categories_config()
     metadata = json.loads(PAPER_METADATA.read_text(encoding="utf-8"))
     category_records = [record for record in taxonomy["categories"] if record.get("enabled", True)]
@@ -242,7 +283,11 @@ def build_site_data() -> dict[str, Any]:
                 "doi": _compact_text(row.get("doi"), 180),
                 "contributor": contributor if is_community else "",
                 "community_contribution": is_community,
-                "pipeline_thumbnail": _first_pipeline_image_url(row.get("pipeline_image")),
+                "pipeline_thumbnail": (
+                    _build_pipeline_thumbnail(row.get("pipeline_image"), thumbnail_dir)
+                    if thumbnail_dir is not None
+                    else ""
+                ),
             }
         )
 
@@ -373,6 +418,40 @@ def _version_static_assets(output: Path) -> None:
                     html_path.write_text(updated, encoding="utf-8")
 
 
+def _write_data_file(path: Path, payload: dict[str, Any]) -> str:
+    """Write compact JSON and return a short content version for browser caching."""
+    serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    path.write_text(serialized, encoding="utf-8")
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:12]
+
+
+def _inject_data_versions(output: Path, site_version: str, complete_version: str) -> None:
+    """Make data requests cacheable while changing their URL on every data update."""
+    replacements = {
+        "__SIM_SITE_DATA_VERSION__": site_version,
+        "__SIM_COMPLETE_DATA_VERSION__": complete_version,
+    }
+    targets = (
+        output / "index.html",
+        output / "complete-list.html",
+        output / "assets" / "js" / "app.js",
+        output / "assets" / "js" / "complete-list.js",
+    )
+    seen = {marker: False for marker in replacements}
+    for target in targets:
+        source = target.read_text(encoding="utf-8")
+        updated = source
+        for marker, version in replacements.items():
+            if marker in updated:
+                seen[marker] = True
+                updated = updated.replace(marker, version)
+        if updated != source:
+            target.write_text(updated, encoding="utf-8")
+    missing = [marker for marker, found in seen.items() if not found]
+    if missing:
+        raise RuntimeError("Website data version placeholder is missing: " + ", ".join(missing))
+
+
 def _configure_upload_endpoint(output: Path) -> None:
     """Inject the optional serverless upload endpoint without storing secrets."""
     endpoint = os.environ.get("SIM_UPLOAD_ENDPOINT", "").strip().rstrip("/")
@@ -397,21 +476,17 @@ def build_site(output_dir: Path) -> dict[str, Any]:
         shutil.rmtree(output)
     shutil.copytree(SITE_SOURCE, output)
     _configure_upload_endpoint(output)
-    _version_static_assets(output)
 
-    data = build_site_data()
+    thumbnail_dir = output / "assets" / "paper-thumbnails"
+    data = build_site_data(thumbnail_dir)
     complete_list_data = build_complete_list_data()
     data["stats"]["total_paper_count"] = complete_list_data["stats"]["paper_count"]
     data_dir = output / "assets" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    (data_dir / "site-data.json").write_text(
-        json.dumps(data, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8",
-    )
-    (data_dir / "complete-list-data.json").write_text(
-        json.dumps(complete_list_data, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    site_version = _write_data_file(data_dir / "site-data.json", data)
+    complete_version = _write_data_file(data_dir / "complete-list-data.json", complete_list_data)
+    _inject_data_versions(output, site_version, complete_version)
+    _version_static_assets(output)
 
     image_dir = output / "assets" / "img"
     image_dir.mkdir(parents=True, exist_ok=True)

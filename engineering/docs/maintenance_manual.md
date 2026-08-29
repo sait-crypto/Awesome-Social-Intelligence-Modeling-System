@@ -13,7 +13,7 @@ The source uses the same two-header-row `Paper` CSV schema as the core database.
 
 `COMPLETE_LIST.md` is overwritten whenever the normal README generator runs. Edit the database rather than the generated Markdown. The compact output includes only title, venue, and Paper/Project/DOI links. Every titled database row is retained, including entries with `show_in_readme=false` and conflict variants; only rows without a title are omitted.
 
-During the normal submission update, each validated input entry is deep-copied into `paper_database_complete_list.csv` before any optional AI generation. The existing AI stage then processes only the copy continuing toward the core database. The Complete List database therefore receives the submitted fields exactly as they existed before automatic AI completion.
+During the normal submission update, the core database decides acceptance first. Only an entry actually added to the core database (including an accepted conflict variant) receives a corresponding pre-AI copy in `paper_database_complete_list.csv`; an exact duplicate, invalid entry, or other core rejection is not appended there. This append uses a relaxed existing-row check so incomplete fields already present in Complete List do not fail the unified update. Complete List remains independently editable, and the GUI's normal validation behavior is unchanged.
 
 Maintainers can use the submit GUI's **完整库** button to load and edit `engineering/paper_database_complete_list.csv` directly. Saving the loaded file updates that database without involving AI; run `python engineering/src/convert.py` afterward to regenerate the Markdown list.
 

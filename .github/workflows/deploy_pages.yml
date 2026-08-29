@@ -9,8 +9,13 @@ on:
       - engineering/paper_database_complete_list.csv
       - engineering/config/categories_config.py
       - engineering/config/paper_metadata.json
-      - engineering/assets/social-intelligence-modeling-overview.png
-      - engineering/assets/category_architecture.png
+      - engineering/assets/**/*.png
+      - engineering/assets/**/*.jpg
+      - engineering/assets/**/*.jpeg
+      - engineering/assets/**/*.gif
+      - engineering/assets/**/*.webp
+      - engineering/assets/**/*.svg
+      - community/wechat-group-qr.jpg
       - engineering/scripts/build_site.py
       - engineering/scripts/smoke_test_upload_endpoint.py
       - .github/workflows/deploy_pages.yml
@@ -22,8 +27,13 @@ on:
       - engineering/paper_database_complete_list.csv
       - engineering/config/categories_config.py
       - engineering/config/paper_metadata.json
-      - engineering/assets/social-intelligence-modeling-overview.png
-      - engineering/assets/category_architecture.png
+      - engineering/assets/**/*.png
+      - engineering/assets/**/*.jpg
+      - engineering/assets/**/*.jpeg
+      - engineering/assets/**/*.gif
+      - engineering/assets/**/*.webp
+      - engineering/assets/**/*.svg
+      - community/wechat-group-qr.jpg
       - engineering/scripts/build_site.py
       - engineering/scripts/smoke_test_upload_endpoint.py
       - .github/workflows/deploy_pages.yml
@@ -48,6 +58,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install website image optimizer
+        run: python -m pip install --disable-pip-version-check "pillow>=12.1,<13"
 
       - name: Build static survey website
         env:
@@ -66,7 +81,10 @@ jobs:
           assert complete['stats']['paper_count'] == len(complete['papers']);
           assert complete['stats']['paper_count'] >= data['stats']['paper_count'];
           assert data['stats']['paper_count'] > 0;
-          print(f\"Verified {len(data['papers'])} curated and {len(complete['papers'])} complete-list paper records.\")"
+          thumbnails=[paper['pipeline_thumbnail'] for paper in data['papers'] if paper['pipeline_thumbnail']];
+          assert all(url.startswith('./assets/paper-thumbnails/') for url in thumbnails);
+          assert all((root/url.removeprefix('./')).is_file() for url in thumbnails);
+          print(f\"Verified {len(data['papers'])} curated records, {len(complete['papers'])} complete-list records, and {len(thumbnails)} local thumbnails.\")"
 
       - name: Verify direct submission file transfer
         if: github.event_name != 'pull_request' && vars.SIM_UPLOAD_ENDPOINT != ''

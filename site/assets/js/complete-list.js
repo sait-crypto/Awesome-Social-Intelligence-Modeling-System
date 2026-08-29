@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const { formatDate, isSafeUrl, normalize, setupNavigation } = window.SIMSite;
+  const { formatDate, isSafeUrl, normalize, paperVenue, setupNavigation } = window.SIMSite;
   const i18n = window.SIMI18n;
   const t = (key, values) => i18n.t(key, values);
   const locale = () => (i18n.getLanguage() === "zh" ? "zh-CN" : "en");
@@ -41,7 +41,7 @@
       return normalize([
         paper.title,
         paper.authors,
-        paper.conference,
+        paperVenue(paper),
         paper.date,
         paper.doi,
       ].join(" ")).includes(query);
@@ -84,7 +84,7 @@
 
       const venueCell = document.createElement("td");
       const venue = document.createElement("span");
-      venue.textContent = paper.conference || "—";
+      venue.textContent = paperVenue(paper) || "—";
       venueCell.append(venue);
       if (paper.date) {
         const date = document.createElement("small");
@@ -125,7 +125,10 @@
 
   async function initialize() {
     try {
-      const response = await fetch("./assets/data/complete-list-data.json", { cache: "no-cache" });
+      const response = await fetch("./assets/data/complete-list-data.json?v=__SIM_COMPLETE_DATA_VERSION__", {
+        cache: "force-cache",
+        credentials: "omit",
+      });
       if (!response.ok) throw new Error(`Complete paper data request failed with status ${response.status}`);
       state.data = await response.json();
       elements.total.textContent = state.data.stats.paper_count.toLocaleString(locale());

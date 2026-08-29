@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="./assets/css/styles.css" />
     <link rel="stylesheet" href="./assets/css/forms.css" />
     <link rel="stylesheet" href="./assets/css/image-slots.css" />
+    <link rel="preload" href="./assets/data/site-data.json?v=__SIM_SITE_DATA_VERSION__" as="fetch" crossorigin="anonymous" />
     <title>Social Intelligence Modeling: A Comprehensive Survey</title>
     <script src="./assets/js/site-core.js" defer></script>
     <script src="./assets/js/i18n.js" defer></script>
@@ -49,10 +50,10 @@
       </button>
       <nav id="primary-nav" class="primary-nav" aria-label="Primary navigation">
         <a href="#definition" data-i18n="nav.definition">Definition</a>
+        <a href="#community" data-i18n="nav.community">Community</a>
         <a href="#task-landscape" data-i18n="nav.landscape">Task landscape</a>
         <a href="#paper-explorer" data-i18n="nav.explorer">Paper explorer</a>
         <a href="./complete-list.html" data-i18n="nav.allPapers">All papers</a>
-        <a href="#community" data-i18n="nav.community">Community</a>
         <a href="#contribute" data-i18n="nav.contribute">Contribute</a>
       </nav>
       <div class="header-actions">
@@ -75,7 +76,7 @@
             <span class="hero-main-title">Social Intelligence Modeling</span>
             <span class="hero-subtitle">A Comprehensive Survey from Social Perception to Social Simulation</span>
           </h1>
-          <p class="author-line">Zikai Song, Xiajie Li, Yunyao Zhang, Xinglang Zhang, Wei Yang, Junqing Yu</p>
+          <p class="author-line">Zikai Song<sup>*</sup>, Xiajie Li<sup>*</sup>, Yunyao Zhang, Xinglang Zhang, Wei Yang, Junqing Yu</p>
           <p class="affiliation-line">Huazhong University of Science and Technology</p>
           <p class="hero-lead" data-i18n="hero.lead">
             We organize social intelligence modeling as four organically connected stages—perception,
@@ -156,14 +157,16 @@
         <div class="community-qr-panel">
           <img src="./assets/img/wechat-group-qr.jpg" alt="WeChat QR code for the Social Intelligence Modeling discussion group" loading="lazy" />
           <p data-i18n="community.note">WeChat group QR codes may expire. Updated group information is maintained in this repository.</p>
-          <p class="community-discussion-note" data-i18n="community.discussionHint">You can also ask questions and join open research discussions on GitHub.</p>
+        </div>
+        <div class="community-discussion-row">
+          <span data-i18n="community.discussionHint">Discuss on GitHub:</span>
           <a
             class="button button-secondary community-discussion-button"
             href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions"
             target="_blank"
             rel="noreferrer"
             data-i18n="community.discussionButton"
-          >Open GitHub Discussions</a>
+          >Discussion</a>
         </div>
         <figure class="optional-image-slot image-slot-wide" data-image-slot="community_feature" hidden>
           <img alt="" loading="lazy" />

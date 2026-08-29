@@ -23,6 +23,22 @@
     return isSafeUrl(source);
   };
 
+  const isArxivIdentifier = (value) => {
+    const source = String(value || "").trim();
+    if (!source) return false;
+    return (
+      /^(?:https?:\/\/(?:dx\.)?doi\.org\/)?10\.48550\/arxiv\.\d{4}\.\d{4,5}(?:v\d+)?(?:[?#].*)?$/i.test(source) ||
+      /^arxiv:\s*\d{4}\.\d{4,5}(?:v\d+)?$/i.test(source) ||
+      /^https?:\/\/(?:www\.)?arxiv\.org\/(?:abs|pdf)\/\d{4}\.\d{4,5}(?:v\d+)?(?:\.pdf)?(?:[?#].*)?$/i.test(source)
+    );
+  };
+
+  const paperVenue = (paper) => {
+    const recordedVenue = String(paper?.conference || "").trim();
+    if (recordedVenue) return recordedVenue;
+    return isArxivIdentifier(paper?.doi) ? "arXiv" : "";
+  };
+
   const formatDate = (value, fallback = "Unknown build time", locale = "en") => {
     if (!value) return fallback;
     const date = new Date(value);
@@ -61,7 +77,9 @@
     formatDate,
     isSafeImageUrl,
     isSafeUrl,
+    isArxivIdentifier,
     normalize,
+    paperVenue,
     setupNavigation,
   });
 })();
