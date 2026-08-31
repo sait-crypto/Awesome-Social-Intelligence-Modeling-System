@@ -7,6 +7,7 @@ expands shell syntax, downloads URLs, or writes outside the requested output.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -52,7 +53,7 @@ SECTION_TO_FIELD = {
     "paper file": "paper_file",
 }
 
-REQUIRED_FIELDS = ("title", "doi", "paper_url", "authors", "date", "category", "abstract")
+REQUIRED_FIELDS = ("title", "paper_url", "authors", "date", "abstract")
 EMPTY_RESPONSES = {"", "_no response_", "no response", "n/a", "none"}
 
 
@@ -111,6 +112,14 @@ def _normalize_doi(value: str) -> str:
     return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value.strip(), flags=re.I).strip()
 
 
+def _placeholder_doi(title: str, issue_number: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-")[:36] or "paper"
+    token = re.sub(r"\D+", "", str(issue_number or ""))
+    if not token:
+        token = hashlib.sha256(title.encode("utf-8")).hexdigest()[:8]
+    return f"10.0000/placeholder-{slug}-{token}"
+
+
 def _normalize_categories(value: str) -> list[str]:
     active, aliases = _load_active_categories()
     raw_items = re.split(r"\s*[|;；]\s*", value)
@@ -133,7 +142,7 @@ def _normalize_categories(value: str) -> list[str]:
     if invalid:
         raise ValueError("Unknown survey categories: " + ", ".join(invalid))
     if not normalized:
-        raise ValueError("At least one valid survey category is required.")
+        return ["Uncategorized"]
     if len(normalized) > 4:
         raise ValueError("A paper submission may contain at most four categories.")
     return normalized
@@ -226,12 +235,18 @@ def build_submission(
     if missing:
         raise ValueError("Issue submission is missing required fields: " + ", ".join(missing))
 
-    fields["doi"] = _normalize_doi(fields["doi"])
+    normalized_doi = _normalize_doi(fields["doi"])
+    fields["doi"] = (
+        normalized_doi
+        if re.fullmatch(r"10\.\d{4,9}/[-._;()/:A-Z0-9]+", normalized_doi, flags=re.I)
+        else _placeholder_doi(fields["title"], issue_number)
+    )
+    category_needs_review = not fields["category"].strip()
     fields["category"] = _normalize_categories(fields["category"])
     if not _valid_http_url(fields["paper_url"]):
         raise ValueError("Paper URL must be an absolute http(s) URL.")
     if fields.get("project_url") and not _valid_http_url(fields["project_url"]):
-        raise ValueError("Project URL must be an absolute http(s) URL when supplied.")
+        fields["project_url"] = ""
 
     contributor = _normalize_contributor(fields.pop("contributor", ""), submitter)
     provenance = f"Community submission from GitHub issue #{issue_number}"
@@ -240,6 +255,8 @@ def build_submission(
     rationale = fields.pop("rationale", "")
     submitted_notes = fields.get("notes", "")
     fields["notes"] = provenance
+    if category_needs_review:
+        fields["notes"] += "\n\n[Maintainer action]\nAssign the survey taxonomy before publication."
     if rationale:
         fields["notes"] += f"\n\n[Inclusion rationale]\n{rationale}"
     if submitted_notes:

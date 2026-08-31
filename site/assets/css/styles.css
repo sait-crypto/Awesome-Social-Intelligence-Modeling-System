@@ -1882,20 +1882,20 @@ summary:focus-visible {
 }
 
 .community-heading {
-  margin-bottom: 2.2rem;
+  margin-bottom: 1.5rem;
 }
 
 .community-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
 }
 
 .community-card {
   display: flex;
   flex-direction: column;
-  min-height: 245px;
-  padding: clamp(1.4rem, 3vw, 2.2rem);
+  min-height: 172px;
+  padding: clamp(1rem, 1.7vw, 1.3rem);
   border: 1px solid #d3dbe6;
   border-radius: var(--radius);
   background: #fff;
@@ -1906,8 +1906,12 @@ summary:focus-visible {
   background: linear-gradient(145deg, #fff 55%, #eef3fa);
 }
 
+.community-card-wechat {
+  border-top: 3px solid #6e8db5;
+}
+
 .mini-label {
-  margin: 0 0 1.8rem;
+  margin: 0 0 0.55rem;
   color: #647086;
   font-size: 0.63rem;
   font-weight: 780;
@@ -1918,17 +1922,17 @@ summary:focus-visible {
 .community-card h3 {
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .community-card > p:not(.mini-label) {
   max-width: 60ch;
-  margin: 0.7rem 0 1.5rem;
+  margin: 0.4rem 0 0.75rem;
   color: var(--muted);
   font-size: 0.82rem;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .community-actions {
@@ -1944,14 +1948,34 @@ summary:focus-visible {
 }
 
 .community-text-link {
-  color: #315e93;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0.46rem 0.76rem;
+  border: 1px solid #315e9f;
+  border-radius: 999px;
+  background: #315e9f;
+  color: #fff;
   font-size: 0.72rem;
-  font-weight: 720;
-  text-underline-offset: 3px;
+  font-weight: 740;
+  line-height: 1;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.community-text-link:hover {
+  border-color: #274d82;
+  background: #274d82;
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .definition-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
   gap: 0.8rem;
   overflow: visible;
   border: 0;
@@ -1997,13 +2021,24 @@ summary:focus-visible {
   }
 
   .community-card {
-    min-height: 220px;
+    min-height: 0;
   }
 }
 
 @media (max-width: 560px) {
   .definition-card {
     min-height: 250px;
+  }
+
+  .academic-hero .hero-meta > a {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-right: 0.2rem;
+    padding-left: 0.2rem;
+  }
+
+  .community-wechat-actions {
+    align-items: center;
   }
 }
 
@@ -2282,6 +2317,28 @@ body {
   color: var(--muted);
 }
 
+.academic-hero .hero-meta > a {
+  display: block;
+  min-width: 7.5rem;
+  padding: 0.3rem 0.55rem 0.45rem;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+.academic-hero .hero-meta > a:hover,
+.academic-hero .hero-meta > a:focus-visible {
+  background: #f1f5fa;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.academic-hero .hero-meta > a:hover strong,
+.academic-hero .hero-meta > a:focus-visible strong {
+  color: var(--coral);
+}
+
 .button {
   min-height: 42px;
   border-radius: 5px;
@@ -2323,6 +2380,29 @@ body {
 .definition-section,
 .explorer-section {
   background: #fff;
+}
+
+.definition-section .section-heading {
+  max-width: var(--max-width);
+}
+
+.definition-section .section-heading h2 {
+  max-width: none;
+}
+
+.definition-section .section-heading .definition-context {
+  max-width: 78ch;
+  margin-top: 1.35rem;
+  color: #3f4d61;
+  font-size: clamp(1rem, 1.45vw, 1.16rem);
+  line-height: 1.72;
+}
+
+.definition-section .definition-context + p {
+  max-width: 78ch;
+  margin-top: 0.75rem;
+  font-size: clamp(1rem, 1.45vw, 1.16rem);
+  line-height: 1.72;
 }
 
 .landscape-section {
@@ -3829,37 +3909,6 @@ body {
 .community-heading > p:last-child {
   margin-right: auto;
   margin-left: auto;
-}
-
-.community-qr-panel {
-  display: grid;
-  justify-items: center;
-  gap: 0.9rem;
-  width: min(100%, 390px);
-  margin-right: auto;
-  margin-left: auto;
-  padding: clamp(1.25rem, 3vw, 1.8rem);
-  border: 1px solid #d3dbe6;
-  border-radius: var(--radius);
-  background: #fff;
-  box-shadow: 0 12px 36px rgba(35, 55, 82, 0.06);
-}
-
-.community-qr-panel img {
-  display: block;
-  width: min(250px, 68vw);
-  height: auto;
-  border: 1px solid #e0e5ec;
-  border-radius: 8px;
-}
-
-.community-qr-panel p {
-  max-width: 42ch;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-  line-height: 1.6;
-  text-align: center;
 }
 
 .definition-card h3 {

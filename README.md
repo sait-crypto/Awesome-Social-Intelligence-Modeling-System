@@ -19,8 +19,7 @@
 <p align="center">
   <a href="https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/">
     <img src="site/assets/img/homepage-badge.svg" height="58" alt="Open the SIM project homepage to search, filter, or submit papers" />
-  </a><br />
-  <strong><a href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions">GitHub Discussions</a></strong>
+  </a>
 </p>
 
 <!-- PAPER_INTRO_START -->
@@ -76,12 +75,13 @@ This repository accompanies our paper:
 ### Join the WeChat Discussion Group
 
 <p align="center">
-  <img src="community/wechat-group-qr.jpg" width="240" alt="WeChat QR code for the SIM discussion group" />
+  <a href="https://github.com/AI4SS/AI4SS-Discussion/discussions/1">
+    <img src="https://img.shields.io/badge/WeChat-Open%20group%20discussion-2f6f9f?style=for-the-badge&amp;logo=wechat&amp;logoColor=white" alt="Open the AI4SS Survey WeChat group discussion" />
+  </a>
 </p>
 
 <p align="center">
-  Scan the QR code with WeChat to join the Social Intelligence Modeling (SIM) discussion group.<br>
-  WeChat group QR codes are time-limited. If this code has expired, please contact the maintainers by <a href="mailto:lixiajie2182712226@gmail.com">email</a>.
+  Current joining information is maintained in the linked AI4SS discussion.
 </p>
 
 ---

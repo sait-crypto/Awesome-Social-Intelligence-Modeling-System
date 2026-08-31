@@ -49,8 +49,8 @@
         <span></span><span></span><span></span><span class="sr-only" data-i18n="nav.toggle">Toggle navigation</span>
       </button>
       <nav id="primary-nav" class="primary-nav" aria-label="Primary navigation">
-        <a href="#definition" data-i18n="nav.definition">Definition</a>
         <a href="#community" data-i18n="nav.community">Community</a>
+        <a href="#definition" data-i18n="nav.definition">Definition</a>
         <a href="#task-landscape" data-i18n="nav.landscape">Task landscape</a>
         <a href="#paper-explorer" data-i18n="nav.explorer">Paper explorer</a>
         <a href="./complete-list.html" data-i18n="nav.allPapers">All papers</a>
@@ -88,12 +88,12 @@
             <a class="button button-primary" href="https://doi.org/10.13140/RG.2.2.21157.87528" target="_blank" rel="noreferrer" data-i18n="hero.paper">Paper</a>
             <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System" target="_blank" rel="noreferrer" data-i18n="hero.code">Code &amp; data</a>
             <a class="button button-secondary" href="#paper-explorer" data-i18n="hero.browse">Browse papers</a>
-            <a class="button button-secondary" href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions" target="_blank" rel="noreferrer" data-i18n="hero.discussions">Discussions</a>
+            <a class="button button-secondary" href="https://github.com/AI4SS/AI4SS-Discussion/discussions" target="_blank" rel="noreferrer" data-i18n="hero.discussions">Discussions</a>
           </div>
           <div class="hero-meta" aria-label="Survey statistics">
-            <div><strong data-stat="paper_count">—</strong><span data-i18n="hero.curated">curated papers</span></div>
-            <div><strong data-stat="total_paper_count">—</strong><span data-i18n="hero.total">total papers</span></div>
-            <div><strong data-stat="category_count">—</strong><span data-i18n="hero.tasks">active task nodes</span></div>
+            <a href="./complete-list.html"><strong data-stat="total_paper_count">—</strong><span data-i18n="hero.total">total papers</span></a>
+            <a href="#paper-explorer"><strong data-stat="paper_count">—</strong><span data-i18n="hero.curated">curated papers</span></a>
+            <a href="#task-landscape"><strong data-stat="category_count">—</strong><span data-i18n="hero.tasks">active task nodes</span></a>
           </div>
         </div>
         <figure class="optional-image-slot image-slot-wide" data-image-slot="hero_feature" hidden>
@@ -102,14 +102,49 @@
         </figure>
       </section>
 
+      <section id="community" class="section community-section" aria-labelledby="community-title">
+        <div class="section-heading community-heading">
+          <p class="eyebrow" data-i18n="community.eyebrow">Community</p>
+          <h2 id="community-title" data-i18n="community.title">Join the conversation</h2>
+          <p data-i18n="community.lead">Discuss the survey or find the current WeChat group entry.</p>
+        </div>
+        <div class="community-grid">
+          <article class="community-card community-card-primary">
+            <p class="mini-label" data-i18n="community.discussionLabel">GitHub Discussions</p>
+            <h3 data-i18n="community.discussionTitle">Join the survey discussion</h3>
+            <p data-i18n="community.discussionDesc">Ask questions, suggest papers, and discuss the taxonomy with the AI4SS community.</p>
+            <a
+              class="community-text-link"
+              href="https://github.com/AI4SS/AI4SS-Discussion/discussions"
+              target="_blank"
+              rel="noreferrer"
+              data-i18n-prefix="community.discussionButton"
+            >Open discussions <span aria-hidden="true">↗</span></a>
+          </article>
+          <article class="community-card community-card-wechat">
+            <p class="mini-label" data-i18n="community.wechatLabel">WeChat Group</p>
+            <h3 data-i18n="community.wechatTitle">Join the AI4SS survey group</h3>
+            <p data-i18n="community.wechatDesc">Open the dedicated thread for joining information maintained by the AI4SS community.</p>
+            <a
+              class="community-text-link"
+              href="https://github.com/AI4SS/AI4SS-Discussion/discussions/1"
+              target="_blank"
+              rel="noreferrer"
+              data-i18n-prefix="community.wechatButton"
+            >View WeChat group <span aria-hidden="true">↗</span></a>
+          </article>
+        </div>
+      </section>
+
       <section id="definition" class="section definition-section" aria-labelledby="definition-title">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="definition.eyebrow">Definition</p>
-          <h2 id="definition-title" data-i18n="definition.title">What is Social Intelligence Modeling?</h2>
+          <h2 id="definition-title" data-i18n="definition.title">What is SIM?</h2>
+          <p class="definition-context" data-i18n="definition.context">
+            AI has studied society for years, yet the field remains fragmented. Research on social intelligence appear in different areas such as sentiment analysis, misinformation detection, user modeling, content generation, multi-agent systems, and social simulation. Because these studies use different task names and keywords, it is difficult to see how they connect or to form a clear view of the field as a whole.
+          </p>
           <p data-i18n="definition.lead">
-            Social Intelligence Modeling (SIM) develops computational models that represent and
-            reason about social signals, actors, relations, interactions, and evolving collective
-            processes. Its scope runs from detecting a single social cue to simulating a society.
+            Our Social Intelligence Modeling (SIM) brings these fragments together in one framework. By organizing nearly 1,000 papers across 20+ tasks, we show how AI models social content, people, relations, and social evolution. SIM structures the field into four connected levels: Perception, Understanding, Generation, and Simulation, providing a unified view of how AI engages with social systems.
           </p>
         </div>
 
@@ -145,32 +180,6 @@
             />
           </div>
           <figcaption><span data-i18n="definition.framework">Survey framework</span> <span data-i18n="definition.frameworkCaption">A continuous path from observable signals to simulated social dynamics.</span></figcaption>
-        </figure>
-      </section>
-
-      <section id="community" class="section community-section" aria-labelledby="community-title">
-        <div class="section-heading community-heading">
-          <p class="eyebrow" data-i18n="community.eyebrow">Community</p>
-          <h2 id="community-title" data-i18n="community.title">Join the SIM community.</h2>
-          <p data-i18n="community.lead">Scan the QR code to join the WeChat discussion group for research exchange and survey updates.</p>
-        </div>
-        <div class="community-qr-panel">
-          <img src="./assets/img/wechat-group-qr.jpg" alt="WeChat QR code for the Social Intelligence Modeling discussion group" loading="lazy" />
-          <p data-i18n="community.note">WeChat group QR codes may expire. Updated group information is maintained in this repository.</p>
-        </div>
-        <div class="community-discussion-row">
-          <span data-i18n="community.discussionHint">Discuss on GitHub:</span>
-          <a
-            class="button button-secondary community-discussion-button"
-            href="https://github.com/sait-crypto/Awesome-Social-Intelligence-Modeling-System/discussions"
-            target="_blank"
-            rel="noreferrer"
-            data-i18n="community.discussionButton"
-          >Discussion</a>
-        </div>
-        <figure class="optional-image-slot image-slot-wide" data-image-slot="community_feature" hidden>
-          <img alt="" loading="lazy" />
-          <figcaption></figcaption>
         </figure>
       </section>
 
@@ -281,10 +290,6 @@
                   <option value="title" data-i18n="filter.title">Title A–Z</option>
                 </select>
               </label>
-              <label class="community-filter">
-                <input id="community-filter" name="community" type="checkbox" value="1" />
-                <span><b data-i18n="filter.communityOnly">Community only</b><small data-i18n="filter.communityHint">Externally contributed papers</small></span>
-              </label>
             </div>
           </form>
 
@@ -312,14 +317,10 @@
             Submit structured metadata for review. A suggestion is added to the collection only after validation and maintainer approval.
           </p>
           <ol class="contribution-flow">
-            <li><span>1</span><div><strong data-i18n="contribute.submit">Submit</strong><p data-i18n="contribute.submitDesc">Paste Zotero metadata or fill the required fields.</p></div></li>
-            <li><span>2</span><div><strong data-i18n="contribute.review">Review</strong><p data-i18n="contribute.reviewDesc">A maintainer checks scope, duplicates, and taxonomy.</p></div></li>
+            <li><span>1</span><div><strong data-i18n="contribute.submit">Submit</strong><p data-i18n="contribute.submitDesc">Paste Zotero metadata or fill only the paper basics.</p></div></li>
+            <li><span>2</span><div><strong data-i18n="contribute.review">Review</strong><p data-i18n="contribute.reviewDesc">A maintainer checks scope, duplicates, and completes the taxonomy.</p></div></li>
             <li><span>3</span><div><strong data-i18n="contribute.publish">Publish</strong><p data-i18n="contribute.publishDesc">Accepted data updates the collection and website.</p></div></li>
           </ol>
-          <div class="contribution-note">
-            <strong data-i18n="contribute.provenance">Community provenance is preserved.</strong>
-            <p data-i18n="contribute.provenanceDesc">Only records accepted through this third-party intake carry the Community badge.</p>
-          </div>
         </div>
 
         <form class="submission-form" data-submission-form novalidate>
@@ -333,35 +334,19 @@
           </div>
           <div class="form-grid">
             <label class="span-2" data-i18n-prefix="form.title">Paper title *<input name="title" required maxlength="500" /></label>
-            <label data-i18n-prefix="form.doi">
-              DOI *
-              <span class="field-hint" data-i18n="form.doiHint">If this paper has no DOI, use the button to generate a placeholder.</span>
-              <span class="input-action-row">
-                <input name="doi" required maxlength="180" placeholder="10.xxxx/xxxxx" />
-                <button type="button" data-generate-doi data-i18n="form.generateDoi">Generate placeholder</button>
-              </span>
-            </label>
             <label data-i18n-prefix="form.date">Publication date *<input name="date" required maxlength="40" placeholder="YYYY-MM-DD" /></label>
-            <label class="span-2" data-i18n-prefix="form.paperUrl">Paper URL *<input name="paper_url" type="url" required maxlength="1000" placeholder="https://…" /></label>
-            <label class="span-2" data-i18n-prefix="form.projectUrl">Project URL <span class="field-hint" data-i18n="form.projectHint">optional, code or project page</span><input name="project_url" type="url" maxlength="1000" placeholder="https://github.com/…" /></label>
+            <label data-i18n-prefix="form.paperUrl">Paper URL *<input name="paper_url" type="url" required maxlength="1000" placeholder="https://…" /></label>
             <label class="span-2" data-i18n-prefix="form.authors">Authors *<textarea name="authors" required rows="2" maxlength="2000" placeholder="Full author list" data-i18n-placeholder="form.authorsPlaceholder"></textarea></label>
-            <label data-i18n-prefix="form.venue">Venue <span class="field-hint" data-i18n="form.venueHint">optional but helpful</span><input name="venue" maxlength="200" placeholder="ACL 2026, arXiv, …" /></label>
-            <label data-i18n-prefix="form.summary">Analogy summary <span class="field-hint" data-i18n="form.summaryHint">optional, one concise sentence</span><textarea name="analogy_summary" rows="2" maxlength="1000"></textarea></label>
-            <label class="span-2" data-i18n-prefix="form.contributor">Contributor <span class="field-hint" data-i18n="form.contributorHint">optional; defaults to the GitHub issue author</span><input name="contributor" maxlength="160" placeholder="@github-login or display name" data-i18n-placeholder="form.contributorPlaceholder" /></label>
-            <fieldset class="span-2 category-fieldset">
-              <legend data-i18n="form.categories">Categories *</legend>
-              <div class="category-tools">
-                <p><span data-i18n="form.categoryLeadBefore">Expand a field, then select up to</span> <strong class="category-limit">4</strong> <span data-i18n="form.categoryLeadAfter">leaf tasks.</span></p>
-                <input type="search" data-category-search placeholder="Search task names…" data-i18n-placeholder="form.categorySearch" aria-label="Search submission categories" />
-                <span data-category-count>0 selected</span>
-              </div>
-              <div class="submission-categories" data-submission-categories></div>
-            </fieldset>
-            <label class="span-2" data-i18n-prefix="form.abstract">Abstract *<textarea name="abstract" required rows="5" maxlength="10000"></textarea></label>
-            <div class="span-2 pipeline-upload" data-pipeline-dropzone tabindex="0" aria-label="Choose, drop, or paste pipeline images" data-i18n-aria-label="form.pipelineDropLabel">
+            <label class="span-2" data-i18n-prefix="form.abstract">Abstract *<textarea name="abstract" required rows="4" maxlength="10000"></textarea></label>
+          </div>
+
+          <details class="optional-fields supporting-files">
+            <summary data-i18n-prefix="form.supporting">Optional supporting files <span data-i18n="form.supportingHint">Pipeline figures or the paper PDF</span></summary>
+            <div class="form-grid supporting-file-grid">
+              <div class="span-2 pipeline-upload" data-pipeline-dropzone tabindex="0" aria-label="Choose, drop, or paste pipeline images" data-i18n-aria-label="form.pipelineDropLabel">
               <div class="pipeline-heading">
                 <strong data-i18n="form.pipelineImage">Pipeline images</strong>
-                <span class="field-hint" data-i18n="form.pipelineHint">recommended · choose, drop, or paste · 4 × 10 MiB</span>
+                <span class="field-hint" data-i18n="form.pipelineHint">optional · choose, drop, or paste · 4 × 10 MiB</span>
               </div>
               <input id="pipeline-image-files" class="sr-only" name="pipeline_image_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple data-pipeline-image />
               <div class="pipeline-controls">
@@ -376,11 +361,11 @@
                 <div class="pipeline-preview-list" data-pipeline-preview-list></div>
               </div>
               <span class="paper-file-status" data-pipeline-status role="status" aria-live="polite"></span>
-            </div>
-            <div class="span-2 paper-file-upload" data-paper-file-dropzone tabindex="0" aria-label="Choose or drop a paper PDF" data-i18n-aria-label="form.paperFileDropLabel">
+              </div>
+              <div class="span-2 paper-file-upload" data-paper-file-dropzone tabindex="0" aria-label="Choose or drop a paper PDF" data-i18n-aria-label="form.paperFileDropLabel">
               <div class="pipeline-heading">
                 <strong data-i18n="form.paperFile">Paper file</strong>
-                <span class="field-hint" data-i18n="form.paperFileHint">recommended · choose or drop PDF · 50 MiB</span>
+                <span class="field-hint" data-i18n="form.paperFileHint">optional · choose or drop PDF · 50 MiB</span>
               </div>
               <input id="paper-file-upload" class="sr-only" name="paper_file_upload" type="file" accept="application/pdf,.pdf" data-paper-file />
               <div class="pipeline-controls">
@@ -389,23 +374,30 @@
                 <button type="button" class="pipeline-clear" data-clear-paper-file disabled data-i18n="form.clearPaperFile">Clear PDF</button>
               </div>
               <span class="paper-file-status" data-paper-file-status role="status" aria-live="polite"></span>
-            </div>
-          </div>
-          <details class="optional-fields">
-            <summary data-i18n-prefix="form.more">More optional fields <span data-i18n="form.moreHint">Detailed summaries and related work</span></summary>
-            <div class="form-grid">
-              <label class="span-2" data-i18n-prefix="form.notes">Additional notes<textarea name="notes" rows="3" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.motivation">Motivation<textarea name="summary_motivation" rows="2" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.innovation">Innovation<textarea name="summary_innovation" rows="2" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.method">Method<textarea name="summary_method" rows="2" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.conclusion">Conclusion / contribution<textarea name="summary_conclusion" rows="2" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.limitations">Limitations / future work<textarea name="summary_limitation" rows="2" maxlength="3000"></textarea></label>
-              <label class="span-2" data-i18n-prefix="form.related">Related paper titles<textarea name="related_papers" rows="2" maxlength="3000" placeholder="Separate titles with |" data-i18n-placeholder="form.relatedPlaceholder"></textarea></label>
+              </div>
             </div>
           </details>
-          <input type="hidden" name="citation_key" />
-          <input type="hidden" name="title_translation" />
-          <input type="hidden" name="summary_citable_paragraph" />
+
+          <div class="import-only-fields" hidden aria-hidden="true">
+            <input type="hidden" name="doi" />
+            <input type="hidden" name="project_url" />
+            <input type="hidden" name="venue" />
+            <input type="hidden" name="contributor" />
+            <input type="hidden" name="analogy_summary" />
+            <input type="hidden" name="citation_key" />
+            <input type="hidden" name="title_translation" />
+            <input type="hidden" name="summary_motivation" />
+            <input type="hidden" name="summary_innovation" />
+            <input type="hidden" name="summary_method" />
+            <input type="hidden" name="summary_conclusion" />
+            <input type="hidden" name="summary_limitation" />
+            <input type="hidden" name="summary_citable_paragraph" />
+            <input type="hidden" name="related_papers" />
+            <input type="hidden" name="notes" />
+            <input type="search" data-category-search tabindex="-1" />
+            <span data-category-count></span>
+            <div data-submission-categories></div>
+          </div>
           <div class="form-validation-summary" data-form-validation hidden role="status" aria-live="polite"></div>
           <p class="privacy-note" data-i18n="form.privacy">This creates a public GitHub issue that remains open as the submission record. After submitting, select GitHub's Subscribe control; approval status, validation results, processing updates, and maintainer feedback are posted there. Do not include a private email address.</p>
           <div class="upload-status" data-upload-status hidden role="status" aria-live="polite" aria-atomic="true">
@@ -427,25 +419,6 @@
             data-i18n="form.native"
           >Prefer GitHub's native issue form?</a>
         </form>
-
-        <dialog class="recommendation-dialog" data-recommendation-dialog aria-labelledby="recommendation-dialog-title">
-          <div class="dialog-shell recommendation-shell">
-            <div class="recommendation-heading">
-              <span class="recommendation-mark" aria-hidden="true">!</span>
-              <div>
-                <p class="eyebrow" data-i18n="recommendation.eyebrow">Submission quality check</p>
-                <h3 id="recommendation-dialog-title" data-i18n="recommendation.title">Recommended materials are missing</h3>
-              </div>
-            </div>
-            <p class="recommendation-lead" data-i18n="recommendation.lead">These materials help maintainers verify the paper and produce a reliable summary:</p>
-            <ul class="recommendation-list" data-recommendation-list></ul>
-            <p class="recommendation-warning"><strong data-i18n="recommendation.warning">Submissions with insufficient evidence or very low quality may be rejected.</strong></p>
-            <div class="dialog-actions recommendation-actions">
-              <button type="button" class="button button-primary" data-recommendation-review data-i18n="recommendation.review">Review the form</button>
-              <button type="button" class="button button-secondary recommendation-continue" data-recommendation-continue data-i18n="recommendation.continue">Continue anyway</button>
-            </div>
-          </div>
-        </dialog>
 
         <dialog class="recommendation-dialog upload-recovery-dialog" data-upload-recovery-dialog aria-labelledby="upload-recovery-dialog-title">
           <div class="dialog-shell recommendation-shell">
@@ -521,7 +494,6 @@
       <article class="paper-card">
         <div class="paper-card-top">
           <div class="paper-meta"></div>
-          <span class="community-badge" hidden data-i18n="dynamic.community">Community</span>
         </div>
         <div class="paper-heading-block">
           <div><h3></h3><p class="paper-authors"></p></div>
@@ -532,7 +504,6 @@
           <p class="paper-summary" hidden><b data-i18n="paper.summary">Summary</b><span></span></p>
           <p class="paper-abstract" hidden><b data-i18n="paper.abstract">Abstract</b><span></span></p>
         </div>
-        <p class="paper-contributor" hidden></p>
         <div class="paper-links"></div>
       </article>
     </template>

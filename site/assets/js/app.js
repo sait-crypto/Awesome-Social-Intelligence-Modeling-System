@@ -13,6 +13,7 @@
   const RECENT_SUBMISSION_KEY = "sim-recent-paper-issue-draft";
   const RECENT_SUBMISSION_WINDOW = 10 * 60 * 1000;
   const MAX_PIPELINE_IMAGES = 4;
+  const INITIAL_VISIBLE_LIMIT = 14;
   const PAGE_SIZE = 18;
   const STAGE_ORDER = ["Perception", "Understanding", "Generation", "Simulation", "Other", "Uncategorized"];
   const STAGE_TONES = {
@@ -27,7 +28,7 @@
   const state = {
     data: null,
     filtered: [],
-    visibleLimit: PAGE_SIZE,
+    visibleLimit: INITIAL_VISIBLE_LIMIT,
   };
 
   const elements = {
@@ -42,8 +43,6 @@
     year: document.querySelector("#year-filter"),
     conference: document.querySelector("#conference-filter"),
     sort: document.querySelector("#sort-filter"),
-    community: document.querySelector("#community-filter"),
-    communityWrap: document.querySelector(".community-filter"),
     resultCount: document.querySelector("[data-result-count]"),
     activeFilters: document.querySelector("[data-active-filters]"),
     paperGrid: document.querySelector("[data-paper-grid]"),
@@ -64,7 +63,6 @@
     zoteroImport: document.querySelector("[data-import-zotero]"),
     zoteroStatus: document.querySelector("[data-zotero-status]"),
     zoteroInlineStatus: document.querySelector("[data-zotero-inline-status]"),
-    doiGenerate: document.querySelector("[data-generate-doi]"),
     validationSummary: document.querySelector("[data-form-validation]"),
     pipelineImage: document.querySelector("[data-pipeline-image]"),
     pipelineDropZone: document.querySelector("[data-pipeline-dropzone]"),
@@ -86,10 +84,6 @@
     uploadStatusDetail: document.querySelector("[data-upload-status-detail]"),
     submitPaper: document.querySelector("[data-submit-paper]"),
     clearSubmission: document.querySelector("[data-clear-submission]"),
-    recommendationDialog: document.querySelector("[data-recommendation-dialog]"),
-    recommendationList: document.querySelector("[data-recommendation-list]"),
-    recommendationReview: document.querySelector("[data-recommendation-review]"),
-    recommendationContinue: document.querySelector("[data-recommendation-continue]"),
     uploadRecoveryDialog: document.querySelector("[data-upload-recovery-dialog]"),
     uploadRecoveryMessage: document.querySelector("[data-upload-recovery-message]"),
     uploadRecoveryProgress: document.querySelector("[data-upload-recovery-progress]"),
@@ -136,7 +130,6 @@
       node.textContent = t("dynamic.built", { date: formatDate(state.data.meta.generated_at, "Unknown build time", locale()) });
       node.setAttribute("datetime", state.data.meta.generated_at);
     });
-    elements.communityWrap.hidden = stats.community_count === 0;
   }
 
   const mainStages = () => STAGE_ORDER.filter((stage) => !["Other", "Uncategorized"].includes(stage));
@@ -673,7 +666,6 @@
     year: elements.year.value,
     conference: elements.conference.value,
     sort: elements.sort.value,
-    community: elements.community.checked,
   });
 
   function updateUrl(values) {
@@ -700,7 +692,6 @@
     elements.year.value = params.get("year") || "";
     elements.conference.value = params.get("conference") || "";
     elements.sort.value = params.get("sort") || "newest";
-    elements.community.checked = params.get("community") === "1";
   }
 
   function paperMatches(paper, values, ignored = []) {
@@ -711,7 +702,6 @@
     if (!ignore.has("category") && values.category && !paperInCategoryBranch(paper, values.category)) return false;
     if (!ignore.has("year") && values.year && String(paper.year || "") !== values.year) return false;
     if (!ignore.has("conference") && values.conference && paperVenue(paper) !== values.conference) return false;
-    if (!ignore.has("community") && values.community && !paper.community_contribution) return false;
     if (!ignore.has("q") && tokens.length) {
       const haystack = normalize(
         [
@@ -743,7 +733,7 @@
     });
 
     state.filtered = filtered;
-    if (resetLimit) state.visibleLimit = PAGE_SIZE;
+    if (resetLimit) state.visibleLimit = INITIAL_VISIBLE_LIMIT;
     updateUrl(values);
     renderPapers();
     renderActiveFilters(values);
@@ -767,9 +757,6 @@
     const card = elements.cardTemplate.content.firstElementChild.cloneNode(true);
     const meta = card.querySelector(".paper-meta");
     meta.textContent = [paper.year || t("dynamic.undated"), paperVenue(paper) || t("dynamic.unspecifiedVenue")].join(" · ");
-
-    const badge = card.querySelector(".community-badge");
-    badge.hidden = !paper.community_contribution;
 
     const heading = card.querySelector("h3");
     if (isSafeUrl(paper.paper_url)) {
@@ -825,12 +812,6 @@
       abstract.hidden = false;
       abstract.querySelector("span").textContent = paper.abstract;
     }
-    const contributor = card.querySelector(".paper-contributor");
-    if (paper.community_contribution) {
-      contributor.hidden = false;
-      contributor.textContent = t("dynamic.communityContribution", { contributor: paper.contributor });
-    }
-
     const links = card.querySelector(".paper-links");
     [makePaperLink(t("dynamic.paper"), paper.paper_url), makePaperLink(t("dynamic.project"), paper.project_url)]
       .filter(Boolean)
@@ -862,7 +843,6 @@
       ["category", values.category, t("dynamic.filterTask")],
       ["year", values.year, t("dynamic.filterYear")],
       ["conference", values.conference, t("dynamic.filterVenue")],
-      ["community", values.community ? t("dynamic.community") : "", t("dynamic.filterSource")],
     ].filter((item) => item[1]);
 
     items.forEach(([key, value, label]) => {
@@ -892,7 +872,6 @@
 
   function clearSingleFilter(key) {
     if (key === "q") elements.search.value = "";
-    else if (key === "community") elements.community.checked = false;
     else if (elements[key]) elements[key].value = "";
     if (key === "stage") syncTaxonomyOptions({ stage: "", subfield: "", category: "" }, "stage");
     else if (key === "subfield") syncTaxonomyOptions({ stage: elements.stage.value, subfield: "", category: "" }, "subfield");
@@ -955,7 +934,7 @@
       syncTaxonomyOptions({ stage: elements.stage.value, subfield: elements.subfield.value, category: elements.category.value }, "category");
       filterPapers();
     });
-    [elements.year, elements.conference, elements.sort, elements.community].forEach(
+    [elements.year, elements.conference, elements.sort].forEach(
       (control) => control.addEventListener("change", () => filterPapers()),
     );
     document.querySelectorAll("[data-clear-filters]").forEach((button) => button.addEventListener("click", clearFilters));
@@ -1207,22 +1186,6 @@
         elements.zoteroStatus.textContent = t("zotero.pasted");
         delete elements.zoteroStatus.dataset.state;
       }, 0);
-    });
-  }
-
-  function setupDoiPlaceholder() {
-    elements.doiGenerate.addEventListener("click", () => {
-      const doiField = elements.submissionForm.elements.namedItem("doi");
-      if (doiField.value.trim() && !window.confirm(t("doi.replace"))) return;
-      const title = elements.submissionForm.elements.namedItem("title").value;
-      const slug = normalize(title)
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .slice(0, 32) || "untitled";
-      const token = Date.now().toString(36).slice(-6);
-      doiField.value = `10.0000/placeholder-${slug}-${token}`;
-      doiField.dispatchEvent(new Event("input", { bubbles: true }));
-      doiField.focus();
     });
   }
 
@@ -1509,44 +1472,6 @@
     }
   }
 
-  function confirmRecommendedFields(missingFields) {
-    if (!elements.recommendationDialog?.showModal) {
-      return Promise.resolve(window.confirm(t("submission.recommendedMissing", { fields: missingFields.join(", ") })));
-    }
-    elements.recommendationList.replaceChildren(...missingFields.map((field) => {
-      const item = document.createElement("li");
-      item.textContent = field;
-      return item;
-    }));
-    elements.recommendationDialog.showModal();
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (accepted) => {
-        if (settled) return;
-        settled = true;
-        elements.recommendationReview.removeEventListener("click", review);
-        elements.recommendationContinue.removeEventListener("click", proceed);
-        elements.recommendationDialog.removeEventListener("cancel", cancel);
-        elements.recommendationDialog.removeEventListener("click", backdrop);
-        if (elements.recommendationDialog.open) elements.recommendationDialog.close();
-        resolve(accepted);
-      };
-      const review = () => finish(false);
-      const proceed = () => finish(true);
-      const cancel = (event) => {
-        event.preventDefault();
-        finish(false);
-      };
-      const backdrop = (event) => {
-        if (event.target === elements.recommendationDialog) finish(false);
-      };
-      elements.recommendationReview.addEventListener("click", review);
-      elements.recommendationContinue.addEventListener("click", proceed);
-      elements.recommendationDialog.addEventListener("cancel", cancel);
-      elements.recommendationDialog.addEventListener("click", backdrop);
-    });
-  }
-
   function chooseUploadRecovery({ completed, message, pendingFileName, total }) {
     const progress = t("upload.recoveryProgress", { completed, total });
     const pending = pendingFileName ? t("upload.recoveryNext", { name: pendingFileName }) : "";
@@ -1661,12 +1586,6 @@
       const pipelineFiles = formData.getAll("pipeline_image_file")
         .filter((file) => file instanceof File && file.size > 0);
       const paperFile = formData.get("paper_file_upload");
-      const missingRecommended = [
-        !cleanIssueValue(formData.get("venue"), 200) ? t("recommendation.venue") : "",
-        !pipelineFiles.length ? t("recommendation.pipeline") : "",
-        !(paperFile instanceof File && paperFile.size > 0) ? t("recommendation.paperFile") : "",
-      ].filter(Boolean);
-      if (missingRecommended.length && !(await confirmRecommendedFields(missingRecommended))) return;
       const fingerprint = submissionFingerprint(formData);
       if (recentlyOpenedSameSubmission(fingerprint) && !window.confirm(t("submission.duplicateDraft"))) return;
 
@@ -1858,7 +1777,6 @@
         summary: elements.validationSummary,
       });
       setupZoteroImport();
-      setupDoiPlaceholder();
       setupPipelineImage();
       setupPaperFile();
       restoreFiltersFromUrl();

@@ -2,25 +2,22 @@
   "use strict";
 
   const t = (key, values) => window.SIMI18n.t(key, values);
-  const DOI_PATTERN = /^10\.\d{4,9}\/\S+$/i;
   const DATE_PATTERN = /^\d{4}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?$/;
   const REQUIRED_FIELDS = [
     ["title", "validation.titleRequired"],
-    ["doi", "validation.doiRequired"],
     ["date", "validation.dateRequired"],
     ["paper_url", "validation.paperUrlRequired"],
     ["authors", "validation.authorsRequired"],
     ["abstract", "validation.abstractRequired"],
   ];
   const REQUIRED_MESSAGES = new Map(REQUIRED_FIELDS);
-  const VALIDATED_FIELDS = new Set([...REQUIRED_MESSAGES.keys(), "project_url"]);
+  const VALIDATED_FIELDS = new Set(REQUIRED_MESSAGES.keys());
 
   const fieldValue = (form, name) => String(form.elements.namedItem(name)?.value || "").trim();
 
   function create({ form, categoryContainer, summary }) {
-    if (!form || !categoryContainer || !summary) return null;
+    if (!form || !summary) return null;
     let attempted = false;
-    const categoryFieldset = categoryContainer.closest("fieldset");
 
     const setFieldValidity = (name, message) => {
       const field = form.elements.namedItem(name);
@@ -34,14 +31,10 @@
       const requiredMessage = REQUIRED_MESSAGES.get(name);
       if (requiredMessage && !value) return t(requiredMessage);
 
-      if (name === "doi") {
-        const doi = value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, "");
-        return doi && !DOI_PATTERN.test(doi) ? t("validation.doiFormat") : "";
-      }
       if (name === "date") return value && !DATE_PATTERN.test(value) ? t("validation.dateFormat") : "";
-      if (["paper_url", "project_url"].includes(name) && value && !/^https?:\/\/\S+$/i.test(value)) {
+      if (name === "paper_url" && value && !/^https?:\/\/\S+$/i.test(value)) {
         return t("validation.urlFormat", {
-          label: t(name === "paper_url" ? "validation.paperUrl" : "validation.projectUrl"),
+          label: t("validation.paperUrl"),
         });
       }
       return "";
@@ -54,11 +47,6 @@
         setFieldValidity(name, message);
         if (message) errors.push({ name, message });
       });
-
-      const checked = categoryContainer.querySelectorAll('input[type="checkbox"]:checked');
-      if (!checked.length) errors.push({ name: "categories", message: t("validation.selectCategory") });
-      if (checked.length > 4) errors.push({ name: "categories", message: t("validation.categoryLimit") });
-      if (categoryFieldset) categoryFieldset.setAttribute("aria-invalid", checked.length < 1 || checked.length > 4 ? "true" : "false");
 
       const pipelineField = form.elements.namedItem("pipeline_image_file");
       if (pipelineField?.validationMessage) {
@@ -100,11 +88,7 @@
       render(errors);
       if (errors.length && focus) {
         const first = errors[0];
-        if (first.name === "categories") {
-          categoryContainer.querySelector("input")?.focus();
-        } else {
-          form.elements.namedItem(first.name)?.focus();
-        }
+        form.elements.namedItem(first.name)?.focus();
       }
       return errors.length === 0;
     };
@@ -130,8 +114,6 @@
       delete summary.dataset.state;
       summary.replaceChildren();
       REQUIRED_FIELDS.forEach(([name]) => setFieldValidity(name, ""));
-      setFieldValidity("project_url", "");
-      if (categoryFieldset) categoryFieldset.removeAttribute("aria-invalid");
     };
 
     return { reset, validate };

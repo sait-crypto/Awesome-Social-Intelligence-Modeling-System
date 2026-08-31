@@ -41,7 +41,7 @@ One repository administrator must enable **Settings → Actions → General → 
 4. The intake workflow explicitly calls the existing `Process Paper Submission` reusable workflow for that pull request. This avoids relying on a `GITHUB_TOKEN`-created pull-request event to start a second workflow.
 5. A successful database commit reaches `main` and triggers one path-filtered Pages deployment. It does not trigger another submission-processing run.
 
-The homepage accepts the standard single-item JSON produced by `AI_assistant_review_tools/tools/One-Click Copy Metadata.xpi`. It maps Zotero title, creators, DOI, date, URL, abstract, venue, citation key, and supported `cat ...` tags into the form; taxonomy remains reviewable before submission.
+The homepage accepts the standard single-item JSON produced by `AI_assistant_review_tools/tools/One-Click Copy Metadata.xpi`. The visible form asks only for title, publication date, paper URL, authors, and abstract. Zotero DOI, venue, project URL, contributor, summaries, notes, citation metadata, and supported `cat ...` tags are still retained in hidden import fields and included in the issue. When DOI or taxonomy is absent, intake generates a stable placeholder DOI and assigns `Uncategorized`; maintainers complete the taxonomy during review.
 
 Remove and reapply `Action: Process` after correcting a failed issue intake. Do not add the label to unreviewed or spam issues.
 
@@ -53,7 +53,7 @@ Only records accepted through the third-party intake mechanism use the explicit 
 community:@github-login
 ```
 
-The website and generated README display the Community badge only for this prefix. Existing records, including historical external-looking contributor values, remain part of the maintainer-curated collection and are not relabeled automatically.
+Repository data keeps this prefix for provenance and generated repository lists may expose it. The main survey homepage intentionally presents a source-neutral paper collection: it does not show Community badges, contributor differences, or a Community-only filter. Existing records, including historical external-looking contributor values, remain part of the maintainer-curated collection and are not relabeled automatically.
 
 ## Failure email
 

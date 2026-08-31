@@ -20,10 +20,8 @@ body:
     id: doi
     attributes:
       label: DOI
-      description: Enter the DOI without a https://doi.org/ prefix.
+      description: Optional. Enter the DOI without a https://doi.org/ prefix; a placeholder is generated when omitted.
       placeholder: 10.xxxx/xxxxx
-    validations:
-      required: true
 
   - type: input
     id: paper_url
@@ -32,13 +30,6 @@ body:
       placeholder: https://...
     validations:
       required: true
-
-  - type: input
-    id: project_url
-    attributes:
-      label: Project URL
-      description: Code, data, or project page when available.
-      placeholder: https://github.com/...
 
   - type: textarea
     id: authors
@@ -54,28 +45,6 @@ body:
       label: Publication date
       description: Use YYYY-MM-DD when the exact date is known.
       placeholder: YYYY-MM-DD
-    validations:
-      required: true
-
-  - type: input
-    id: venue
-    attributes:
-      label: Venue
-      placeholder: ACL 2026, arXiv, ...
-
-  - type: input
-    id: contributor
-    attributes:
-      label: Contributor
-      description: Name or GitHub handle to credit. If left blank, the issue author is used. Community provenance is added automatically.
-      placeholder: "@github-login or display name"
-
-  - type: textarea
-    id: categories
-    attributes:
-      label: Categories
-      description: Copy one to four exact task names from the survey website and separate them with a vertical bar (|).
-      placeholder: Hate Speech Analysis | Meme and Multimodal Understanding
     validations:
       required: true
 
@@ -98,12 +67,6 @@ body:
     attributes:
       label: Paper file
       description: Recommended. Drag the original PDF here so the automation can generate higher-quality summaries; maximum size 50 MiB.
-
-  - type: textarea
-    id: notes
-    attributes:
-      label: Additional notes
-      description: Optional classification guidance or related papers.
 
   - type: checkboxes
     id: public_submission
