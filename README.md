@@ -11,7 +11,7 @@
 ![Forks](https://img.shields.io/github/forks/sait-crypto/Awesome-Social-Intelligence-Modeling-System?color=lightblue)
 ![Last Commit](https://img.shields.io/github/last-commit/sait-crypto/Awesome-Social-Intelligence-Modeling-System?color=green)
 <!-- PAPER_BADGES_START -->
-![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) [![DOI](https://img.shields.io/badge/DOI-10.13140%2FRG.2.2.21157.87528-blue.svg)](https://doi.org/10.13140/RG.2.2.21157.87528)
+![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) [![DOI](https://img.shields.io/badge/DOI-10.13140%2FRG.2.2.21157.87528-blue.svg)](https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation)
 <!-- PAPER_BADGES_END -->
 
 </div>
@@ -25,7 +25,7 @@
 <!-- PAPER_INTRO_START -->
 This repository accompanies our paper:
 
-> **[Social Intelligence Modeling: A Comprehensive Survey from Social Perception to Social Simulation](https://doi.org/10.13140/RG.2.2.21157.87528)** \
+> **[Social Intelligence Modeling: A Comprehensive Survey from Social Perception to Social Simulation](https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation)** \
 > Zikai Song<sup>\*</sup>, Xiajie Li<sup>\*</sup>, Yunyao Zhang, Xinglang Zhang, Wei Yang, and Junqing Yu \
 > Huazhong University of Science and Technology \
 > **Venue:** ResearchGate preprint &nbsp;|&nbsp; **Year:** 2026
@@ -41,7 +41,7 @@ This repository accompanies our paper:
 ## News
 
 - **August 28, 2026:** The [interactive survey homepage](https://sait-crypto.github.io/Awesome-Social-Intelligence-Modeling-System/) is complete, with taxonomy-guided filtering and community paper submission.
-- **August 4, 2026:** The survey is now available online: [https://doi.org/10.13140/RG.2.2.21157.87528](https://doi.org/10.13140/RG.2.2.21157.87528).
+- **August 4, 2026:** The survey is now available online: [https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation](https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation).
 <!-- PAPER_NEWS_END -->
 
 <!-- PAPER_CITATION_TOP_START -->
@@ -55,7 +55,7 @@ This repository accompanies our paper:
   year         = {2026},
   note         = {Preprint available on ResearchGate},
   doi          = {10.13140/RG.2.2.21157.87528},
-  url          = {https://doi.org/10.13140/RG.2.2.21157.87528}
+  url          = {https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation}
 }
 ```
 <!-- PAPER_CITATION_TOP_END -->
@@ -846,7 +846,7 @@ This repository is inspired by [Awesome-Efficient-Reasoning-Models](https://gith
   year         = {2026},
   note         = {Preprint available on ResearchGate},
   doi          = {10.13140/RG.2.2.21157.87528},
-  url          = {https://doi.org/10.13140/RG.2.2.21157.87528}
+  url          = {https://www.researchgate.net/publication/411123257_Social_Intelligence_Modeling_A_Comprehensive_Survey_from_Social_Perception_to_Social_Simulation}
 }
 ```
 <!-- PAPER_CITATION_BOTTOM_END -->

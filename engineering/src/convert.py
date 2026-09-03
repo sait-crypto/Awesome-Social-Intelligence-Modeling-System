@@ -208,7 +208,8 @@ class ReadmeGenerator:
         doi = self._single_line(metadata.get('doi'))
         if not arxiv_id and doi:
             doi_badge = quote(doi, safe='')
-            paper_badge = f'[![DOI](https://img.shields.io/badge/DOI-{doi_badge}-blue.svg)](https://doi.org/{doi})'
+            doi_url = paper_url or f'https://doi.org/{doi}'
+            paper_badge = f'[![DOI](https://img.shields.io/badge/DOI-{doi_badge}-blue.svg)]({doi_url})'
         return '![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blue) ' + paper_badge
 
     def _generate_news_content(self, metadata: Dict[str, str]) -> str:
