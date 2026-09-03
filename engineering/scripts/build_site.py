@@ -39,7 +39,6 @@ PIPELINE_THUMBNAIL_QUALITY = 78
 COPIED_IMAGES = {
     PROJECT_ROOT / "engineering" / "assets" / "social-intelligence-modeling-overview.png": "social-intelligence-modeling-overview.png",
     PROJECT_ROOT / "engineering" / "assets" / "category_architecture.png": "category-architecture.png",
-    PROJECT_ROOT / "community" / "wechat-group-qr.jpg": "wechat-group-qr.jpg",
 }
 
 
